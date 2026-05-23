@@ -40,9 +40,6 @@
     }
   },
   "bundle": {
-    "identifier": "com.fluxnet.app",
-    "productName": "FluxNet",
-    "version": "0.1.0",
     "copyright": "",
     "category": "Utility",
     "shortDescription": "Minimal real-time network meter",
