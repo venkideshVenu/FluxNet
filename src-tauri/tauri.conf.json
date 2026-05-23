@@ -12,17 +12,40 @@
   "app": {
     "windows": [
       {
-        "title": "fluxnet",
-        "width": 800,
-        "height": 600
+        "label": "pill",
+        "title": "FluxNet",
+        "width": 220,
+        "height": 36,
+        "minWidth": 180,
+        "minHeight": 36,
+        "maxHeight": 36,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "x": 20,
+        "y": 20,
+        "url": "index.html"
       }
     ],
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false
+    },
     "security": {
       "csp": null
     }
   },
   "bundle": {
-    "active": true,
+    "identifier": "com.fluxnet.app",
+    "productName": "FluxNet",
+    "version": "0.1.0",
+    "copyright": "",
+    "category": "Utility",
+    "shortDescription": "Minimal real-time network meter",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -31,5 +54,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-  }
+  },
+  "plugins": {}
 }
