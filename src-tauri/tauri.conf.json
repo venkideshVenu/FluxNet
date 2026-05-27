@@ -14,9 +14,9 @@
       {
         "label": "pill",
         "title": "FluxNet",
-        "width": 220,
+        "width": 260,
         "height": 36,
-        "minWidth": 180,
+        "minWidth": 260,
         "minHeight": 36,
         "maxHeight": 36,
         "resizable": false,
@@ -25,8 +25,9 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "shadow": false,
-        "x": 20,
-        "y": 20,
+        "x": 40,
+        "y": 40,
+        "dragDropEnabled": false,
         "url": "index.html"
       }
     ],
