@@ -73,10 +73,10 @@ describe("useNetworkPoller", () => {
     });
 
     renderHook(() => useNetworkPoller(1000));
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
+    await vi.runAllTicks();
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(1000);
-    await vi.runOnlyPendingTimersAsync();
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(2));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
   });
 });
