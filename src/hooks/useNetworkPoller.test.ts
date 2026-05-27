@@ -12,7 +12,6 @@ import { invoke } from "@tauri-apps/api/core";
 const mockInvoke = vi.mocked(invoke);
 
 beforeEach(() => {
-  vi.useFakeTimers();
   useNetworkStore.setState({
     data: { uploadBytesPerSec: 0, downloadBytesPerSec: 0, interfaceName: "" },
     isConnected: false,
@@ -20,8 +19,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 describe("useNetworkPoller", () => {
@@ -66,6 +65,7 @@ describe("useNetworkPoller", () => {
   });
 
   it("polls again after interval", async () => {
+    vi.useFakeTimers();
     mockInvoke.mockResolvedValue({
       upload_bytes_per_sec: 0,
       download_bytes_per_sec: 0,
@@ -76,6 +76,7 @@ describe("useNetworkPoller", () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
 
     vi.advanceTimersByTime(1000);
+    await vi.runOnlyPendingTimersAsync();
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(2));
   });
 });
