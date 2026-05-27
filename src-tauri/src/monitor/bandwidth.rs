@@ -81,6 +81,9 @@ mod tests {
     fn test_list_interfaces_returns_something() {
         // On any real machine there should be at least one interface
         let interfaces = list_interfaces();
-        assert!(!interfaces.is_empty(), "expected at least one network interface");
+        assert!(
+            !interfaces.is_empty(),
+            "expected at least one network interface"
+        );
     }
 }

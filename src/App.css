@@ -36,14 +36,18 @@
   line-height: 1;
 }
 
-.pill-arrow.up { color: #22C97A; }
-.pill-arrow.dn { color: #4FBBF7; }
+.pill-arrow.up {
+  color: #22c97a;
+}
+.pill-arrow.dn {
+  color: #4fbbf7;
+}
 
 /* ── Value ── */
 .pill-value {
   font-size: 13px;
   font-weight: 500;
-  color: #EAE9FF;
+  color: #eae9ff;
   font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
   letter-spacing: -0.01em;
   line-height: 1;
@@ -80,7 +84,7 @@
 }
 
 .pill-live-dot.live {
-  background: #22C97A;
+  background: #22c97a;
   box-shadow: 0 0 4px rgba(34, 201, 122, 0.5);
 }
 

@@ -8,14 +8,16 @@ export function PillWidget() {
 
   return (
     <div
-      data-tauri-drag-region           // makes the whole pill draggable
+      data-tauri-drag-region // makes the whole pill draggable
       className="pill-root"
       role="status"
       aria-label={`Upload ${up.value} ${up.unit}, Download ${dn.value} ${dn.unit}`}
     >
       {/* Upload */}
       <div className="pill-stat">
-        <span className="pill-arrow up" aria-hidden="true">↑</span>
+        <span className="pill-arrow up" aria-hidden="true">
+          ↑
+        </span>
         <span className="pill-value">{up.value}</span>
         <span className="pill-unit">{up.unit}</span>
       </div>
@@ -25,7 +27,9 @@ export function PillWidget() {
 
       {/* Download */}
       <div className="pill-stat">
-        <span className="pill-arrow dn" aria-hidden="true">↓</span>
+        <span className="pill-arrow dn" aria-hidden="true">
+          ↓
+        </span>
         <span className="pill-value">{dn.value}</span>
         <span className="pill-unit">{dn.unit}</span>
       </div>
