@@ -1,17 +1,17 @@
 use crate::monitor::bandwidth::{
-    calculate_speed, list_interfaces, read_interface_counters, NetworkStats,
+    calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
 use std::sync::Mutex;
 use std::time::Instant;
+use sysinfo::Networks;
 use tauri::State;
 
-/// Shared state that persists between command calls.
-/// Stores the previous byte counters and timestamp for delta calculation.
 pub struct MonitorState {
     pub prev_tx: u64,
     pub prev_rx: u64,
     pub last_sample: Option<Instant>,
     pub interface: String,
+    pub networks: Networks, // ← lives here, persists between polls
 }
 
 impl Default for MonitorState {
@@ -21,20 +21,22 @@ impl Default for MonitorState {
             prev_rx: 0,
             last_sample: None,
             interface: String::new(),
+            networks: Networks::new_with_refreshed_list(), // initial snapshot
         }
     }
 }
 
 pub type SharedMonitorState = Mutex<MonitorState>;
 
-/// Called by the frontend every second to get current network speeds.
 #[tauri::command]
 pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     let mut s = state.lock().unwrap();
 
+    // Refresh the SAME object — this updates total_transmitted/total_received
+    s.networks.refresh();
+
     if s.interface.is_empty() {
-        // Auto-select the first non-loopback interface
-        let ifaces = list_interfaces();
+        let ifaces = list_interfaces(&s.networks);
         s.interface = ifaces
             .into_iter()
             .find(|n| n != "lo" && n != "Loopback Pseudo-Interface 1")
@@ -47,7 +49,7 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
         None => 1.0,
     };
 
-    match read_interface_counters(&s.interface) {
+    match read_total_counters(&s.networks, &s.interface) {
         Some((tx, rx)) => {
             let upload = calculate_speed(tx, s.prev_tx, elapsed);
             let download = calculate_speed(rx, s.prev_rx, elapsed);
@@ -70,13 +72,12 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     }
 }
 
-/// Returns a list of all interface names for future settings UI.
 #[tauri::command]
-pub fn get_interfaces() -> Vec<String> {
-    list_interfaces()
+pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<String> {
+    let s = state.lock().unwrap();
+    list_interfaces(&s.networks)
 }
 
-/// Lets the frontend change which interface to monitor.
 #[tauri::command]
 pub fn set_interface(name: String, state: State<SharedMonitorState>) {
     let mut s = state.lock().unwrap();
@@ -84,4 +85,5 @@ pub fn set_interface(name: String, state: State<SharedMonitorState>) {
     s.prev_tx = 0;
     s.prev_rx = 0;
     s.last_sample = None;
+    // Note: don't reset networks — keep the running object
 }
