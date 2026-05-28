@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 const THEMES = [
   { color: "#7C6FF7", label: "Violet" },
@@ -11,19 +12,52 @@ const THEMES = [
 ];
 
 export function SettingsPage() {
-  const [alwaysOnTop,  setAlwaysOnTop]  = useState(true);
-  const [startWithOS,  setStartWithOS]  = useState(false);
-  const [interval,     setInterval]     = useState("1");
-  const [units,        setUnits]        = useState("MB/s");
-  const [selectedTheme,setSelectedTheme]= useState(0);
-  const [opacity,      setOpacity]      = useState(88);
+  const [alwaysOnTop, setAlwaysOnTop] = useState(true);
+  const [startWithOS, setStartWithOS] = useState(false);
+  const [interval, setInterval] = useState("1");
+  const [units, setUnits] = useState("MB/s");
+  const [selectedTheme, setSelectedTheme] = useState(0);
+  const [opacity, setOpacity] = useState(88);
+  const [pillVisible, setPillVisible] = useState(false);
+
+  useEffect(() => {
+    const syncPillState = async () => {
+      try {
+        const pill = await WebviewWindow.getByLabel("pill");
+        if (!pill) return;
+        const visible = await pill.isVisible();
+        setPillVisible(visible);
+      } catch (err) {
+        console.warn("pill window check failed:", err);
+      }
+    };
+
+    syncPillState();
+  }, []);
+
+  const togglePill = async () => {
+    try {
+      const pill = await WebviewWindow.getByLabel("pill");
+      if (!pill) return;
+      if (pillVisible) {
+        await pill.hide();
+      } else {
+        await pill.show();
+      }
+      setPillVisible((v) => !v);
+    } catch (err) {
+      console.error("pill toggle failed:", err);
+    }
+  };
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <div className="page-title">Settings</div>
-          <div className="page-subtitle">Customize FluxNet behaviour and appearance</div>
+          <div className="page-subtitle">
+            Customize FluxNet behaviour and appearance
+          </div>
         </div>
       </div>
 
@@ -33,8 +67,27 @@ export function SettingsPage() {
         <div className="settings-card">
           <div className="settings-row">
             <div>
+              <div className="settings-label">Pill widget</div>
+              <div className="settings-sub">
+                Show or hide the floating widget
+              </div>
+            </div>
+            <div
+              className={`toggle ${pillVisible ? "on" : "off"}`}
+              onClick={togglePill}
+              role="switch"
+              aria-checked={pillVisible}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
               <div className="settings-label">Always on top</div>
-              <div className="settings-sub">Float the pill widget above all windows</div>
+              <div className="settings-sub">
+                Float the pill widget above all windows
+              </div>
             </div>
             <div
               className={`toggle ${alwaysOnTop ? "on" : "off"}`}
@@ -54,7 +107,8 @@ export function SettingsPage() {
             <input
               type="range"
               className="fn-slider"
-              min={40} max={100}
+              min={40}
+              max={100}
               value={opacity}
               onChange={(e) => setOpacity(Number(e.target.value))}
             />
@@ -121,7 +175,14 @@ export function SettingsPage() {
       <div className="settings-section">
         <div className="settings-section-title">Appearance</div>
         <div className="settings-card">
-          <div className="settings-row" style={{ alignItems: "flex-start", flexDirection: "column", gap: 12 }}>
+          <div
+            className="settings-row"
+            style={{
+              alignItems: "flex-start",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
             <div className="settings-label">Accent colour</div>
             <div className="theme-chips">
               {THEMES.map((t, i) => (
@@ -145,15 +206,21 @@ export function SettingsPage() {
           <div className="settings-row">
             <div>
               <div className="settings-label">Reset peak values</div>
-              <div className="settings-sub">Clear session peak upload and download</div>
+              <div className="settings-sub">
+                Clear session peak upload and download
+              </div>
             </div>
             <button
               onClick={() => invoke("reset_peaks")}
               style={{
-                background: "#FFF0F0", color: "#DC2626",
-                border: "1px solid #FECACA", borderRadius: 7,
-                padding: "5px 12px", fontSize: 12,
-                cursor: "pointer", fontFamily: "inherit",
+                background: "#FFF0F0",
+                color: "#DC2626",
+                border: "1px solid #FECACA",
+                borderRadius: 7,
+                padding: "5px 12px",
+                fontSize: 12,
+                cursor: "pointer",
+                fontFamily: "inherit",
               }}
             >
               Reset peaks

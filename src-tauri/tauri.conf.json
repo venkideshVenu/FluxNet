@@ -12,6 +12,17 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "title": "FluxNet",
+        "width": 900,
+        "height": 600,
+        "minWidth": 720,
+        "minHeight": 500,
+        "resizable": true,
+        "decorations": true,
+        "url": "index.html"
+      },
+      {
         "label": "pill",
         "title": "FluxNet",
         "width": 270,
@@ -25,6 +36,7 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "shadow": false,
+        "visible": false,
         "x": 40,
         "y": 40,
         "dragDropEnabled": false,
