@@ -1,33 +1,37 @@
-/* ── Pill shell — no drag, default cursor ── */
+/* ── Pill shell ── */
 .pill-root {
   display: inline-flex;
   align-items: center;
-  height: 32px;
   background: rgba(18, 16, 32, 0.88);
-  border: 0.5px solid rgba(124, 111, 247, 0.25);
-  border-radius: 99px;
-  padding: 0 10px 0 12px;
+  border: 1px solid rgba(124, 111, 247, 0.28);
+  border-radius: 999px;
+  padding: 7px 14px;
   gap: 10px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  cursor: default; /* ← arrow, NOT grab */
-  width: 100%;
+  width: max-content;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  overflow: visible;
+  box-sizing: border-box;
 }
 
-/* ── Stat group ── */
+/* ── Stat group — fixed width, never shrinks or grows ── */
 .pill-stat {
   display: flex;
-  align-items: baseline;
-  gap: 3px;
-  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  width: 96px; /* arrow(10) + gap(4) + value(32) + gap(4) + unit(34) = 96 */
 }
 
-/* ── Arrows ── */
+/* ── Arrow ── */
 .pill-arrow {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: ui-monospace, monospace;
   line-height: 1;
+  flex-shrink: 0;
+  width: 10px;
+  text-align: center;
 }
 
 .pill-arrow.up {
@@ -37,7 +41,7 @@
   color: #4fbbf7;
 }
 
-/* ── Value ── */
+/* ── Value — absolutely fixed width, right-aligned, tabular nums ── */
 .pill-value {
   font-size: 13px;
   font-weight: 500;
@@ -45,39 +49,93 @@
   font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
   letter-spacing: -0.01em;
   line-height: 1;
-  min-width: 28px;
+  /* 4 chars wide at 13px monospace — never changes */
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  /* Clip overflow silently; no layout shift */
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-/* ── Unit ── */
+/* ── Unit badge ── */
 .pill-unit {
-  font-size: 9px;
-  color: rgba(180, 175, 255, 0.45);
+  font-size: 8.5px;
+  font-weight: 700;
   font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
   line-height: 1;
-  align-self: flex-end;
-  margin-bottom: 1px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Fixed size — always the same, no reflow */
+  width: 38px;
+  min-width: 38px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  /* Default (B/s) */
+  color: #b0adc8;
+  border: 1px solid rgba(141, 136, 176, 0.3);
+  background: rgba(80, 76, 100, 0.22);
+}
+
+/*
+  Unit distinction strategy:
+  Rather than just color (hard to read at 8.5px), each unit
+  gets a distinct background luminance level + accent color,
+  so they're distinguishable even in peripheral vision or
+  at a glance — no reading required.
+
+  B/s   → muted gray-purple (lowest, baseline)
+  KB/s  → cyan tint (cool, mid-low)
+  MB/s  → purple tint (warm, mid-high)
+  GB/s  → green glow (highest, stand-out)
+*/
+
+.pill-unit.unit-b {
+  color: #9896b0;
+  border-color: rgba(141, 136, 176, 0.28);
+  background: rgba(80, 76, 100, 0.2);
+}
+
+.pill-unit.unit-kb {
+  color: #5ecaf8;
+  border-color: rgba(79, 187, 247, 0.5);
+  background: rgba(15, 55, 75, 0.42);
+}
+
+.pill-unit.unit-mb {
+  color: #b8afff;
+  border-color: rgba(124, 111, 247, 0.55);
+  background: rgba(50, 38, 105, 0.45);
+}
+
+.pill-unit.unit-gb {
+  color: #23d882;
+  border-color: rgba(34, 201, 122, 0.55);
+  background: rgba(12, 70, 46, 0.42);
 }
 
 /* ── Divider ── */
 .pill-sep {
-  width: 0.5px;
-  height: 14px;
-  background: rgba(124, 111, 247, 0.2);
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: rgba(124, 111, 247, 0.18);
   flex-shrink: 0;
 }
 
+
 /* ── Live dot — the ONLY drag handle ── */
 .pill-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-left: 2px;
-  transition:
-    background 0.3s ease,
-    transform 0.15s ease;
-  cursor: grab; /* ← hand only here */
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
 }
 
 .pill-live-dot:active {
@@ -87,9 +145,9 @@
 
 .pill-live-dot.live {
   background: #22c97a;
-  box-shadow: 0 0 5px rgba(34, 201, 122, 0.55);
+  box-shadow: 0 0 4px rgba(34, 201, 122, 0.6);
 }
 
 .pill-live-dot.dead {
-  background: rgba(124, 111, 247, 0.3);
+  background: rgba(124, 111, 247, 0.28);
 }
