@@ -1,153 +1,145 @@
-/* ── Pill shell ── */
+/* ─────────────────────────────────────────────
+   Ultra Compact Pill
+───────────────────────────────────────────── */
+
 .pill-root {
   display: inline-flex;
   align-items: center;
-  background: rgba(18, 16, 32, 0.88);
-  border: 1px solid rgba(124, 111, 247, 0.28);
+
+  background: rgba(18, 16, 32, 0.94);
+  border: 1px solid rgba(124, 111, 247, 0.14);
+
   border-radius: 999px;
-  padding: 7px 14px;
-  gap: 10px;
+
+  padding: 5px 10px;
+  gap: 7px;
+
   width: max-content;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
   overflow: visible;
   box-sizing: border-box;
 }
 
-/* ── Stat group — fixed width, never shrinks or grows ── */
+/* ── Stat Group ── */
+
 .pill-stat {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  width: 96px; /* arrow(10) + gap(4) + value(32) + gap(4) + unit(34) = 96 */
-}
+  gap: 6px;
 
-/* ── Arrow ── */
-.pill-arrow {
-  font-size: 11px;
-  font-weight: 600;
-  font-family: ui-monospace, monospace;
-  line-height: 1;
+  width: 66px;
   flex-shrink: 0;
-  width: 10px;
-  text-align: center;
 }
 
-.pill-arrow.up {
-  color: #22c97a;
-}
-.pill-arrow.dn {
-  color: #4fbbf7;
+/* ── Download Value ── */
+
+.pill-value.download {
+  color: #35d07f;
 }
 
-/* ── Value — absolutely fixed width, right-aligned, tabular nums ── */
+/* ── Upload Value ── */
+
+.pill-value.upload {
+  color: #ff6b6b;
+}
+
+/* ── Value ── */
+
 .pill-value {
-  font-size: 13px;
-  font-weight: 500;
-  color: #eae9ff;
-  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
-  letter-spacing: -0.01em;
+  font-size: 12px;
+  font-weight: 700;
+
+  font-family: "JetBrains Mono", monospace;
+
   line-height: 1;
-  /* 4 chars wide at 13px monospace — never changes */
-  width: 32px;
-  min-width: 32px;
-  max-width: 32px;
+  letter-spacing: -0.03em;
+
+  width: 34px;
+
   text-align: right;
+
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  /* Clip overflow silently; no layout shift */
+
   overflow: hidden;
   white-space: nowrap;
 }
 
-/* ── Unit badge ── */
+/* ── Unit Badge ── */
+
 .pill-unit {
-  font-size: 8.5px;
+  font-size: 7px;
   font-weight: 700;
-  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+
+  font-family: "JetBrains Mono", monospace;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Fixed size — always the same, no reflow */
-  width: 38px;
-  min-width: 38px;
-  height: 18px;
-  border-radius: 4px;
+
+  width: 30px;
+  min-width: 30px;
+
+  height: 15px;
+
+  border-radius: 5px;
+
+  line-height: 1;
+  letter-spacing: 0.05em;
+
   flex-shrink: 0;
-  /* Default (B/s) */
-  color: #b0adc8;
-  border: 1px solid rgba(141, 136, 176, 0.3);
-  background: rgba(80, 76, 100, 0.22);
 }
 
-/*
-  Unit distinction strategy:
-  Rather than just color (hard to read at 8.5px), each unit
-  gets a distinct background luminance level + accent color,
-  so they're distinguishable even in peripheral vision or
-  at a glance — no reading required.
-
-  B/s   → muted gray-purple (lowest, baseline)
-  KB/s  → cyan tint (cool, mid-low)
-  MB/s  → purple tint (warm, mid-high)
-  GB/s  → green glow (highest, stand-out)
-*/
-
 .pill-unit.unit-b {
-  color: #9896b0;
-  border-color: rgba(141, 136, 176, 0.28);
-  background: rgba(80, 76, 100, 0.2);
+  color: #c9ccd6;
+  border-color: rgba(201, 204, 214, 0.35);
+  background: rgba(86, 92, 104, 0.22);
 }
 
 .pill-unit.unit-kb {
-  color: #5ecaf8;
-  border-color: rgba(79, 187, 247, 0.5);
-  background: rgba(15, 55, 75, 0.42);
+  color: #4bd4ff;
+  border-color: rgba(75, 212, 255, 0.52);
+  background: rgba(12, 62, 82, 0.42);
 }
 
 .pill-unit.unit-mb {
-  color: #b8afff;
-  border-color: rgba(124, 111, 247, 0.55);
-  background: rgba(50, 38, 105, 0.45);
+  color: #ff9f4a;
+  border-color: rgba(255, 159, 74, 0.55);
+  background: rgba(90, 54, 18, 0.45);
 }
 
 .pill-unit.unit-gb {
-  color: #23d882;
-  border-color: rgba(34, 201, 122, 0.55);
-  background: rgba(12, 70, 46, 0.42);
+  color: #39e48a;
+  border-color: rgba(57, 228, 138, 0.55);
+  background: rgba(12, 78, 52, 0.42);
 }
 
 /* ── Divider ── */
+
 .pill-sep {
   width: 1px;
-  height: 16px;
-  margin: 0 2px;
-  background: rgba(124, 111, 247, 0.18);
-  flex-shrink: 0;
+  height: 13px;
+
+  background: rgba(124, 111, 247, 0.12);
+
+  margin: 0 1px;
 }
 
+/* ── Live Dot ── */
 
-/* ── Live dot — the ONLY drag handle ── */
 .pill-live-dot {
-  width: 8px;
-  height: 8px;
-  margin-left: 4px;
-}
+  width: 7px;
+  height: 7px;
 
-.pill-live-dot:active {
-  cursor: grabbing;
-  transform: scale(0.85);
-}
+  margin-left: 2px;
 
-.pill-live-dot.live {
-  background: #22c97a;
-  box-shadow: 0 0 4px rgba(34, 201, 122, 0.6);
-}
+  border-radius: 50%;
 
-.pill-live-dot.dead {
-  background: rgba(124, 111, 247, 0.28);
+  background: #22d97d;
+
+  box-shadow:
+    0 0 6px rgba(34, 217, 125, 0.7),
+    0 0 10px rgba(34, 217, 125, 0.2);
 }

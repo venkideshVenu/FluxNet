@@ -37,22 +37,15 @@ export function PillWidget() {
       aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}`}
     >
       {/* Download — LEFT */}
-      <div className="pill-stat">
-        <span className="pill-arrow dn" aria-hidden="true">
-          ↓
-        </span>
-        <span className="pill-value">{dn.value}</span>
+      <div className="pill-stat download">
+        <span className="pill-value download">{dn.value}</span>
         <span className={`pill-unit ${unitClass(dn.unit)}`}>{dn.unit}</span>
       </div>
 
-      <div className="pill-sep" aria-hidden="true" />
+      <div className="pill-sep" />
 
-      {/* Upload — RIGHT */}
-      <div className="pill-stat">
-        <span className="pill-arrow up" aria-hidden="true">
-          ↑
-        </span>
-        <span className="pill-value">{up.value}</span>
+      <div className="pill-stat upload">
+        <span className="pill-value upload">{up.value}</span>
         <span className={`pill-unit ${unitClass(up.unit)}`}>{up.unit}</span>
       </div>
 
