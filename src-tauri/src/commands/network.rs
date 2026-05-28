@@ -45,7 +45,7 @@ pub type SharedMonitorState = Mutex<MonitorState>;
 #[tauri::command]
 pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     let mut s = state.lock().unwrap();
-    s.networks.refresh(true);
+    s.networks.refresh();
 
     if s.interface.is_empty() {
         let ifaces = list_interfaces(&s.networks);
