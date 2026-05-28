@@ -1,11 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["pill"],
+  "description": "Default capability",
+  "windows": ["pill", "main"],
   "permissions": [
     "core:default",
-    "opener:default",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "core:window:allow-create",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus"
   ]
 }
