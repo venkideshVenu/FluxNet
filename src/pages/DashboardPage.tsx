@@ -1,0 +1,134 @@
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { useNetworkStore } from "../store/networkStore";
+import { formatSpeed } from "../utils/formatSpeed";
+
+export function DashboardPage() {
+  const { data, isConnected, peakDownload, history } = useNetworkStore();
+
+  const up  = formatSpeed(data.uploadBytesPerSec);
+  const dn  = formatSpeed(data.downloadBytesPerSec);
+  const pk  = formatSpeed(peakDownload);
+
+  // Convert history bytes → MB for chart display
+  const chartData = history.map((p, i) => ({
+    t: i,
+    upload:   +(p.upload   / 1_048_576).toFixed(2),
+    download: +(p.download / 1_048_576).toFixed(2),
+  }));
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <div className="page-title">Dashboard</div>
+          <div className="page-subtitle">
+            {data.interfaceName || "—"} · updating every 1s
+          </div>
+        </div>
+        <span className="live-badge">
+          <span className="live-dot" />
+          {isConnected ? "Live" : "No signal"}
+        </span>
+      </div>
+
+      {/* Stat cards */}
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-label">Upload</div>
+          <div className="stat-value">
+            <span className="stat-num">{up.value}</span>
+            <span className="stat-unit">{up.unit}</span>
+          </div>
+          <span className="stat-badge up">↑ Live</span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Download</div>
+          <div className="stat-value">
+            <span className="stat-num">{dn.value}</span>
+            <span className="stat-unit">{dn.unit}</span>
+          </div>
+          <span className="stat-badge down">↓ Live</span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Peak today</div>
+          <div className="stat-value">
+            <span className="stat-num">{pk.value}</span>
+            <span className="stat-unit">{pk.unit}</span>
+          </div>
+          <span className="stat-badge peak">↓ Download</span>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="chart-section">
+        <div className="chart-section-title">
+          Bandwidth history — last {history.length}s
+        </div>
+        <div className="chart-card">
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorUp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#22C97A" stopOpacity={0.15}/>
+                  <stop offset="95%" stopColor="#22C97A" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorDn" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#4FBBF7" stopOpacity={0.15}/>
+                  <stop offset="95%" stopColor="#4FBBF7" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ECEAF8" vertical={false} />
+              <XAxis dataKey="t" hide />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#C8C5F5" }}
+                axisLine={false}
+                tickLine={false}
+                width={32}
+                tickFormatter={(v) => `${v}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#fff",
+                  border: "1px solid #ECEAF8",
+                  borderRadius: 8,
+                  fontSize: 11,
+                }}
+                formatter={(val, name) => [
+                  `${val ?? 0} MB/s`,
+                  name === "upload" ? "Upload" : "Download",
+                ]}
+              />
+              <Area
+                type="monotone" dataKey="upload"
+                stroke="#22C97A" strokeWidth={2}
+                fill="url(#colorUp)" dot={false} activeDot={{ r: 3 }}
+              />
+              <Area
+                type="monotone" dataKey="download"
+                stroke="#4FBBF7" strokeWidth={2}
+                fill="url(#colorDn)" dot={false} activeDot={{ r: 3 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+
+          <div className="chart-legend">
+            <div className="legend-item">
+              <div className="legend-dot" style={{ background: "#22C97A" }} />
+              Upload
+            </div>
+            <div className="legend-item">
+              <div className="legend-dot" style={{ background: "#4FBBF7" }} />
+              Download
+            </div>
+            <span style={{ marginLeft: "auto", fontSize: 10, color: "#C8C5F5" }}>MB/s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
