@@ -6,10 +6,12 @@ import {
   THEMES,
   LS_THEME,
   LS_MODE,
+  LS_PILL_MODE,
   applyAccent,
   applyColorMode,
   getStoredAccentIndex,
   getStoredColorMode,
+  getStoredPillMode,
   ColorMode,
 } from "../utils/theme";
 
@@ -49,6 +51,11 @@ export function SettingsPage() {
   // ── Light/dark mode ──────────────────────────────────────
   const [colorMode, setColorMode] = useState<ColorMode>(() =>
     getStoredColorMode(),
+  );
+
+  // ── Pill light/dark mode ─────────────────────────────────
+  const [pillColorMode, setPillColorMode] = useState<ColorMode>(() =>
+    getStoredPillMode(),
   );
 
   // ── Sync pill visibility on mount ─────────────────────────
@@ -137,6 +144,11 @@ export function SettingsPage() {
     localStorage.setItem(LS_MODE, mode);
   };
 
+  const handlePillColorMode = (mode: ColorMode) => {
+    setPillColorMode(mode);
+    localStorage.setItem(LS_PILL_MODE, mode);
+  };
+
   // ── Render ────────────────────────────────────────────────
   return (
     <div className="page">
@@ -182,6 +194,25 @@ export function SettingsPage() {
               onClick={() => handleAlwaysOnTop(!alwaysOnTop)}
               role="switch"
               aria-checked={alwaysOnTop}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Pill dark mode</div>
+              <div className="settings-sub">
+                Use a dark theme for the pill widget
+              </div>
+            </div>
+            <div
+              className={`toggle ${pillColorMode === "dark" ? "on" : "off"}`}
+              onClick={() =>
+                handlePillColorMode(pillColorMode === "dark" ? "light" : "dark")
+              }
+              role="switch"
+              aria-checked={pillColorMode === "dark"}
             >
               <div className="toggle-thumb" />
             </div>
