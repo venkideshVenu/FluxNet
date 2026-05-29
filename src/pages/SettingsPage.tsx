@@ -2,68 +2,19 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useNetworkStore, DisplayUnits } from "../store/networkStore";
-
-const THEMES = [
-  { color: "#7C6FF7", label: "Violet" },
-  { color: "#22C97A", label: "Mint" },
-  { color: "#4FBBF7", label: "Sky" },
-  { color: "#F59E0B", label: "Amber" },
-  { color: "#EF4444", label: "Coral" },
-  { color: "#1A1830", label: "Midnight" },
-];
+import {
+  THEMES,
+  LS_THEME,
+  LS_MODE,
+  applyAccent,
+  applyColorMode,
+  getStoredAccentIndex,
+  getStoredColorMode,
+  ColorMode,
+} from "../utils/theme";
 
 // localStorage keys
-const LS_THEME = "fluxnet_accent_index";
 const LS_OPACITY = "fluxnet_opacity";
-
-type Rgb = { r: number; g: number; b: number };
-
-function hexToRgb(hex: string): Rgb | null {
-  const normalized = hex.trim().replace("#", "");
-  if (normalized.length !== 6) return null;
-  const r = Number.parseInt(normalized.slice(0, 2), 16);
-  const g = Number.parseInt(normalized.slice(2, 4), 16);
-  const b = Number.parseInt(normalized.slice(4, 6), 16);
-  return Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)
-    ? null
-    : { r, g, b };
-}
-
-function mixRgb(a: Rgb, b: Rgb, ratio: number): Rgb {
-  const clamp = (value: number) => Math.max(0, Math.min(255, value));
-  return {
-    r: clamp(Math.round(a.r + (b.r - a.r) * ratio)),
-    g: clamp(Math.round(a.g + (b.g - a.g) * ratio)),
-    b: clamp(Math.round(a.b + (b.b - a.b) * ratio)),
-  };
-}
-
-function rgbToHex({ r, g, b }: Rgb): string {
-  const toHex = (value: number) => value.toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/** Apply the accent colour as CSS variables on <html> */
-function applyAccent(color: string) {
-  const root = document.documentElement.style;
-  root.setProperty("--accent", color);
-
-  const rgb = hexToRgb(color);
-  if (!rgb) return;
-
-  const white = { r: 255, g: 255, b: 255 };
-  const black = { r: 0, g: 0, b: 0 };
-
-  root.setProperty("--accent-strong", rgbToHex(mixRgb(rgb, black, 0.25)));
-  root.setProperty("--accent-soft", rgbToHex(mixRgb(rgb, white, 0.9)));
-  root.setProperty("--accent-soft-2", rgbToHex(mixRgb(rgb, white, 0.94)));
-  root.setProperty("--accent-border", rgbToHex(mixRgb(rgb, white, 0.7)));
-  root.setProperty("--accent-muted", rgbToHex(mixRgb(rgb, white, 0.8)));
-  root.setProperty(
-    "--accent-shadow",
-    `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`,
-  );
-}
 
 export function SettingsPage() {
   // ── Pill visibility (unchanged — already worked) ──────────
@@ -92,9 +43,13 @@ export function SettingsPage() {
 
   // ── Accent theme ──────────────────────────────────────────
   const [selectedTheme, setSelectedTheme] = useState(() => {
-    const saved = localStorage.getItem(LS_THEME);
-    return saved ? Number(saved) : 0;
+    return getStoredAccentIndex();
   });
+
+  // ── Light/dark mode ──────────────────────────────────────
+  const [colorMode, setColorMode] = useState<ColorMode>(() =>
+    getStoredColorMode(),
+  );
 
   // ── Sync pill visibility on mount ─────────────────────────
   useEffect(() => {
@@ -109,10 +64,15 @@ export function SettingsPage() {
     })();
   }, []);
 
-  // Apply saved accent on mount
+  // Apply accent + color mode when they change
   useEffect(() => {
-    applyAccent(THEMES[selectedTheme].color);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const swatch = THEMES[selectedTheme] ?? THEMES[0];
+    applyAccent(swatch.color);
+  }, [selectedTheme]);
+
+  useEffect(() => {
+    applyColorMode(colorMode);
+  }, [colorMode]);
 
   // ── Handlers ──────────────────────────────────────────────
 
@@ -170,7 +130,11 @@ export function SettingsPage() {
   const handleTheme = (index: number) => {
     setSelectedTheme(index);
     localStorage.setItem(LS_THEME, String(index));
-    applyAccent(THEMES[index].color);
+  };
+
+  const handleColorMode = (mode: ColorMode) => {
+    setColorMode(mode);
+    localStorage.setItem(LS_MODE, mode);
   };
 
   // ── Render ────────────────────────────────────────────────
@@ -309,6 +273,22 @@ export function SettingsPage() {
       <div className="settings-section">
         <div className="settings-section-title">Appearance</div>
         <div className="settings-card">
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Dark mode</div>
+              <div className="settings-sub">Switch between light and dark</div>
+            </div>
+            <div
+              className={`toggle ${colorMode === "dark" ? "on" : "off"}`}
+              onClick={() =>
+                handleColorMode(colorMode === "dark" ? "light" : "dark")
+              }
+              role="switch"
+              aria-checked={colorMode === "dark"}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
           <div
             className="settings-row"
             style={{

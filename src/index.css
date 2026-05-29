@@ -14,6 +14,13 @@ body,
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
+  --bg: #f7f6ff;
+  --panel: #ffffff;
+  --border: #eceaf8;
+  --text: #1a1830;
+  --text-subtle: #6b68a0;
+  --text-muted: #9995cc;
   --accent: #7c6ff7;
   --accent-strong: #5b54c4;
   --accent-soft: #eeedfe;
@@ -21,6 +28,16 @@ body,
   --accent-border: #c8c5f5;
   --accent-muted: #e0def5;
   --accent-shadow: rgba(124, 111, 247, 0.2);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1016;
+  --panel: #161826;
+  --border: #27293b;
+  --text: #eef0f7;
+  --text-subtle: #b7b3d6;
+  --text-muted: #9f9bbb;
 }
 
 * {
