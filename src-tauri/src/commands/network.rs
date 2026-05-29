@@ -58,13 +58,22 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     }
 
     let now = Instant::now();
-    let elapsed = match s.last_sample {
-        Some(prev) => now.duration_since(prev).as_secs_f64(),
-        None => 1.0,
-    };
 
     match read_total_counters(&s.networks, &s.interface) {
         Some((tx, rx)) => {
+            if s.last_sample.is_none() {
+                // Prime counters on first sample to avoid a huge initial spike.
+                s.prev_tx = tx;
+                s.prev_rx = rx;
+                s.last_sample = Some(now);
+                return NetworkStats {
+                    upload_bytes_per_sec: 0.0,
+                    download_bytes_per_sec: 0.0,
+                    interface_name: s.interface.clone(),
+                };
+            }
+
+            let elapsed = now.duration_since(s.last_sample.unwrap()).as_secs_f64();
             let upload = calculate_speed(tx, s.prev_tx, elapsed);
             let download = calculate_speed(rx, s.prev_rx, elapsed);
 

@@ -24,6 +24,26 @@ export function DashboardPage() {
     download: +(p.download / 1_048_576).toFixed(2),
   }));
 
+  const maxValue = chartData.reduce(
+    (max, point) => Math.max(max, point.upload, point.download),
+    0,
+  );
+  const step =
+    maxValue <= 5
+      ? 1
+      : maxValue <= 20
+        ? 2
+        : maxValue <= 50
+          ? 5
+          : maxValue <= 100
+            ? 10
+            : maxValue <= 200
+              ? 20
+              : maxValue <= 500
+                ? 50
+                : 100;
+  const yMax = Math.max(step, Math.ceil(maxValue / step) * step);
+
   return (
     <div className="page">
       <div className="page-header">
@@ -101,6 +121,8 @@ export function DashboardPage() {
                 axisLine={false}
                 tickLine={false}
                 width={32}
+                domain={[0, yMax]}
+                tickCount={5}
                 tickFormatter={(v) => `${v}`}
               />
               <Tooltip
