@@ -9,7 +9,8 @@ import { SettingsPage } from "./pages/SettingsPage";
 import "./dashboard.css";
 
 export default function DashboardApp() {
-  useNetworkPoller(1000);
+  // No argument needed — the poller reads its interval from the store
+  useNetworkPoller();
 
   return (
     <BrowserRouter>

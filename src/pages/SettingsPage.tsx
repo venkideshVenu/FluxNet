@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useNetworkStore, DisplayUnits } from "../store/networkStore";
 
 const THEMES = [
   { color: "#7C6FF7", label: "Violet" },
@@ -11,45 +12,124 @@ const THEMES = [
   { color: "#1A1830", label: "Midnight" },
 ];
 
+// localStorage keys
+const LS_THEME = "fluxnet_accent_index";
+const LS_OPACITY = "fluxnet_opacity";
+
+/** Apply the accent colour as a CSS variable on <html> */
+function applyAccent(color: string) {
+  document.documentElement.style.setProperty("--accent", color);
+}
+
 export function SettingsPage() {
-  const [alwaysOnTop, setAlwaysOnTop] = useState(true);
-  const [startWithOS, setStartWithOS] = useState(false);
-  const [interval, setInterval] = useState("1");
-  const [units, setUnits] = useState("MB/s");
-  const [selectedTheme, setSelectedTheme] = useState(0);
-  const [opacity, setOpacity] = useState(88);
+  // ── Pill visibility (unchanged — already worked) ──────────
   const [pillVisible, setPillVisible] = useState(false);
 
+  // ── Always-on-top ─────────────────────────────────────────
+  const [alwaysOnTop, setAlwaysOnTop] = useState(true);
+
+  // ── Opacity ───────────────────────────────────────────────
+  const [opacity, setOpacity] = useState(() => {
+    const saved = localStorage.getItem(LS_OPACITY);
+    return saved ? Number(saved) : 88;
+  });
+
+  // ── Interval + units — live in the store ──────────────────
+  const pollIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
+  const displayUnits = useNetworkStore((s) => s.displayUnits);
+  const setPollInterval = useNetworkStore((s) => s.setPollInterval);
+  const setDisplayUnits = useNetworkStore((s) => s.setDisplayUnits);
+
+  // Convert the store's ms value back to the select's string value
+  const intervalSelectValue = String(pollIntervalMs / 1000);
+
+  // ── Start with OS ─────────────────────────────────────────
+  const [startWithOS, setStartWithOS] = useState(false);
+
+  // ── Accent theme ──────────────────────────────────────────
+  const [selectedTheme, setSelectedTheme] = useState(() => {
+    const saved = localStorage.getItem(LS_THEME);
+    return saved ? Number(saved) : 0;
+  });
+
+  // ── Sync pill visibility on mount ─────────────────────────
   useEffect(() => {
-    const syncPillState = async () => {
+    (async () => {
       try {
         const pill = await WebviewWindow.getByLabel("pill");
         if (!pill) return;
-        const visible = await pill.isVisible();
-        setPillVisible(visible);
+        setPillVisible(await pill.isVisible());
       } catch (err) {
         console.warn("pill window check failed:", err);
       }
-    };
-
-    syncPillState();
+    })();
   }, []);
+
+  // Apply saved accent on mount
+  useEffect(() => {
+    applyAccent(THEMES[selectedTheme].color);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Handlers ──────────────────────────────────────────────
 
   const togglePill = async () => {
     try {
       const pill = await WebviewWindow.getByLabel("pill");
       if (!pill) return;
-      if (pillVisible) {
-        await pill.hide();
-      } else {
-        await pill.show();
-      }
+      if (pillVisible) await pill.hide();
+      else await pill.show();
       setPillVisible((v) => !v);
     } catch (err) {
       console.error("pill toggle failed:", err);
     }
   };
 
+  const handleAlwaysOnTop = async (value: boolean) => {
+    setAlwaysOnTop(value);
+    try {
+      // Targets the pill window specifically
+      await invoke("set_pill_always_on_top", { value });
+    } catch (err) {
+      console.error("set_always_on_top failed:", err);
+    }
+  };
+
+  const handleOpacityCommit = async (value: number) => {
+    localStorage.setItem(LS_OPACITY, String(value));
+    try {
+      await invoke("set_pill_opacity", { value: value / 100 });
+    } catch (err) {
+      console.error("set_pill_opacity failed:", err);
+    }
+  };
+
+  const handleInterval = (raw: string) => {
+    const secs = parseFloat(raw);
+    setPollInterval(secs * 1000);
+  };
+
+  const handleUnits = (raw: string) => {
+    setDisplayUnits(raw as DisplayUnits);
+  };
+
+  const handleStartWithOS = async (value: boolean) => {
+    setStartWithOS(value);
+    try {
+      if (value) await invoke("enable_autostart");
+      else await invoke("disable_autostart");
+    } catch (err) {
+      // tauri-plugin-autostart may not be configured — degrade gracefully
+      console.warn("autostart not available:", err);
+    }
+  };
+
+  const handleTheme = (index: number) => {
+    setSelectedTheme(index);
+    localStorage.setItem(LS_THEME, String(index));
+    applyAccent(THEMES[index].color);
+  };
+
+  // ── Render ────────────────────────────────────────────────
   return (
     <div className="page">
       <div className="page-header">
@@ -91,7 +171,7 @@ export function SettingsPage() {
             </div>
             <div
               className={`toggle ${alwaysOnTop ? "on" : "off"}`}
-              onClick={() => setAlwaysOnTop((v) => !v)}
+              onClick={() => handleAlwaysOnTop(!alwaysOnTop)}
               role="switch"
               aria-checked={alwaysOnTop}
             >
@@ -111,6 +191,16 @@ export function SettingsPage() {
               max={100}
               value={opacity}
               onChange={(e) => setOpacity(Number(e.target.value))}
+              onMouseUp={(e) =>
+                handleOpacityCommit(
+                  Number((e.target as HTMLInputElement).value),
+                )
+              }
+              onTouchEnd={(e) =>
+                handleOpacityCommit(
+                  Number((e.target as HTMLInputElement).value),
+                )
+              }
             />
           </div>
         </div>
@@ -127,8 +217,8 @@ export function SettingsPage() {
             </div>
             <select
               className="fn-select"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value)}
+              value={intervalSelectValue}
+              onChange={(e) => handleInterval(e.target.value)}
             >
               <option value="0.5">0.5 seconds</option>
               <option value="1">1 second</option>
@@ -144,8 +234,8 @@ export function SettingsPage() {
             </div>
             <select
               className="fn-select"
-              value={units}
-              onChange={(e) => setUnits(e.target.value)}
+              value={displayUnits}
+              onChange={(e) => handleUnits(e.target.value)}
             >
               <option value="auto">Auto</option>
               <option value="MB/s">MB/s</option>
@@ -161,7 +251,7 @@ export function SettingsPage() {
             </div>
             <div
               className={`toggle ${startWithOS ? "on" : "off"}`}
-              onClick={() => setStartWithOS((v) => !v)}
+              onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
             >
@@ -191,7 +281,7 @@ export function SettingsPage() {
                   className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
                   style={{ background: t.color }}
                   title={t.label}
-                  onClick={() => setSelectedTheme(i)}
+                  onClick={() => handleTheme(i)}
                 />
               ))}
             </div>
@@ -199,7 +289,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Danger zone */}
+      {/* Data section */}
       <div className="settings-section">
         <div className="settings-section-title">Data</div>
         <div className="settings-card">

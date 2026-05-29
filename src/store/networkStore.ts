@@ -12,12 +12,22 @@ export type HistoryPoint = {
   t: number;
 };
 
+export type DisplayUnits = "auto" | "MB/s" | "KB/s" | "Mbps";
+
 type NetworkStore = {
   data: NetworkData;
   isConnected: boolean;
   peakUpload: number;
   peakDownload: number;
   history: HistoryPoint[];
+
+  // ── Settings ──────────────────────────────────────────────
+  pollIntervalMs: number;      // 500 | 1000 | 2000 | 5000
+  displayUnits: DisplayUnits;
+  setPollInterval: (ms: number) => void;
+  setDisplayUnits: (u: DisplayUnits) => void;
+  // ──────────────────────────────────────────────────────────
+
   setData: (data: NetworkData) => void;
   setConnected: (v: boolean) => void;
   setSnapshot: (snap: {
@@ -36,6 +46,11 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
   peakUpload: 0,
   peakDownload: 0,
   history: [],
+
+  pollIntervalMs: 1000,
+  displayUnits: "auto",
+  setPollInterval: (ms) => set({ pollIntervalMs: ms }),
+  setDisplayUnits: (u) => set({ displayUnits: u }),
 
   setData: (data) => set({ data, isConnected: true }),
   setConnected: (isConnected) => set({ isConnected }),

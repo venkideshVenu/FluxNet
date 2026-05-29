@@ -31,7 +31,7 @@ describe("useNetworkPoller", () => {
       interface_name: "wlan0",
     });
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("get_network_stats");
@@ -45,7 +45,7 @@ describe("useNetworkPoller", () => {
       interface_name: "eth0",
     });
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
 
     await waitFor(() => {
       const { data } = useNetworkStore.getState();
@@ -57,7 +57,7 @@ describe("useNetworkPoller", () => {
   it("marks disconnected on invoke error", async () => {
     mockInvoke.mockRejectedValue(new Error("IPC error"));
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
 
     await waitFor(() => {
       expect(useNetworkStore.getState().isConnected).toBe(false);
@@ -72,7 +72,7 @@ describe("useNetworkPoller", () => {
       interface_name: "wlan0",
     });
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
     await vi.runAllTicks();
     expect(mockInvoke).toHaveBeenCalledTimes(1);
 

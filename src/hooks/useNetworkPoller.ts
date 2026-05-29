@@ -18,18 +18,19 @@ type RawSnapshot = {
   history: { upload: number; download: number; t: number }[];
 };
 
-export function useNetworkPoller(intervalMs = 1000) {
-  const setData     = useNetworkStore((s) => s.setData);
-  const setConnected= useNetworkStore((s) => s.setConnected);
-  const setSnapshot = useNetworkStore((s) => s.setSnapshot);
-  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const windowLabel = getCurrentWindow().label;
+export function useNetworkPoller() {
+  const setData       = useNetworkStore((s) => s.setData);
+  const setConnected  = useNetworkStore((s) => s.setConnected);
+  const setSnapshot   = useNetworkStore((s) => s.setSnapshot);
+  // Read the interval live from the store — changes in Settings take effect immediately
+  const intervalMs    = useNetworkStore((s) => s.pollIntervalMs);
+  const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const windowLabel   = getCurrentWindow().label;
 
   useEffect(() => {
     const poll = async () => {
       try {
         if (windowLabel === "pill") {
-          // Pill only needs current speeds
           const stats = await invoke<RawStats>("get_network_stats");
           setData({
             uploadBytesPerSec: stats.upload_bytes_per_sec,
@@ -37,7 +38,6 @@ export function useNetworkPoller(intervalMs = 1000) {
             interfaceName: stats.interface_name,
           });
         } else {
-          // Dashboard gets the full snapshot including history + peaks
           const snap = await invoke<RawSnapshot>("get_dashboard_snapshot");
           setSnapshot({
             currentUpload: snap.current_upload,
@@ -56,6 +56,9 @@ export function useNetworkPoller(intervalMs = 1000) {
 
     poll();
     timerRef.current = setInterval(poll, intervalMs);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+    // Re-run whenever the interval changes — clears the old timer and starts a new one
   }, [intervalMs, windowLabel, setData, setConnected, setSnapshot]);
 }

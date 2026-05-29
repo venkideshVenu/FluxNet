@@ -4,7 +4,7 @@ use crate::monitor::bandwidth::{
 use std::sync::Mutex;
 use std::time::Instant;
 use sysinfo::Networks;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 pub struct HistoryPoint {
     pub upload: f64,
@@ -20,7 +20,7 @@ pub struct MonitorState {
     pub networks: Networks,
     pub peak_upload: f64,
     pub peak_download: f64,
-    pub history: Vec<HistoryPoint>,   // ring buffer, max 120 points
+    pub history: Vec<HistoryPoint>, // ring buffer, max 120 points
     pub start_time: Instant,
 }
 
@@ -41,6 +41,8 @@ impl Default for MonitorState {
 }
 
 pub type SharedMonitorState = Mutex<MonitorState>;
+
+// ── Existing commands ────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
@@ -63,17 +65,25 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
 
     match read_total_counters(&s.networks, &s.interface) {
         Some((tx, rx)) => {
-            let upload   = calculate_speed(tx, s.prev_tx, elapsed);
+            let upload = calculate_speed(tx, s.prev_tx, elapsed);
             let download = calculate_speed(rx, s.prev_rx, elapsed);
 
-            // Update peaks
-            if upload   > s.peak_upload   { s.peak_upload   = upload;   }
-            if download > s.peak_download { s.peak_download = download; }
+            if upload > s.peak_upload {
+                s.peak_upload = upload;
+            }
+            if download > s.peak_download {
+                s.peak_download = download;
+            }
 
-            // Push history (capped at 120 points = 2 minutes at 1s interval)
             let ts = now.duration_since(s.start_time).as_secs();
-            if s.history.len() >= 120 { s.history.remove(0); }
-            s.history.push(HistoryPoint { upload, download, timestamp_secs: ts });
+            if s.history.len() >= 120 {
+                s.history.remove(0);
+            }
+            s.history.push(HistoryPoint {
+                upload,
+                download,
+                timestamp_secs: ts,
+            });
 
             s.prev_tx = tx;
             s.prev_rx = rx;
@@ -110,7 +120,6 @@ pub struct HistorySnapshotPoint {
     pub t: u64,
 }
 
-/// Called by the dashboard to get stats + history in one IPC call.
 #[tauri::command]
 pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
     let s = state.lock().unwrap();
@@ -120,11 +129,15 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
         peak_upload: s.peak_upload,
         peak_download: s.peak_download,
         interface_name: s.interface.clone(),
-        history: s.history.iter().map(|p| HistorySnapshotPoint {
-            upload: p.upload,
-            download: p.download,
-            t: p.timestamp_secs,
-        }).collect(),
+        history: s
+            .history
+            .iter()
+            .map(|p| HistorySnapshotPoint {
+                upload: p.upload,
+                download: p.download,
+                t: p.timestamp_secs,
+            })
+            .collect(),
     }
 }
 
@@ -151,4 +164,31 @@ pub fn reset_peaks(state: State<SharedMonitorState>) {
     let mut s = state.lock().unwrap();
     s.peak_upload = 0.0;
     s.peak_download = 0.0;
+}
+
+// ── New settings commands ────────────────────────────────────────────────────
+
+/// Set the pill window's always-on-top state.
+#[tauri::command]
+pub fn set_pill_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("pill")
+        .ok_or_else(|| "pill window not found".to_string())?;
+    window.set_always_on_top(value).map_err(|e| e.to_string())
+}
+
+/// Set the pill window's opacity (0.0 – 1.0).
+#[tauri::command]
+pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("pill")
+        .ok_or_else(|| "pill window not found".to_string())?;
+    // clamp to [0.1, 1.0] so the window is never invisible
+    let clamped = value.clamp(0.1, 1.0);
+    window
+        .eval(&format!(
+            "document.documentElement.style.opacity = '{0}'; document.body.style.opacity = '{0}';",
+            clamped
+        ))
+        .map_err(|e| e.to_string())
 }
