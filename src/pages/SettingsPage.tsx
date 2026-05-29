@@ -16,9 +16,53 @@ const THEMES = [
 const LS_THEME = "fluxnet_accent_index";
 const LS_OPACITY = "fluxnet_opacity";
 
-/** Apply the accent colour as a CSS variable on <html> */
+type Rgb = { r: number; g: number; b: number };
+
+function hexToRgb(hex: string): Rgb | null {
+  const normalized = hex.trim().replace("#", "");
+  if (normalized.length !== 6) return null;
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)
+    ? null
+    : { r, g, b };
+}
+
+function mixRgb(a: Rgb, b: Rgb, ratio: number): Rgb {
+  const clamp = (value: number) => Math.max(0, Math.min(255, value));
+  return {
+    r: clamp(Math.round(a.r + (b.r - a.r) * ratio)),
+    g: clamp(Math.round(a.g + (b.g - a.g) * ratio)),
+    b: clamp(Math.round(a.b + (b.b - a.b) * ratio)),
+  };
+}
+
+function rgbToHex({ r, g, b }: Rgb): string {
+  const toHex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/** Apply the accent colour as CSS variables on <html> */
 function applyAccent(color: string) {
-  document.documentElement.style.setProperty("--accent", color);
+  const root = document.documentElement.style;
+  root.setProperty("--accent", color);
+
+  const rgb = hexToRgb(color);
+  if (!rgb) return;
+
+  const white = { r: 255, g: 255, b: 255 };
+  const black = { r: 0, g: 0, b: 0 };
+
+  root.setProperty("--accent-strong", rgbToHex(mixRgb(rgb, black, 0.25)));
+  root.setProperty("--accent-soft", rgbToHex(mixRgb(rgb, white, 0.9)));
+  root.setProperty("--accent-soft-2", rgbToHex(mixRgb(rgb, white, 0.94)));
+  root.setProperty("--accent-border", rgbToHex(mixRgb(rgb, white, 0.7)));
+  root.setProperty("--accent-muted", rgbToHex(mixRgb(rgb, white, 0.8)));
+  root.setProperty(
+    "--accent-shadow",
+    `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`,
+  );
 }
 
 export function SettingsPage() {
