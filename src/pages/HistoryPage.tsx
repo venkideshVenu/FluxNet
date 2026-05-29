@@ -14,16 +14,12 @@ export function HistoryPage() {
     download: +(p.download / 1_048_576).toFixed(2),
   }));
 
-//   const avgUpload   = history.length
-//     ? history.reduce((a, p) => a + p.upload, 0) / history.length
-//     : 0;
   const avgDownload = history.length
     ? history.reduce((a, p) => a + p.download, 0) / history.length
     : 0;
 
   const pkUp = formatSpeed(peakUpload);
   const pkDn = formatSpeed(peakDownload);
-//   const avgUp = formatSpeed(avgUpload);
   const avgDn = formatSpeed(avgDownload);
 
   return (
@@ -93,8 +89,24 @@ export function HistoryPage() {
                         : null
                     }
                   />
-                  <Area type="monotone" dataKey="upload"   stroke="#22C97A" strokeWidth={2} fill="url(#hUp)" dot={false} />
-                  <Area type="monotone" dataKey="download" stroke="#4FBBF7" strokeWidth={2} fill="url(#hDn)" dot={false} />
+                  <Area
+                    type="monotone"
+                    dataKey="upload"
+                    stroke="#22C97A"
+                    strokeWidth={2}
+                    fill="url(#hUp)"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="download"
+                    stroke="#4FBBF7"
+                    strokeWidth={2}
+                    fill="url(#hDn)"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
               <div className="chart-legend">

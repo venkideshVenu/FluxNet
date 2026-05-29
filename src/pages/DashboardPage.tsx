@@ -123,6 +123,7 @@ export function DashboardPage() {
                 fill="url(#colorUp)"
                 dot={false}
                 activeDot={{ r: 3 }}
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -132,6 +133,7 @@ export function DashboardPage() {
                 fill="url(#colorDn)"
                 dot={false}
                 activeDot={{ r: 3 }}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -13,11 +13,13 @@ body {
   color: #1a1830;
   overflow: hidden;
   height: 100vh;
+  width: 100vw;
 }
 
 /* ── Shell ── */
 .app-shell {
   display: flex;
+  width: 100vw;
   height: 100vh;
   overflow: hidden;
 }
@@ -25,6 +27,7 @@ body {
 /* ── Sidebar ── */
 .sidebar {
   width: 200px;
+  min-width: 200px;
   flex-shrink: 0;
   background: #ffffff;
   border-right: 1px solid #eceaf8;
@@ -32,6 +35,7 @@ body {
   flex-direction: column;
   padding: 0;
   overflow: hidden;
+  height: 100vh;
 }
 
 .sidebar-brand {
@@ -70,6 +74,13 @@ body {
   flex-direction: column;
   gap: 1px;
   overflow-y: auto;
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-link {
@@ -114,15 +125,24 @@ body {
 /* ── Main content ── */
 .app-content {
   flex: 1;
-  overflow-y: auto;
-  background: #f7f6ff;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #f7f6ff;
+  /* Hide scrollbar cross-browser */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-content::-webkit-scrollbar {
+  display: none;
 }
 
 /* ── Page ── */
 .page {
   padding: 28px 32px;
-  max-width: 900px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .page-header {
