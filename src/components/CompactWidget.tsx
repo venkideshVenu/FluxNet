@@ -26,6 +26,12 @@ export function CompactWidget() {
     } catch {}
   };
 
+  const handleHeaderMouseDown = async (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest(".cw-drag-handle")) return;
+    handleDrag(e);
+  };
+
   useEffect(() => {
     const sync = () => setIntervalMs(getStoredCompactIntervalMs());
     const handleStorage = (event: StorageEvent) => {
@@ -42,11 +48,10 @@ export function CompactWidget() {
   return (
     <div className="cw-root" role="status">
       {/* ── Header ── */}
-      <div className="cw-header">
+      <div className="cw-header" onMouseDown={handleHeaderMouseDown}>
         <span className="cw-brand">FluxNet</span>
         <div
           className="cw-drag-handle"
-          onMouseDown={handleDrag}
           title="Drag to move"
           aria-hidden="true"
         />

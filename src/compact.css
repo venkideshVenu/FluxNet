@@ -77,31 +77,36 @@ html[data-app="compact"] #root {
 
 /* Drag handle — short horizontal bar top-right */
 .cw-drag-handle {
-  width: 20px;
-  height: 3px;
+  width: 28px;
+  height: 18px;
   border-radius: 2px;
-  background: #e0def5;
+  background: transparent;
   cursor: grab;
   flex-shrink: 0;
-  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
 }
 
 .cw-drag-handle:hover {
-  background: #c8c5f5;
+  opacity: 0.85;
 }
 .cw-drag-handle:active {
   cursor: grabbing;
-  background: #7c6ff7;
+  opacity: 1;
 }
 
-:root[data-theme="dark"] .cw-drag-handle {
+.cw-drag-handle::before {
+  content: "";
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: #e0def5;
+}
+
+:root[data-theme="dark"] .cw-drag-handle::before {
   background: #2e2b50;
-}
-:root[data-theme="dark"] .cw-drag-handle:hover {
-  background: #3d3a70;
-}
-:root[data-theme="dark"] .cw-drag-handle:active {
-  background: #7c6ff7;
 }
 
 /* ── Status row ── */
