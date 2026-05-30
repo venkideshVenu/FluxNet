@@ -23,15 +23,7 @@ pub async fn measure_ping(target: IpAddr) -> PingResult {
     };
 
     let payload = [0u8; 8];
-    let mut pinger = match client.pinger(target, PingIdentifier(rand_id())).await {
-        Ok(p) => p,
-        Err(_) => {
-            return PingResult {
-                latency_ms: None,
-                loss: true,
-            }
-        }
-    };
+    let mut pinger = client.pinger(target, PingIdentifier(rand_id())).await;
     pinger.timeout(Duration::from_secs(2));
 
     match timeout(
