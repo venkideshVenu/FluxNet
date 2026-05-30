@@ -17,6 +17,12 @@ import {
   ColorMode,
 } from "../utils/theme";
 import {
+  getStoredCompactAlwaysOnTop,
+  getStoredPillAlwaysOnTop,
+  LS_COMPACT_ALWAYS_ON_TOP,
+  LS_PILL_ALWAYS_ON_TOP,
+} from "../utils/windowPrefs";
+import {
   LS_COMPACT_INTERVAL,
   LS_PILL_INTERVAL,
   getStoredCompactIntervalMs,
@@ -35,8 +41,12 @@ export function SettingsPage() {
   const [compactVisible, setCompactVisible] = useState(false);
 
   // ── Always-on-top ─────────────────────────────────────────
-  const [alwaysOnTop, setAlwaysOnTop] = useState(true);
-  const [compactAlwaysOnTop, setCompactAlwaysOnTop] = useState(true);
+  const [alwaysOnTop, setAlwaysOnTop] = useState(() =>
+    getStoredPillAlwaysOnTop(),
+  );
+  const [compactAlwaysOnTop, setCompactAlwaysOnTop] = useState(() =>
+    getStoredCompactAlwaysOnTop(),
+  );
 
   // ── Opacity ───────────────────────────────────────────────
   const [opacity, setOpacity] = useState(() => {
@@ -124,6 +134,14 @@ export function SettingsPage() {
     applyColorMode(colorMode);
   }, [colorMode]);
 
+  useEffect(() => {
+    localStorage.setItem(LS_PILL_ALWAYS_ON_TOP, String(alwaysOnTop));
+  }, [alwaysOnTop]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_COMPACT_ALWAYS_ON_TOP, String(compactAlwaysOnTop));
+  }, [compactAlwaysOnTop]);
+
   // ── Handlers ──────────────────────────────────────────────
 
   const togglePill = async () => {
@@ -152,8 +170,8 @@ export function SettingsPage() {
 
   const handleAlwaysOnTop = async (value: boolean) => {
     setAlwaysOnTop(value);
+    localStorage.setItem(LS_PILL_ALWAYS_ON_TOP, String(value));
     try {
-      // Targets the pill window specifically
       await invoke("set_pill_always_on_top", { value });
     } catch (err) {
       console.error("set_always_on_top failed:", err);
@@ -162,6 +180,7 @@ export function SettingsPage() {
 
   const handleCompactAlwaysOnTop = async (value: boolean) => {
     setCompactAlwaysOnTop(value);
+    localStorage.setItem(LS_COMPACT_ALWAYS_ON_TOP, String(value));
     try {
       await invoke("set_compact_always_on_top", { value });
     } catch (err) {
