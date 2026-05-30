@@ -52,7 +52,7 @@ export function useNetworkPoller() {
   };
 
   useEffect(() => {
-    if (windowLabel !== "pill") return;
+    if (windowLabel !== "pill" && windowLabel !== "hud") return;
 
     const sync = () => setPillIntervalMs(getStoredPillIntervalMs());
     const handleStorage = (event: StorageEvent) => {
@@ -91,7 +91,7 @@ export function useNetworkPoller() {
           lastSampleAtRef.current = now;
         }
 
-        if (windowLabel === "pill") {
+        if (windowLabel === "pill" || windowLabel === "hud") {
           // Pill only needs current speeds — lightweight
           const stats = await invoke<RawStats>("get_network_stats");
           setData({
@@ -141,7 +141,7 @@ export function useNetworkPoller() {
 
     poll();
     const intervalMs =
-      windowLabel === "pill"
+      windowLabel === "pill" || windowLabel === "hud"
         ? pillIntervalMs
         : windowLabel === "compact"
           ? compactIntervalMs
