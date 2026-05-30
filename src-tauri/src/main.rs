@@ -34,9 +34,33 @@ fn main() {
             let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
             let show_pill = MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
             let hide_pill = MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
+            let show_compact = MenuItem::with_id(
+                app,
+                "show_compact",
+                "Show compact widget",
+                true,
+                None::<&str>,
+            )?;
+            let hide_compact = MenuItem::with_id(
+                app,
+                "hide_compact",
+                "Hide compact widget",
+                true,
+                None::<&str>,
+            )?;
             let dashboard =
                 MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&dashboard, &show_pill, &hide_pill, &quit])?;
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &dashboard,
+                    &show_pill,
+                    &hide_pill,
+                    &show_compact,
+                    &hide_compact,
+                    &quit,
+                ],
+            )?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -50,6 +74,17 @@ fn main() {
                     }
                     "hide_pill" => {
                         if let Some(w) = app.get_webview_window("pill") {
+                            let _ = w.hide();
+                        }
+                    }
+                    "show_compact" => {
+                        if let Some(w) = app.get_webview_window("compact") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "hide_compact" => {
+                        if let Some(w) = app.get_webview_window("compact") {
                             let _ = w.hide();
                         }
                     }

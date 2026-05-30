@@ -23,7 +23,7 @@
         "url": "index.html"
       },
       {
-        "label": "pill",
+        "label": "pill-widget",
         "title": "FluxNet",
         "width": 270,
         "height": 54,
@@ -40,6 +40,27 @@
         "x": 40,
         "y": 40,
         "dragDropEnabled": false,
+        "url": "index.html"
+      },
+      {
+        "label": "compact-widget",
+        "title": "FluxNet",
+        "width": 200,
+        "height": 210,
+        "minWidth": 200,
+        "minHeight": 210,
+        "maxWidth": 200,
+        "maxHeight": 210,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "dragDropEnabled": false,
+        "x": 280,
+        "y": 40,
+        "visible": false,
         "url": "index.html"
       }
     ],
