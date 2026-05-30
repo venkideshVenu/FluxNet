@@ -48,6 +48,7 @@ export function useNetworkPoller() {
     const poll = async () => {
       try {
         if (windowLabel === "pill") {
+          // Pill only needs current speeds — lightweight
           const stats = await invoke<RawStats>("get_network_stats");
           setData({
             uploadBytesPerSec: stats.upload_bytes_per_sec,
@@ -55,6 +56,7 @@ export function useNetworkPoller() {
             interfaceName: stats.interface_name,
           });
         } else {
+          // Compact + main need history for charts
           const snap = await invoke<RawSnapshot>("get_dashboard_snapshot");
           setSnapshot({
             currentUpload: snap.current_upload,

@@ -23,7 +23,7 @@
         "url": "index.html"
       },
       {
-        "label": "pill-widget",
+        "label": "pill",
         "title": "FluxNet",
         "width": 270,
         "height": 54,
@@ -43,7 +43,7 @@
         "url": "index.html"
       },
       {
-        "label": "compact-widget",
+        "label": "compact",
         "title": "FluxNet",
         "width": 200,
         "height": 210,
