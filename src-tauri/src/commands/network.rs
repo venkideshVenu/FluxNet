@@ -66,11 +66,7 @@ impl Default for MonitorState {
 
 pub type SharedMonitorState = Mutex<MonitorState>;
 
-// ── Existing commands ────────────────────────────────────────────────────────
-
-#[tauri::command]
-pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
-    let mut s = state.lock().unwrap();
+fn sample_network_stats(s: &mut MonitorState) -> NetworkStats {
     s.networks.refresh();
 
     if s.interface.is_empty() {
@@ -155,6 +151,14 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     }
 }
 
+// ── Existing commands ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
+    let mut s = state.lock().unwrap();
+    sample_network_stats(&mut s)
+}
+
 #[derive(serde::Serialize)]
 pub struct DashboardSnapshot {
     pub current_upload: f64,
@@ -174,7 +178,8 @@ pub struct HistorySnapshotPoint {
 
 #[tauri::command]
 pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
-    let s = state.lock().unwrap();
+    let mut s = state.lock().unwrap();
+    let _ = sample_network_stats(&mut s);
     DashboardSnapshot {
         current_upload: s.history.last().map(|p| p.upload).unwrap_or(0.0),
         current_download: s.history.last().map(|p| p.download).unwrap_or(0.0),
