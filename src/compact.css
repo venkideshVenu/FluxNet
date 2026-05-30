@@ -30,7 +30,7 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 4px;
   box-sizing: border-box;
   overflow: visible;
 }
@@ -46,18 +46,12 @@ html[data-app="compact"] #root {
   flex-direction: column;
   gap: 0;
   border: 1px solid #e5e3f6;
-  box-shadow:
-    0 4px 24px rgba(100, 90, 200, 0.1),
-    0 1px 4px rgba(100, 90, 200, 0.06);
   cursor: default;
 }
 
 /* ── Dark mode card ── */
 :root[data-theme="dark"] .cw-root {
   background: #1a1730;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.45),
-    0 1px 4px rgba(0, 0, 0, 0.3);
   border: 1px solid #2a2650;
 }
 
