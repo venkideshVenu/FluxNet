@@ -1,7 +1,8 @@
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
-use network_interface::{NetworkInterface, NetworkInterfaceConfig};
+use serde_json::Value;
+use std::process::Command;
 use std::sync::Mutex;
 use std::time::Instant;
 use sysinfo::Networks;
@@ -16,7 +17,7 @@ pub struct HistoryPoint {
 #[derive(serde::Serialize)]
 pub struct InterfaceInfo {
     pub name: String,
-    pub connected: bool,
+    pub status: String,
 }
 
 pub struct MonitorState {
@@ -178,19 +179,52 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
 
 #[tauri::command]
 pub fn get_interfaces(_state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
-    let interfaces = NetworkInterface::show().unwrap_or_default();
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-NetAdapter | Select-Object Name, Status | ConvertTo-Json",
+        ])
+        .output();
+
+    let mut interfaces = Vec::new();
+
+    let Ok(output) = output else {
+        return interfaces;
+    };
+
+    let json = String::from_utf8_lossy(&output.stdout);
+    let Ok(parsed) = serde_json::from_str::<Value>(&json) else {
+        return interfaces;
+    };
+
+    let mut push_iface = |item: &Value, list: &mut Vec<InterfaceInfo>| {
+        let name = item["Name"].as_str().unwrap_or("").to_string();
+        if name.is_empty() {
+            return;
+        }
+
+        let lower = name.to_lowercase();
+        if lower.contains("local area connection*")
+            || lower.contains("wi-fi direct")
+            || lower.contains("wifi direct")
+        {
+            return;
+        }
+
+        let status = item["Status"].as_str().unwrap_or("").to_string();
+        list.push(InterfaceInfo { name, status });
+    };
+
+    if let Some(arr) = parsed.as_array() {
+        for item in arr {
+            push_iface(item, &mut interfaces);
+        }
+    } else if parsed.is_object() {
+        push_iface(&parsed, &mut interfaces);
+    }
 
     interfaces
-        .into_iter()
-        .filter(|iface| {
-            let name = iface.name.to_lowercase();
-            !name.contains("loopback") && !name.contains("ndis") && !name.contains("miniport")
-        })
-        .map(|iface| InterfaceInfo {
-            name: iface.name,
-            connected: !iface.addr.is_empty(),
-        })
-        .collect()
 }
 
 #[tauri::command]
