@@ -12,7 +12,6 @@ import { invoke } from "@tauri-apps/api/core";
 const mockInvoke = vi.mocked(invoke);
 
 beforeEach(() => {
-  vi.useFakeTimers();
   useNetworkStore.setState({
     data: { uploadBytesPerSec: 0, downloadBytesPerSec: 0, interfaceName: "" },
     isConnected: false,
@@ -20,8 +19,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 describe("useNetworkPoller", () => {
@@ -32,7 +31,7 @@ describe("useNetworkPoller", () => {
       interface_name: "wlan0",
     });
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("get_network_stats");
@@ -46,7 +45,7 @@ describe("useNetworkPoller", () => {
       interface_name: "eth0",
     });
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
 
     await waitFor(() => {
       const { data } = useNetworkStore.getState();
@@ -58,7 +57,7 @@ describe("useNetworkPoller", () => {
   it("marks disconnected on invoke error", async () => {
     mockInvoke.mockRejectedValue(new Error("IPC error"));
 
-    renderHook(() => useNetworkPoller(1000));
+    renderHook(() => useNetworkPoller());
 
     await waitFor(() => {
       expect(useNetworkStore.getState().isConnected).toBe(false);
@@ -66,16 +65,18 @@ describe("useNetworkPoller", () => {
   });
 
   it("polls again after interval", async () => {
+    vi.useFakeTimers();
     mockInvoke.mockResolvedValue({
       upload_bytes_per_sec: 0,
       download_bytes_per_sec: 0,
       interface_name: "wlan0",
     });
 
-    renderHook(() => useNetworkPoller(1000));
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
+    renderHook(() => useNetworkPoller());
+    await vi.runAllTicks();
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(1000);
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(2));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
   });
 });

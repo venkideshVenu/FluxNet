@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.venki.fluxnet",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm dev:web",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
@@ -12,21 +12,34 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "title": "FluxNet",
+        "width": 900,
+        "height": 600,
+        "minWidth": 720,
+        "minHeight": 500,
+        "resizable": true,
+        "decorations": true,
+        "url": "index.html"
+      },
+      {
         "label": "pill",
         "title": "FluxNet",
-        "width": 220,
-        "height": 36,
-        "minWidth": 180,
-        "minHeight": 36,
-        "maxHeight": 36,
+        "width": 270,
+        "height": 54,
+        "minWidth": 270,
+        "minHeight": 54,
+        "maxHeight": 54,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "shadow": false,
-        "x": 20,
-        "y": 20,
+        "visible": false,
+        "x": 40,
+        "y": 40,
+        "dragDropEnabled": false,
         "url": "index.html"
       }
     ],

@@ -1,9 +1,21 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import PillApp from "./PillApp";
+import DashboardApp from "./DashboardApp";
+import "./index.css";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+async function boot() {
+  const label = getCurrentWindow().label;
+  const Root = label === "pill" ? PillApp : DashboardApp;
+
+  document.documentElement.setAttribute("data-app", label);
+
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <Root />
+    </React.StrictMode>,
+  );
+}
+
+boot();
