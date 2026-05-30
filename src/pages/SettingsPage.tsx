@@ -4,6 +4,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useNetworkStore, DisplayUnits } from "../store/networkStore";
 import {
   THEMES,
+  LS_COMPACT_MODE,
   LS_THEME,
   LS_MODE,
   LS_PILL_MODE,
@@ -11,24 +12,39 @@ import {
   applyColorMode,
   getStoredAccentIndex,
   getStoredColorMode,
+  getStoredCompactMode,
   getStoredPillMode,
   ColorMode,
 } from "../utils/theme";
-import { LS_PILL_INTERVAL, getStoredPillIntervalMs } from "../utils/polling";
+import {
+  LS_COMPACT_INTERVAL,
+  LS_PILL_INTERVAL,
+  getStoredCompactIntervalMs,
+  getStoredPillIntervalMs,
+} from "../utils/polling";
 
 // localStorage keys
 const LS_OPACITY = "fluxnet_opacity";
+const LS_COMPACT_OPACITY = "fluxnet_compact_opacity";
 
 export function SettingsPage() {
   // ── Pill visibility (unchanged — already worked) ──────────
   const [pillVisible, setPillVisible] = useState(false);
 
+  // ── Compact visibility ───────────────────────────────────
+  const [compactVisible, setCompactVisible] = useState(false);
+
   // ── Always-on-top ─────────────────────────────────────────
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
+  const [compactAlwaysOnTop, setCompactAlwaysOnTop] = useState(true);
 
   // ── Opacity ───────────────────────────────────────────────
   const [opacity, setOpacity] = useState(() => {
     const saved = localStorage.getItem(LS_OPACITY);
+    return saved ? Number(saved) : 88;
+  });
+  const [compactOpacity, setCompactOpacity] = useState(() => {
+    const saved = localStorage.getItem(LS_COMPACT_OPACITY);
     return saved ? Number(saved) : 88;
   });
 
@@ -59,8 +75,17 @@ export function SettingsPage() {
     getStoredPillMode(),
   );
 
+  // ── Compact light/dark mode ───────────────────────────────
+  const [compactColorMode, setCompactColorMode] = useState<ColorMode>(() =>
+    getStoredCompactMode(),
+  );
+
   const [pillIntervalMs, setPillIntervalMs] = useState(() =>
     getStoredPillIntervalMs(),
+  );
+
+  const [compactIntervalMs, setCompactIntervalMs] = useState(() =>
+    getStoredCompactIntervalMs(),
   );
 
   // ── Sync pill visibility on mount ─────────────────────────
@@ -72,6 +97,19 @@ export function SettingsPage() {
         setPillVisible(await pill.isVisible());
       } catch (err) {
         console.warn("pill window check failed:", err);
+      }
+    })();
+  }, []);
+
+  // ── Sync compact visibility on mount ──────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const compact = await WebviewWindow.getByLabel("compact");
+        if (!compact) return;
+        setCompactVisible(await compact.isVisible());
+      } catch (err) {
+        console.warn("compact window check failed:", err);
       }
     })();
   }, []);
@@ -100,6 +138,18 @@ export function SettingsPage() {
     }
   };
 
+  const toggleCompact = async () => {
+    try {
+      const compact = await WebviewWindow.getByLabel("compact");
+      if (!compact) return;
+      if (compactVisible) await compact.hide();
+      else await compact.show();
+      setCompactVisible((v) => !v);
+    } catch (err) {
+      console.error("compact toggle failed:", err);
+    }
+  };
+
   const handleAlwaysOnTop = async (value: boolean) => {
     setAlwaysOnTop(value);
     try {
@@ -110,12 +160,30 @@ export function SettingsPage() {
     }
   };
 
+  const handleCompactAlwaysOnTop = async (value: boolean) => {
+    setCompactAlwaysOnTop(value);
+    try {
+      await invoke("set_compact_always_on_top", { value });
+    } catch (err) {
+      console.error("set_compact_always_on_top failed:", err);
+    }
+  };
+
   const handleOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_OPACITY, String(value));
     try {
       await invoke("set_pill_opacity", { value: value / 100 });
     } catch (err) {
       console.error("set_pill_opacity failed:", err);
+    }
+  };
+
+  const handleCompactOpacityCommit = async (value: number) => {
+    localStorage.setItem(LS_COMPACT_OPACITY, String(value));
+    try {
+      await invoke("set_compact_opacity", { value: value / 100 });
+    } catch (err) {
+      console.error("set_compact_opacity failed:", err);
     }
   };
 
@@ -154,11 +222,23 @@ export function SettingsPage() {
     localStorage.setItem(LS_PILL_MODE, mode);
   };
 
+  const handleCompactColorMode = (mode: ColorMode) => {
+    setCompactColorMode(mode);
+    localStorage.setItem(LS_COMPACT_MODE, mode);
+  };
+
   const handlePillInterval = (raw: string) => {
     const secs = parseFloat(raw);
     const next = secs * 1000;
     setPillIntervalMs(next);
     localStorage.setItem(LS_PILL_INTERVAL, String(next));
+  };
+
+  const handleCompactInterval = (raw: string) => {
+    const secs = parseFloat(raw);
+    const next = secs * 1000;
+    setCompactIntervalMs(next);
+    localStorage.setItem(LS_COMPACT_INTERVAL, String(next));
   };
 
   // ── Render ────────────────────────────────────────────────
@@ -268,6 +348,111 @@ export function SettingsPage() {
               }
               onTouchEnd={(e) =>
                 handleOpacityCommit(
+                  Number((e.target as HTMLInputElement).value),
+                )
+              }
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Compact widget section */}
+      <div className="settings-section">
+        <div className="settings-section-title">Compact Widget</div>
+        <div className="settings-card">
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Compact widget</div>
+              <div className="settings-sub">
+                Show or hide the compact widget
+              </div>
+            </div>
+            <div
+              className={`toggle ${compactVisible ? "on" : "off"}`}
+              onClick={toggleCompact}
+              role="switch"
+              aria-checked={compactVisible}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Always on top</div>
+              <div className="settings-sub">
+                Float the compact widget above all windows
+              </div>
+            </div>
+            <div
+              className={`toggle ${compactAlwaysOnTop ? "on" : "off"}`}
+              onClick={() => handleCompactAlwaysOnTop(!compactAlwaysOnTop)}
+              role="switch"
+              aria-checked={compactAlwaysOnTop}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Compact dark mode</div>
+              <div className="settings-sub">
+                Use a dark theme for the compact widget
+              </div>
+            </div>
+            <div
+              className={`toggle ${compactColorMode === "dark" ? "on" : "off"}`}
+              onClick={() =>
+                handleCompactColorMode(
+                  compactColorMode === "dark" ? "light" : "dark",
+                )
+              }
+              role="switch"
+              aria-checked={compactColorMode === "dark"}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Widget refresh interval</div>
+              <div className="settings-sub">
+                How often the compact widget updates
+              </div>
+            </div>
+            <select
+              className="fn-select"
+              value={String(compactIntervalMs / 1000)}
+              onChange={(e) => handleCompactInterval(e.target.value)}
+            >
+              <option value="0.5">0.5 seconds</option>
+              <option value="1">1 second</option>
+              <option value="2">2 seconds</option>
+              <option value="5">5 seconds</option>
+            </select>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Widget opacity</div>
+              <div className="settings-sub">{compactOpacity}%</div>
+            </div>
+            <input
+              type="range"
+              className="fn-slider"
+              min={40}
+              max={100}
+              value={compactOpacity}
+              onChange={(e) => setCompactOpacity(Number(e.target.value))}
+              onMouseUp={(e) =>
+                handleCompactOpacityCommit(
+                  Number((e.target as HTMLInputElement).value),
+                )
+              }
+              onTouchEnd={(e) =>
+                handleCompactOpacityCommit(
                   Number((e.target as HTMLInputElement).value),
                 )
               }

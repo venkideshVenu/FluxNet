@@ -1,20 +1,28 @@
 import { useEffect } from "react";
 import { useNetworkPoller } from "./hooks/useNetworkPoller";
 import { CompactWidget } from "./components/CompactWidget";
+import {
+  applyColorMode,
+  getStoredCompactMode,
+  LS_COMPACT_MODE,
+} from "./utils/theme";
 import "./compact.css";
 
 export default function CompactApp() {
   useNetworkPoller();
 
-  // Detect OS dark mode and apply class to root
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = (e: MediaQueryListEvent | MediaQueryList) => {
-      document.documentElement.classList.toggle("dark", e.matches);
+    applyColorMode(getStoredCompactMode());
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== LS_COMPACT_MODE || !event.newValue) return;
+      if (event.newValue === "light" || event.newValue === "dark") {
+        applyColorMode(event.newValue);
+      }
     };
-    apply(mq);
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   return <CompactWidget />;

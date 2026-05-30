@@ -5,7 +5,8 @@ mod monitor;
 
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
-    set_pill_always_on_top, set_pill_opacity, SharedMonitorState,
+    set_compact_always_on_top, set_compact_opacity, set_pill_always_on_top,
+    set_pill_opacity, SharedMonitorState,
 };
 use std::sync::Mutex;
 use tauri::{
@@ -27,6 +28,8 @@ fn main() {
             get_interfaces,
             set_interface,
             reset_peaks,
+            set_compact_always_on_top,
+            set_compact_opacity,
             set_pill_always_on_top,
             set_pill_opacity,
         ])

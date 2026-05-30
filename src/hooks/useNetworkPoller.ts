@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "../store/networkStore";
-import { getStoredPillIntervalMs, LS_PILL_INTERVAL } from "../utils/polling";
+import {
+  getStoredCompactIntervalMs,
+  getStoredPillIntervalMs,
+  LS_COMPACT_INTERVAL,
+  LS_PILL_INTERVAL,
+} from "../utils/polling";
 
 type RawStats = {
   upload_bytes_per_sec: number;
@@ -30,6 +35,9 @@ export function useNetworkPoller() {
   const [pillIntervalMs, setPillIntervalMs] = useState(() =>
     getStoredPillIntervalMs(),
   );
+  const [compactIntervalMs, setCompactIntervalMs] = useState(() =>
+    getStoredCompactIntervalMs(),
+  );
 
   useEffect(() => {
     if (windowLabel !== "pill") return;
@@ -37,6 +45,19 @@ export function useNetworkPoller() {
     const sync = () => setPillIntervalMs(getStoredPillIntervalMs());
     const handleStorage = (event: StorageEvent) => {
       if (event.key === LS_PILL_INTERVAL) sync();
+    };
+
+    sync();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [windowLabel]);
+
+  useEffect(() => {
+    if (windowLabel !== "compact") return;
+
+    const sync = () => setCompactIntervalMs(getStoredCompactIntervalMs());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LS_COMPACT_INTERVAL) sync();
     };
 
     sync();
@@ -75,7 +96,11 @@ export function useNetworkPoller() {
 
     poll();
     const intervalMs =
-      windowLabel === "pill" ? pillIntervalMs : dashboardIntervalMs;
+      windowLabel === "pill"
+        ? pillIntervalMs
+        : windowLabel === "compact"
+          ? compactIntervalMs
+          : dashboardIntervalMs;
     timerRef.current = setInterval(poll, intervalMs);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -83,6 +108,7 @@ export function useNetworkPoller() {
     // Re-run whenever the interval changes — clears the old timer and starts a new one
   }, [
     dashboardIntervalMs,
+    compactIntervalMs,
     pillIntervalMs,
     windowLabel,
     setData,

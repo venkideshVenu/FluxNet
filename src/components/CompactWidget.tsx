@@ -1,6 +1,11 @@
+import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "../store/networkStore";
 import { formatSpeed } from "../utils/formatSpeed";
+import {
+  getStoredCompactIntervalMs,
+  LS_COMPACT_INTERVAL,
+} from "../utils/polling";
 
 // Generate bar heights for the mini chart
 // Takes the last N history points and normalises to max bar height
@@ -15,6 +20,9 @@ function buildBars(values: number[], count: number, maxHeight: number): number[]
 
 export function CompactWidget() {
   const { data, isConnected, history } = useNetworkStore();
+  const [intervalMs, setIntervalMs] = useState(() =>
+    getStoredCompactIntervalMs(),
+  );
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
@@ -30,6 +38,19 @@ export function CompactWidget() {
       await getCurrentWindow().startDragging();
     } catch {}
   };
+
+  useEffect(() => {
+    const sync = () => setIntervalMs(getStoredCompactIntervalMs());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LS_COMPACT_INTERVAL) sync();
+    };
+
+    sync();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const intervalLabel = `${intervalMs / 1000}s`;
 
   return (
     <div className="cw-root" role="status">
@@ -63,7 +84,7 @@ export function CompactWidget() {
           <span className={`cw-live-dot ${isConnected ? "live" : "dead"}`} />
           {data.interfaceName || "—"}
         </span>
-        <span className="cw-interval">1s</span>
+        <span className="cw-interval">{intervalLabel}</span>
       </div>
 
       {/* ── Mini bar chart ── */}

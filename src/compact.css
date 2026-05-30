@@ -33,7 +33,7 @@ html, body {
 }
 
 /* ── Dark mode card ── */
-:root.dark .cw-root {
+:root[data-theme="dark"] .cw-root {
   background: #1A1730;
   box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3);
   border: 0.5px solid #2A2650;
@@ -55,7 +55,7 @@ html, body {
   color: #9995CC;
 }
 
-:root.dark .cw-brand { color: #5B5890; }
+:root[data-theme="dark"] .cw-brand { color: #5B5890; }
 
 /* Drag handle — short horizontal bar top-right */
 .cw-drag-handle {
@@ -71,9 +71,9 @@ html, body {
 .cw-drag-handle:hover  { background: #C8C5F5; }
 .cw-drag-handle:active { cursor: grabbing; background: #7C6FF7; }
 
-:root.dark .cw-drag-handle        { background: #2E2B50; }
-:root.dark .cw-drag-handle:hover  { background: #3D3A70; }
-:root.dark .cw-drag-handle:active { background: #7C6FF7; }
+:root[data-theme="dark"] .cw-drag-handle        { background: #2E2B50; }
+:root[data-theme="dark"] .cw-drag-handle:hover  { background: #3D3A70; }
+:root[data-theme="dark"] .cw-drag-handle:active { background: #7C6FF7; }
 
 /* ── Speed rows ── */
 .cw-speeds {
@@ -100,7 +100,7 @@ html, body {
   text-align: right;
 }
 
-:root.dark .cw-num { color: #EAE9FF; }
+:root[data-theme="dark"] .cw-num { color: #EAE9FF; }
 
 .cw-unit {
   font-size: 12px;
@@ -111,7 +111,7 @@ html, body {
   margin-bottom: 3px;
 }
 
-:root.dark .cw-unit { color: #5B5890; }
+:root[data-theme="dark"] .cw-unit { color: #5B5890; }
 
 /* ── Meta row ── */
 .cw-meta-row {
@@ -133,7 +133,7 @@ html, body {
   padding: 3px 9px;
 }
 
-:root.dark .cw-iface-pill {
+:root[data-theme="dark"] .cw-iface-pill {
   background: #1E1C3A;
   color: #B0AAFF;
 }
@@ -153,14 +153,14 @@ html, body {
 
 .cw-live-dot.dead { background: #C8C5F5; }
 
-:root.dark .cw-live-dot.dead { background: #2E2B50; }
+:root[data-theme="dark"] .cw-live-dot.dead { background: #2E2B50; }
 
 .cw-interval {
   font-size: 11px;
   color: #C8C5F5;
 }
 
-:root.dark .cw-interval { color: #3D3A70; }
+:root[data-theme="dark"] .cw-interval { color: #3D3A70; }
 
 /* ── Bar chart ── */
 .cw-chart {
@@ -189,5 +189,5 @@ html, body {
 .cw-bar.up { background: #22C97A; opacity: 0.85; }
 .cw-bar.dn { background: #4FBBF7; opacity: 0.85; }
 
-:root.dark .cw-bar.up { opacity: 0.9; }
-:root.dark .cw-bar.dn { opacity: 0.9; }
+:root[data-theme="dark"] .cw-bar.up { opacity: 0.9; }
+:root[data-theme="dark"] .cw-bar.dn { opacity: 0.9; }

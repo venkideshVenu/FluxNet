@@ -418,3 +418,28 @@ pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
         ))
         .map_err(|e| e.to_string())
 }
+
+/// Set the compact window's always-on-top state.
+#[tauri::command]
+pub fn set_compact_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("compact")
+        .ok_or_else(|| "compact window not found".to_string())?;
+    window.set_always_on_top(value).map_err(|e| e.to_string())
+}
+
+/// Set the compact window's opacity (0.0 – 1.0).
+#[tauri::command]
+pub fn set_compact_opacity(value: f64, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("compact")
+        .ok_or_else(|| "compact window not found".to_string())?;
+    // clamp to [0.1, 1.0] so the window is never invisible
+    let clamped = value.clamp(0.1, 1.0);
+    window
+        .eval(&format!(
+            "document.documentElement.style.opacity = '{0}'; document.body.style.opacity = '{0}';",
+            clamped
+        ))
+        .map_err(|e| e.to_string())
+}
