@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "../store/networkStore";
+import { getStoredPillIntervalMs, LS_PILL_INTERVAL } from "../utils/polling";
 
 type RawStats = {
   upload_bytes_per_sec: number;
@@ -19,13 +20,29 @@ type RawSnapshot = {
 };
 
 export function useNetworkPoller() {
-  const setData       = useNetworkStore((s) => s.setData);
-  const setConnected  = useNetworkStore((s) => s.setConnected);
-  const setSnapshot   = useNetworkStore((s) => s.setSnapshot);
+  const setData = useNetworkStore((s) => s.setData);
+  const setConnected = useNetworkStore((s) => s.setConnected);
+  const setSnapshot = useNetworkStore((s) => s.setSnapshot);
   // Read the interval live from the store — changes in Settings take effect immediately
-  const intervalMs    = useNetworkStore((s) => s.pollIntervalMs);
-  const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
-  const windowLabel   = getCurrentWindow().label;
+  const dashboardIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const windowLabel = getCurrentWindow().label;
+  const [pillIntervalMs, setPillIntervalMs] = useState(() =>
+    getStoredPillIntervalMs(),
+  );
+
+  useEffect(() => {
+    if (windowLabel !== "pill") return;
+
+    const sync = () => setPillIntervalMs(getStoredPillIntervalMs());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LS_PILL_INTERVAL) sync();
+    };
+
+    sync();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [windowLabel]);
 
   useEffect(() => {
     const poll = async () => {
@@ -55,10 +72,19 @@ export function useNetworkPoller() {
     };
 
     poll();
+    const intervalMs =
+      windowLabel === "pill" ? pillIntervalMs : dashboardIntervalMs;
     timerRef.current = setInterval(poll, intervalMs);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
     // Re-run whenever the interval changes — clears the old timer and starts a new one
-  }, [intervalMs, windowLabel, setData, setConnected, setSnapshot]);
+  }, [
+    dashboardIntervalMs,
+    pillIntervalMs,
+    windowLabel,
+    setData,
+    setConnected,
+    setSnapshot,
+  ]);
 }

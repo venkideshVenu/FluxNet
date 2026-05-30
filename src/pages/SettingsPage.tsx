@@ -14,6 +14,7 @@ import {
   getStoredPillMode,
   ColorMode,
 } from "../utils/theme";
+import { LS_PILL_INTERVAL, getStoredPillIntervalMs } from "../utils/polling";
 
 // localStorage keys
 const LS_OPACITY = "fluxnet_opacity";
@@ -56,6 +57,10 @@ export function SettingsPage() {
   // ── Pill light/dark mode ─────────────────────────────────
   const [pillColorMode, setPillColorMode] = useState<ColorMode>(() =>
     getStoredPillMode(),
+  );
+
+  const [pillIntervalMs, setPillIntervalMs] = useState(() =>
+    getStoredPillIntervalMs(),
   );
 
   // ── Sync pill visibility on mount ─────────────────────────
@@ -149,6 +154,13 @@ export function SettingsPage() {
     localStorage.setItem(LS_PILL_MODE, mode);
   };
 
+  const handlePillInterval = (raw: string) => {
+    const secs = parseFloat(raw);
+    const next = secs * 1000;
+    setPillIntervalMs(next);
+    localStorage.setItem(LS_PILL_INTERVAL, String(next));
+  };
+
   // ── Render ────────────────────────────────────────────────
   return (
     <div className="page">
@@ -216,6 +228,25 @@ export function SettingsPage() {
             >
               <div className="toggle-thumb" />
             </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Widget refresh interval</div>
+              <div className="settings-sub">
+                How often the pill widget updates
+              </div>
+            </div>
+            <select
+              className="fn-select"
+              value={String(pillIntervalMs / 1000)}
+              onChange={(e) => handlePillInterval(e.target.value)}
+            >
+              <option value="0.5">0.5 seconds</option>
+              <option value="1">1 second</option>
+              <option value="2">2 seconds</option>
+              <option value="5">5 seconds</option>
+            </select>
           </div>
 
           <div className="settings-row">
