@@ -2,13 +2,20 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNetworkStore } from "../store/networkStore";
 
+type InterfaceInfo = {
+  name: string;
+  connected: boolean;
+};
+
 export function InterfacesPage() {
   const { data } = useNetworkStore();
-  const [interfaces, setInterfaces] = useState<string[]>([]);
+  const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selecting, setSelecting] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<string[]>("get_interfaces").then(setInterfaces).catch(console.error);
+    invoke<InterfaceInfo[]>("get_interfaces")
+      .then(setInterfaces)
+      .catch(console.error);
   }, []);
 
   const select = async (name: string) => {
@@ -21,9 +28,6 @@ export function InterfacesPage() {
       setSelecting(null);
     }
   };
-
-  const isLoopback = (n: string) =>
-    n === "lo" || n.toLowerCase().includes("loopback");
 
   return (
     <div className="page">
@@ -45,28 +49,38 @@ export function InterfacesPage() {
         ) : (
           <div className="iface-list">
             {interfaces.map((iface) => {
-              const isActive  = iface === data.interfaceName;
-              const isLoop    = isLoopback(iface);
-              const isPending = selecting === iface;
+              const isActive = iface.name === data.interfaceName;
+              const isPending = selecting === iface.name;
+              const badgeLabel = isPending
+                ? "Switching…"
+                : isActive
+                  ? "Active"
+                  : iface.connected
+                    ? "Connected"
+                    : "Disconnected";
 
               return (
                 <div
-                  key={iface}
+                  key={iface.name}
                   className="iface-row"
-                  onClick={() => !isLoop && select(iface)}
-                  style={{ opacity: isLoop ? 0.5 : 1, cursor: isLoop ? "default" : "pointer" }}
+                  onClick={() => select(iface.name)}
+                  style={{ cursor: "pointer" }}
                 >
-                  <div className={`iface-icon ${!isActive && !isPending ? "inactive" : ""}`}>
-                    {isLoop ? "⟳" : "⌘"}
+                  <div
+                    className={`iface-icon ${!isActive && !isPending ? "inactive" : ""}`}
+                  >
+                    {iface.connected ? "⌘" : "◌"}
                   </div>
                   <div>
-                    <div className="iface-name">{iface}</div>
+                    <div className="iface-name">{iface.name}</div>
                     <div className="iface-addr">
-                      {isLoop ? "Loopback — not monitorable" : "Click to monitor"}
+                      {iface.connected ? "Connected" : "Disconnected"}
                     </div>
                   </div>
-                  <span className={`iface-badge ${isActive ? "active" : isPending ? "selected" : "idle"}`}>
-                    {isPending ? "Switching…" : isActive ? "Active" : "Idle"}
+                  <span
+                    className={`iface-badge ${isActive ? "active" : isPending ? "selected" : "idle"}`}
+                  >
+                    {badgeLabel}
                   </span>
                 </div>
               );

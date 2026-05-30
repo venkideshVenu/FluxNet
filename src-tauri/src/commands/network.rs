@@ -1,6 +1,7 @@
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
+use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use std::sync::Mutex;
 use std::time::Instant;
 use sysinfo::Networks;
@@ -10,6 +11,12 @@ pub struct HistoryPoint {
     pub upload: f64,
     pub download: f64,
     pub timestamp_secs: u64,
+}
+
+#[derive(serde::Serialize)]
+pub struct InterfaceInfo {
+    pub name: String,
+    pub connected: bool,
 }
 
 pub struct MonitorState {
@@ -50,11 +57,30 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     s.networks.refresh();
 
     if s.interface.is_empty() {
-        let ifaces = list_interfaces(&s.networks);
-        s.interface = ifaces
-            .into_iter()
-            .find(|n| n != "lo" && n != "Loopback Pseudo-Interface 1")
-            .unwrap_or_default();
+        let mut best_name = String::new();
+        let mut best_bytes = 0u64;
+
+        for (name, data) in &s.networks {
+            if name == "lo" || name == "Loopback Pseudo-Interface 1" {
+                continue;
+            }
+
+            let total = data.total_received() + data.total_transmitted();
+            if total > best_bytes {
+                best_bytes = total;
+                best_name = name.clone();
+            }
+        }
+
+        if best_name.is_empty() {
+            let ifaces = list_interfaces(&s.networks);
+            best_name = ifaces
+                .into_iter()
+                .find(|n| n != "lo" && n != "Loopback Pseudo-Interface 1")
+                .unwrap_or_default();
+        }
+
+        s.interface = best_name;
     }
 
     let now = Instant::now();
@@ -151,9 +177,20 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
 }
 
 #[tauri::command]
-pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<String> {
-    let s = state.lock().unwrap();
-    list_interfaces(&s.networks)
+pub fn get_interfaces(_state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
+    let interfaces = NetworkInterface::show().unwrap_or_default();
+
+    interfaces
+        .into_iter()
+        .filter(|iface| {
+            let name = iface.name.to_lowercase();
+            !name.contains("loopback") && !name.contains("ndis") && !name.contains("miniport")
+        })
+        .map(|iface| InterfaceInfo {
+            name: iface.name,
+            connected: !iface.addr.is_empty(),
+        })
+        .collect()
 }
 
 #[tauri::command]
