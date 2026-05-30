@@ -66,11 +66,7 @@ impl Default for MonitorState {
 
 pub type SharedMonitorState = Mutex<MonitorState>;
 
-// ── Existing commands ────────────────────────────────────────────────────────
-
-#[tauri::command]
-pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
-    let mut s = state.lock().unwrap();
+fn sample_network_stats(s: &mut MonitorState) -> NetworkStats {
     s.networks.refresh();
 
     if s.interface.is_empty() {
@@ -155,6 +151,14 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
     }
 }
 
+// ── Existing commands ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
+    let mut s = state.lock().unwrap();
+    sample_network_stats(&mut s)
+}
+
 #[derive(serde::Serialize)]
 pub struct DashboardSnapshot {
     pub current_upload: f64,
@@ -174,7 +178,8 @@ pub struct HistorySnapshotPoint {
 
 #[tauri::command]
 pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
-    let s = state.lock().unwrap();
+    let mut s = state.lock().unwrap();
+    let _ = sample_network_stats(&mut s);
     DashboardSnapshot {
         current_upload: s.history.last().map(|p| p.upload).unwrap_or(0.0),
         current_download: s.history.last().map(|p| p.download).unwrap_or(0.0),
@@ -409,6 +414,31 @@ pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("pill")
         .ok_or_else(|| "pill window not found".to_string())?;
+    // clamp to [0.1, 1.0] so the window is never invisible
+    let clamped = value.clamp(0.1, 1.0);
+    window
+        .eval(&format!(
+            "document.documentElement.style.opacity = '{0}'; document.body.style.opacity = '{0}';",
+            clamped
+        ))
+        .map_err(|e| e.to_string())
+}
+
+/// Set the compact window's always-on-top state.
+#[tauri::command]
+pub fn set_compact_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("compact")
+        .ok_or_else(|| "compact window not found".to_string())?;
+    window.set_always_on_top(value).map_err(|e| e.to_string())
+}
+
+/// Set the compact window's opacity (0.0 – 1.0).
+#[tauri::command]
+pub fn set_compact_opacity(value: f64, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("compact")
+        .ok_or_else(|| "compact window not found".to_string())?;
     // clamp to [0.1, 1.0] so the window is never invisible
     let clamped = value.clamp(0.1, 1.0);
     window

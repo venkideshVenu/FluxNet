@@ -20,9 +20,11 @@ type NetworkStore = {
   peakUpload: number;
   peakDownload: number;
   history: HistoryPoint[];
+  todayUploadBytes: number;
+  todayDownloadBytes: number;
 
   // ── Settings ──────────────────────────────────────────────
-  pollIntervalMs: number;      // 500 | 1000 | 2000 | 5000
+  pollIntervalMs: number; // 500 | 1000 | 2000 | 5000
   displayUnits: DisplayUnits;
   setPollInterval: (ms: number) => void;
   setDisplayUnits: (u: DisplayUnits) => void;
@@ -38,6 +40,8 @@ type NetworkStore = {
     interfaceName: string;
     history: HistoryPoint[];
   }) => void;
+  addTodayUsage: (uploadBytes: number, downloadBytes: number) => void;
+  resetTodayUsage: () => void;
 };
 
 export const useNetworkStore = create<NetworkStore>((set) => ({
@@ -46,6 +50,8 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
   peakUpload: 0,
   peakDownload: 0,
   history: [],
+  todayUploadBytes: 0,
+  todayDownloadBytes: 0,
 
   pollIntervalMs: 1000,
   displayUnits: "auto",
@@ -67,4 +73,10 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
       peakDownload: snap.peakDownload,
       history: snap.history,
     }),
+  addTodayUsage: (uploadBytes, downloadBytes) =>
+    set((state) => ({
+      todayUploadBytes: state.todayUploadBytes + Math.max(0, uploadBytes),
+      todayDownloadBytes: state.todayDownloadBytes + Math.max(0, downloadBytes),
+    })),
+  resetTodayUsage: () => set({ todayUploadBytes: 0, todayDownloadBytes: 0 }),
 }));

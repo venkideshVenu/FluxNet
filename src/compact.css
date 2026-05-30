@@ -1,0 +1,338 @@
+/* ── Root transparency so the card floats ── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+html,
+body {
+  background: transparent;
+  overflow: hidden;
+}
+
+html[data-app="compact"] body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html[data-app="compact"] #root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+/* ── Card shell ── */
+.cw-root {
+  width: 200px;
+  max-width: 100%;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid #e5e3f6;
+  cursor: default;
+}
+
+/* ── Dark mode card ── */
+:root[data-theme="dark"] .cw-root {
+  background: #1a1730;
+  border: 1px solid #2a2650;
+}
+
+/* ── Header ── */
+.cw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cw-brand {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9995cc;
+}
+
+:root[data-theme="dark"] .cw-brand {
+  color: #5b5890;
+}
+
+/* Drag handle — short horizontal bar top-right */
+.cw-drag-handle {
+  width: 28px;
+  height: 18px;
+  border-radius: 2px;
+  background: transparent;
+  cursor: grab;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.cw-drag-handle:hover {
+  opacity: 0.85;
+}
+.cw-drag-handle:active {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+.cw-drag-handle::before {
+  content: "";
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: #e0def5;
+}
+
+:root[data-theme="dark"] .cw-drag-handle::before {
+  background: #2e2b50;
+}
+
+/* ── Status row ── */
+.cw-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cw-iface {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cw-iface-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1830;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root[data-theme="dark"] .cw-iface-name {
+  color: #eae9ff;
+}
+
+.cw-iface-sub {
+  font-size: 10px;
+  color: #9995cc;
+}
+
+:root[data-theme="dark"] .cw-iface-sub {
+  color: #5b5890;
+}
+
+.cw-status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cw-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #5b54c4;
+  background: #eeedfe;
+  border-radius: 99px;
+  padding: 3px 8px;
+}
+
+:root[data-theme="dark"] .cw-status-pill {
+  background: #1e1c3a;
+  color: #b0aaff;
+}
+
+.cw-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.cw-live-dot.live {
+  background: #22c97a;
+  box-shadow: 0 0 4px rgba(34, 201, 122, 0.5);
+}
+
+.cw-live-dot.dead {
+  background: #c8c5f5;
+}
+
+:root[data-theme="dark"] .cw-live-dot.dead {
+  background: #2e2b50;
+}
+
+.cw-interval {
+  font-size: 10px;
+  color: #c8c5f5;
+}
+
+:root[data-theme="dark"] .cw-interval {
+  color: #3d3a70;
+}
+
+/* ── Divider ── */
+.cw-divider {
+  height: 1px;
+  background: #eceaf8;
+  margin: 6px 0 8px;
+}
+
+:root[data-theme="dark"] .cw-divider {
+  background: #242046;
+}
+
+/* ── Speeds ── */
+.cw-speeds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cw-speed-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cw-speed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5b5890;
+}
+
+:root[data-theme="dark"] .cw-speed-label {
+  color: #8e89c8;
+}
+
+.cw-speed-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.cw-num {
+  font-size: 22px;
+  font-weight: 500;
+  color: #1a1830;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  min-width: 52px;
+  text-align: right;
+}
+
+:root[data-theme="dark"] .cw-num {
+  color: #eae9ff;
+}
+
+.cw-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9995cc;
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 3px;
+}
+
+:root[data-theme="dark"] .cw-unit {
+  color: #5b5890;
+}
+
+.cw-dir {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.cw-dir.up {
+  background: #22c97a;
+}
+
+.cw-dir.dn {
+  background: #4fbbf7;
+}
+
+/* ── Today totals ── */
+.cw-today-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cw-today-label {
+  font-size: 11px;
+  color: #9995cc;
+}
+
+:root[data-theme="dark"] .cw-today-label {
+  color: #5b5890;
+}
+
+.cw-today-values {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cw-today-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cw-today-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1830;
+}
+
+:root[data-theme="dark"] .cw-today-num {
+  color: #eae9ff;
+}
+
+.cw-today-unit {
+  font-size: 10px;
+  color: #9995cc;
+}
+
+:root[data-theme="dark"] .cw-today-unit {
+  color: #5b5890;
+}

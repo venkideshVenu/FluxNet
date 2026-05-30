@@ -16,6 +16,7 @@ export const THEMES: ThemeSwatch[] = [
 export const LS_THEME = "fluxnet_accent_index";
 export const LS_MODE = "fluxnet_color_mode";
 export const LS_PILL_MODE = "fluxnet_pill_mode";
+export const LS_COMPACT_MODE = "fluxnet_compact_mode";
 
 function hexToRgb(hex: string): Rgb | null {
   const normalized = hex.trim().replace("#", "");
@@ -89,6 +90,12 @@ export function getStoredColorMode(): ColorMode {
 
 export function getStoredPillMode(): ColorMode {
   const saved = localStorage.getItem(LS_PILL_MODE);
+  if (saved === "light" || saved === "dark") return saved;
+  return "dark";
+}
+
+export function getStoredCompactMode(): ColorMode {
+  const saved = localStorage.getItem(LS_COMPACT_MODE);
   if (saved === "light" || saved === "dark") return saved;
   return "dark";
 }

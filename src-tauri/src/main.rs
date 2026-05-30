@@ -4,8 +4,9 @@ mod commands;
 mod monitor;
 
 use commands::network::{
-    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
-    set_pill_always_on_top, set_pill_opacity, SharedMonitorState,
+    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
+    set_compact_always_on_top, set_compact_opacity, set_interface, set_pill_always_on_top,
+    set_pill_opacity, SharedMonitorState,
 };
 use std::sync::Mutex;
 use tauri::{
@@ -27,6 +28,8 @@ fn main() {
             get_interfaces,
             set_interface,
             reset_peaks,
+            set_compact_always_on_top,
+            set_compact_opacity,
             set_pill_always_on_top,
             set_pill_opacity,
         ])
@@ -34,9 +37,33 @@ fn main() {
             let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
             let show_pill = MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
             let hide_pill = MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
+            let show_compact = MenuItem::with_id(
+                app,
+                "show_compact",
+                "Show compact widget",
+                true,
+                None::<&str>,
+            )?;
+            let hide_compact = MenuItem::with_id(
+                app,
+                "hide_compact",
+                "Hide compact widget",
+                true,
+                None::<&str>,
+            )?;
             let dashboard =
                 MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&dashboard, &show_pill, &hide_pill, &quit])?;
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &dashboard,
+                    &show_pill,
+                    &hide_pill,
+                    &show_compact,
+                    &hide_compact,
+                    &quit,
+                ],
+            )?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -50,6 +77,17 @@ fn main() {
                     }
                     "hide_pill" => {
                         if let Some(w) = app.get_webview_window("pill") {
+                            let _ = w.hide();
+                        }
+                    }
+                    "show_compact" => {
+                        if let Some(w) = app.get_webview_window("compact") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "hide_compact" => {
+                        if let Some(w) = app.get_webview_window("compact") {
                             let _ = w.hide();
                         }
                     }
