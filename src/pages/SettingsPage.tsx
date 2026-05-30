@@ -5,6 +5,7 @@ import { useNetworkStore, DisplayUnits } from "../store/networkStore";
 import {
   THEMES,
   LS_COMPACT_MODE,
+  LS_HUD_MODE,
   LS_THEME,
   LS_MODE,
   LS_PILL_MODE,
@@ -13,25 +14,31 @@ import {
   getStoredAccentIndex,
   getStoredColorMode,
   getStoredCompactMode,
+  getStoredHudMode,
   getStoredPillMode,
   ColorMode,
 } from "../utils/theme";
 import {
   getStoredCompactAlwaysOnTop,
+  getStoredHudAlwaysOnTop,
   getStoredPillAlwaysOnTop,
   LS_COMPACT_ALWAYS_ON_TOP,
+  LS_HUD_ALWAYS_ON_TOP,
   LS_PILL_ALWAYS_ON_TOP,
 } from "../utils/windowPrefs";
 import {
   LS_COMPACT_INTERVAL,
+  LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
   getStoredCompactIntervalMs,
+  getStoredHudIntervalMs,
   getStoredPillIntervalMs,
 } from "../utils/polling";
 
 // localStorage keys
 const LS_OPACITY = "fluxnet_opacity";
 const LS_COMPACT_OPACITY = "fluxnet_compact_opacity";
+const LS_HUD_OPACITY = "fluxnet_hud_opacity";
 
 export function SettingsPage() {
   // ── Pill visibility (unchanged — already worked) ──────────
@@ -40,12 +47,18 @@ export function SettingsPage() {
   // ── Compact visibility ───────────────────────────────────
   const [compactVisible, setCompactVisible] = useState(false);
 
+  // ── HUD visibility ───────────────────────────────────────
+  const [hudVisible, setHudVisible] = useState(false);
+
   // ── Always-on-top ─────────────────────────────────────────
   const [alwaysOnTop, setAlwaysOnTop] = useState(() =>
     getStoredPillAlwaysOnTop(),
   );
   const [compactAlwaysOnTop, setCompactAlwaysOnTop] = useState(() =>
     getStoredCompactAlwaysOnTop(),
+  );
+  const [hudAlwaysOnTop, setHudAlwaysOnTop] = useState(() =>
+    getStoredHudAlwaysOnTop(),
   );
 
   // ── Opacity ───────────────────────────────────────────────
@@ -55,6 +68,10 @@ export function SettingsPage() {
   });
   const [compactOpacity, setCompactOpacity] = useState(() => {
     const saved = localStorage.getItem(LS_COMPACT_OPACITY);
+    return saved ? Number(saved) : 88;
+  });
+  const [hudOpacity, setHudOpacity] = useState(() => {
+    const saved = localStorage.getItem(LS_HUD_OPACITY);
     return saved ? Number(saved) : 88;
   });
 
@@ -89,6 +106,9 @@ export function SettingsPage() {
   const [compactColorMode, setCompactColorMode] = useState<ColorMode>(() =>
     getStoredCompactMode(),
   );
+  const [hudColorMode, setHudColorMode] = useState<ColorMode>(() =>
+    getStoredHudMode(),
+  );
 
   const [pillIntervalMs, setPillIntervalMs] = useState(() =>
     getStoredPillIntervalMs(),
@@ -96,6 +116,9 @@ export function SettingsPage() {
 
   const [compactIntervalMs, setCompactIntervalMs] = useState(() =>
     getStoredCompactIntervalMs(),
+  );
+  const [hudIntervalMs, setHudIntervalMs] = useState(() =>
+    getStoredHudIntervalMs(),
   );
 
   // ── Sync pill visibility on mount ─────────────────────────
@@ -124,6 +147,19 @@ export function SettingsPage() {
     })();
   }, []);
 
+  // ── Sync HUD visibility on mount ─────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const hud = await WebviewWindow.getByLabel("hud");
+        if (!hud) return;
+        setHudVisible(await hud.isVisible());
+      } catch (err) {
+        console.warn("hud window check failed:", err);
+      }
+    })();
+  }, []);
+
   // Apply accent + color mode when they change
   useEffect(() => {
     const swatch = THEMES[selectedTheme] ?? THEMES[0];
@@ -141,6 +177,10 @@ export function SettingsPage() {
   useEffect(() => {
     localStorage.setItem(LS_COMPACT_ALWAYS_ON_TOP, String(compactAlwaysOnTop));
   }, [compactAlwaysOnTop]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_HUD_ALWAYS_ON_TOP, String(hudAlwaysOnTop));
+  }, [hudAlwaysOnTop]);
 
   // ── Handlers ──────────────────────────────────────────────
 
@@ -168,6 +208,18 @@ export function SettingsPage() {
     }
   };
 
+  const toggleHud = async () => {
+    try {
+      const hud = await WebviewWindow.getByLabel("hud");
+      if (!hud) return;
+      if (hudVisible) await hud.hide();
+      else await hud.show();
+      setHudVisible((v) => !v);
+    } catch (err) {
+      console.error("hud toggle failed:", err);
+    }
+  };
+
   const handleAlwaysOnTop = async (value: boolean) => {
     setAlwaysOnTop(value);
     localStorage.setItem(LS_PILL_ALWAYS_ON_TOP, String(value));
@@ -188,6 +240,16 @@ export function SettingsPage() {
     }
   };
 
+  const handleHudAlwaysOnTop = async (value: boolean) => {
+    setHudAlwaysOnTop(value);
+    localStorage.setItem(LS_HUD_ALWAYS_ON_TOP, String(value));
+    try {
+      await invoke("set_hud_always_on_top", { value });
+    } catch (err) {
+      console.error("set_hud_always_on_top failed:", err);
+    }
+  };
+
   const handleOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_OPACITY, String(value));
     try {
@@ -203,6 +265,15 @@ export function SettingsPage() {
       await invoke("set_compact_opacity", { value: value / 100 });
     } catch (err) {
       console.error("set_compact_opacity failed:", err);
+    }
+  };
+
+  const handleHudOpacityCommit = async (value: number) => {
+    localStorage.setItem(LS_HUD_OPACITY, String(value));
+    try {
+      await invoke("set_hud_opacity", { value: value / 100 });
+    } catch (err) {
+      console.error("set_hud_opacity failed:", err);
     }
   };
 
@@ -246,6 +317,11 @@ export function SettingsPage() {
     localStorage.setItem(LS_COMPACT_MODE, mode);
   };
 
+  const handleHudColorMode = (mode: ColorMode) => {
+    setHudColorMode(mode);
+    localStorage.setItem(LS_HUD_MODE, mode);
+  };
+
   const handlePillInterval = (raw: string) => {
     const secs = parseFloat(raw);
     const next = secs * 1000;
@@ -258,6 +334,13 @@ export function SettingsPage() {
     const next = secs * 1000;
     setCompactIntervalMs(next);
     localStorage.setItem(LS_COMPACT_INTERVAL, String(next));
+  };
+
+  const handleHudInterval = (raw: string) => {
+    const secs = parseFloat(raw);
+    const next = secs * 1000;
+    setHudIntervalMs(next);
+    localStorage.setItem(LS_HUD_INTERVAL, String(next));
   };
 
   // ── Render ────────────────────────────────────────────────
@@ -367,6 +450,107 @@ export function SettingsPage() {
               }
               onTouchEnd={(e) =>
                 handleOpacityCommit(
+                  Number((e.target as HTMLInputElement).value),
+                )
+              }
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* HUD widget section */}
+      <div className="settings-section">
+        <div className="settings-section-title">HUD Widget</div>
+        <div className="settings-card">
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">HUD widget</div>
+              <div className="settings-sub">Show or hide the HUD widget</div>
+            </div>
+            <div
+              className={`toggle ${hudVisible ? "on" : "off"}`}
+              onClick={toggleHud}
+              role="switch"
+              aria-checked={hudVisible}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Always on top</div>
+              <div className="settings-sub">
+                Float the HUD widget above all windows
+              </div>
+            </div>
+            <div
+              className={`toggle ${hudAlwaysOnTop ? "on" : "off"}`}
+              onClick={() => handleHudAlwaysOnTop(!hudAlwaysOnTop)}
+              role="switch"
+              aria-checked={hudAlwaysOnTop}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">HUD dark mode</div>
+              <div className="settings-sub">
+                Use a dark theme for the HUD widget
+              </div>
+            </div>
+            <div
+              className={`toggle ${hudColorMode === "dark" ? "on" : "off"}`}
+              onClick={() =>
+                handleHudColorMode(hudColorMode === "dark" ? "light" : "dark")
+              }
+              role="switch"
+              aria-checked={hudColorMode === "dark"}
+            >
+              <div className="toggle-thumb" />
+            </div>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Widget refresh interval</div>
+              <div className="settings-sub">
+                How often the HUD widget updates
+              </div>
+            </div>
+            <select
+              className="fn-select"
+              value={String(hudIntervalMs / 1000)}
+              onChange={(e) => handleHudInterval(e.target.value)}
+            >
+              <option value="0.5">0.5 seconds</option>
+              <option value="1">1 second</option>
+              <option value="2">2 seconds</option>
+              <option value="5">5 seconds</option>
+            </select>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Widget opacity</div>
+              <div className="settings-sub">{hudOpacity}%</div>
+            </div>
+            <input
+              type="range"
+              className="fn-slider"
+              min={40}
+              max={100}
+              value={hudOpacity}
+              onChange={(e) => setHudOpacity(Number(e.target.value))}
+              onMouseUp={(e) =>
+                handleHudOpacityCommit(
+                  Number((e.target as HTMLInputElement).value),
+                )
+              }
+              onTouchEnd={(e) =>
+                handleHudOpacityCommit(
                   Number((e.target as HTMLInputElement).value),
                 )
               }

@@ -60,6 +60,27 @@
         "y": 40,
         "visible": false,
         "url": "index.html"
+      },
+      {
+        "label": "hud",
+        "title": "FluxNet HUD",
+        "width": 240,
+        "height": 190,
+        "minWidth": 240,
+        "minHeight": 190,
+        "maxWidth": 240,
+        "maxHeight": 190,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "dragDropEnabled": false,
+        "x": 40,
+        "y": 280,
+        "visible": false,
+        "url": "index.html"
       }
     ],
     "trayIcon": {
