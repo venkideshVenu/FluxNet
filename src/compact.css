@@ -1,0 +1,193 @@
+/* ── Root transparency so the card floats ── */
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+html, body {
+  background: transparent;
+  overflow: hidden;
+  width: 200px;
+  height: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Card shell ── */
+.cw-root {
+  width: 184px;
+  background: #FFFFFF;
+  border-radius: 18px;
+  padding: 14px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-shadow: 0 4px 24px rgba(100, 90, 200, 0.10), 0 1px 4px rgba(100, 90, 200, 0.06);
+  cursor: default;
+}
+
+/* ── Dark mode card ── */
+:root.dark .cw-root {
+  background: #1A1730;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3);
+  border: 0.5px solid #2A2650;
+}
+
+/* ── Header ── */
+.cw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cw-brand {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9995CC;
+}
+
+:root.dark .cw-brand { color: #5B5890; }
+
+/* Drag handle — short horizontal bar top-right */
+.cw-drag-handle {
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: #E0DEF5;
+  cursor: grab;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.cw-drag-handle:hover  { background: #C8C5F5; }
+.cw-drag-handle:active { cursor: grabbing; background: #7C6FF7; }
+
+:root.dark .cw-drag-handle        { background: #2E2B50; }
+:root.dark .cw-drag-handle:hover  { background: #3D3A70; }
+:root.dark .cw-drag-handle:active { background: #7C6FF7; }
+
+/* ── Speed rows ── */
+.cw-speeds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.cw-speed-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.cw-num {
+  font-size: 28px;
+  font-weight: 400;
+  color: #1A1830;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  min-width: 54px;
+  text-align: right;
+}
+
+:root.dark .cw-num { color: #EAE9FF; }
+
+.cw-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: #9995CC;
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 3px;
+}
+
+:root.dark .cw-unit { color: #5B5890; }
+
+/* ── Meta row ── */
+.cw-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.cw-iface-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #5B54C4;
+  background: #EEEDFE;
+  border-radius: 99px;
+  padding: 3px 9px;
+}
+
+:root.dark .cw-iface-pill {
+  background: #1E1C3A;
+  color: #B0AAFF;
+}
+
+.cw-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.cw-live-dot.live {
+  background: #22C97A;
+  box-shadow: 0 0 4px rgba(34, 201, 122, 0.5);
+}
+
+.cw-live-dot.dead { background: #C8C5F5; }
+
+:root.dark .cw-live-dot.dead { background: #2E2B50; }
+
+.cw-interval {
+  font-size: 11px;
+  color: #C8C5F5;
+}
+
+:root.dark .cw-interval { color: #3D3A70; }
+
+/* ── Bar chart ── */
+.cw-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  height: 32px;
+}
+
+.cw-bar-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 1;
+}
+
+.cw-bar-gap { width: 8px; flex-shrink: 0; }
+
+.cw-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.3s ease;
+  min-width: 0;
+}
+
+.cw-bar.up { background: #22C97A; opacity: 0.85; }
+.cw-bar.dn { background: #4FBBF7; opacity: 0.85; }
+
+:root.dark .cw-bar.up { opacity: 0.9; }
+:root.dark .cw-bar.dn { opacity: 0.9; }
