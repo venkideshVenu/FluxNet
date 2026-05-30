@@ -8,6 +8,7 @@ use commands::network::{
     set_compact_always_on_top, set_compact_opacity, set_interface, set_pill_always_on_top,
     set_pill_opacity, SharedMonitorState,
 };
+use commands::ping::{get_ping_stats, SharedPingState};
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -22,6 +23,7 @@ fn main() {
             None,
         ))
         .manage(Mutex::new(commands::network::MonitorState::default()) as SharedMonitorState)
+        .manage(Mutex::new(commands::ping::PingState::default()) as SharedPingState)
         .invoke_handler(tauri::generate_handler![
             get_network_stats,
             get_dashboard_snapshot,
@@ -32,6 +34,7 @@ fn main() {
             set_compact_opacity,
             set_pill_always_on_top,
             set_pill_opacity,
+            get_ping_stats,
         ])
         .setup(|app| {
             let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
