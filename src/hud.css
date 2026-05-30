@@ -1,0 +1,193 @@
+/* ── CSS variables ── */
+:root {
+  --hud-bg-outer: #0c0b18;
+  --hud-bg-card: #13111f;
+  --hud-border: rgba(90, 80, 180, 0.35);
+  --hud-rule: rgba(90, 80, 180, 0.18);
+  --hud-brand: rgba(160, 150, 220, 0.55);
+  --hud-label: rgba(140, 130, 200, 0.6);
+  --hud-up: #22c97a;
+  --hud-dn: #4fbbf7;
+  --hud-amber: #f59e0b;
+  --hud-danger: #ef4444;
+  --hud-neutral: #eae9ff;
+  --hud-muted: rgba(234, 233, 255, 0.35);
+  --hud-dot-live: #22c97a;
+  --hud-dot-dead: rgba(90, 80, 180, 0.4);
+  --hud-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html,
+body {
+  width: 290px;
+  height: 250px;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--hud-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Outer wrapper (transparent — shows desktop) ── */
+.hud-root {
+  width: 274px;
+  height: 236px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Card ── */
+.hud-card {
+  width: 100%;
+  height: 100%;
+  background: var(--hud-bg-card);
+  border: 1px solid var(--hud-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.hud-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px 12px;
+  cursor: grab;
+}
+
+.hud-header:active {
+  cursor: grabbing;
+}
+
+.hud-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.hud-live-dot.live {
+  background: var(--hud-dot-live);
+  box-shadow: 0 0 6px rgba(34, 201, 122, 0.5);
+  animation: hud-pulse 2.5s ease-in-out infinite;
+}
+
+.hud-live-dot.dead {
+  background: var(--hud-dot-dead);
+}
+
+@keyframes hud-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(34, 201, 122, 0.5);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 2px rgba(34, 201, 122, 0.2);
+  }
+}
+
+.hud-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--hud-brand);
+  text-transform: uppercase;
+}
+
+/* ── Divider rule ── */
+.hud-rule {
+  height: 1px;
+  background: var(--hud-rule);
+  flex-shrink: 0;
+}
+
+/* ── Row groups ── */
+.hud-rows {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  flex: 1;
+}
+
+/* ── Individual row ── */
+.hud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 16px;
+  flex: 1;
+}
+
+/* ── Label (left side) ── */
+.hud-row-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hud-label);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hud-arrow {
+  opacity: 0.7;
+  font-size: 10px;
+}
+
+/* ── Value (right side) ── */
+.hud-row-value {
+  font-size: 22px;
+  font-weight: 500;
+  font-family: var(--hud-font);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 100px;
+  justify-content: flex-end;
+}
+
+.hud-row-value.up {
+  color: var(--hud-up);
+}
+.hud-row-value.dn {
+  color: var(--hud-dn);
+}
+.hud-row-value.loss {
+  color: var(--hud-neutral);
+}
+
+.hud-unit {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+  letter-spacing: 0;
+}
