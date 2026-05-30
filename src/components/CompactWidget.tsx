@@ -1,36 +1,23 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
+import { formatBytes, formatSpeed } from "../utils/formatSpeed";
 import {
   getStoredCompactIntervalMs,
   LS_COMPACT_INTERVAL,
 } from "../utils/polling";
 
-// Generate bar heights for the mini chart
-// Takes the last N history points and normalises to max bar height
-function buildBars(values: number[], count: number, maxHeight: number): number[] {
-  const slice = values.slice(-count);
-  const max = Math.max(...slice, 1);
-  return Array.from({ length: count }, (_, i) => {
-    const v = slice[i] ?? 0;
-    return Math.max(3, Math.round((v / max) * maxHeight));
-  });
-}
-
 export function CompactWidget() {
-  const { data, isConnected, history } = useNetworkStore();
+  const { data, isConnected, todayDownloadBytes, todayUploadBytes } =
+    useNetworkStore();
   const [intervalMs, setIntervalMs] = useState(() =>
     getStoredCompactIntervalMs(),
   );
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
-
-  const upValues  = history.map((p) => p.upload);
-  const dnValues  = history.map((p) => p.download);
-  const upBars    = buildBars(upValues, 8, 28);
-  const dnBars    = buildBars(dnValues, 8, 28);
+  const upToday = formatBytes(todayUploadBytes);
+  const dnToday = formatBytes(todayDownloadBytes);
 
   const handleDrag = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,7 +41,6 @@ export function CompactWidget() {
 
   return (
     <div className="cw-root" role="status">
-
       {/* ── Header ── */}
       <div className="cw-header">
         <span className="cw-brand">FluxNet</span>
@@ -66,47 +52,67 @@ export function CompactWidget() {
         />
       </div>
 
+      {/* ── Status row ── */}
+      <div className="cw-status-row">
+        <div className="cw-iface">
+          <span className="cw-iface-name">{data.interfaceName || "—"}</span>
+          <span className="cw-iface-sub">
+            {isConnected ? "Connected" : "No signal"}
+          </span>
+        </div>
+        <div className="cw-status-right">
+          <span className="cw-status-pill">
+            <span className={`cw-live-dot ${isConnected ? "live" : "dead"}`} />
+            {isConnected ? "Live" : "Offline"}
+          </span>
+          <span className="cw-interval">{intervalLabel}</span>
+        </div>
+      </div>
+
+      <div className="cw-divider" aria-hidden="true" />
+
       {/* ── Speed rows ── */}
       <div className="cw-speeds">
         <div className="cw-speed-row">
-          <span className="cw-num">{up.value}</span>
-          <span className="cw-unit">{up.unit}</span>
+          <span className="cw-speed-label">
+            <span className="cw-dir dn" aria-hidden="true" />
+            Download
+          </span>
+          <span className="cw-speed-value">
+            <span className="cw-num">{dn.value}</span>
+            <span className="cw-unit">{dn.unit}</span>
+          </span>
         </div>
         <div className="cw-speed-row">
-          <span className="cw-num">{dn.value}</span>
-          <span className="cw-unit">{dn.unit}</span>
+          <span className="cw-speed-label">
+            <span className="cw-dir up" aria-hidden="true" />
+            Upload
+          </span>
+          <span className="cw-speed-value">
+            <span className="cw-num">{up.value}</span>
+            <span className="cw-unit">{up.unit}</span>
+          </span>
         </div>
       </div>
 
-      {/* ── Interface + interval row ── */}
-      <div className="cw-meta-row">
-        <span className="cw-iface-pill">
-          <span className={`cw-live-dot ${isConnected ? "live" : "dead"}`} />
-          {data.interfaceName || "—"}
+      <div className="cw-divider" aria-hidden="true" />
+
+      {/* ── Today totals ── */}
+      <div className="cw-today-row">
+        <span className="cw-today-label">Today</span>
+        <span className="cw-today-values">
+          <span className="cw-today-item">
+            <span className="cw-dir dn" aria-hidden="true" />
+            <span className="cw-today-num">{dnToday.value}</span>
+            <span className="cw-today-unit">{dnToday.unit}</span>
+          </span>
+          <span className="cw-today-item">
+            <span className="cw-dir up" aria-hidden="true" />
+            <span className="cw-today-num">{upToday.value}</span>
+            <span className="cw-today-unit">{upToday.unit}</span>
+          </span>
         </span>
-        <span className="cw-interval">{intervalLabel}</span>
       </div>
-
-      {/* ── Mini bar chart ── */}
-      <div className="cw-chart">
-        {/* Upload bars — green, left group */}
-        <div className="cw-bar-group">
-          {upBars.map((h, i) => (
-            <div key={i} className="cw-bar up" style={{ height: `${h}px` }} />
-          ))}
-        </div>
-
-        {/* Gap between groups */}
-        <div className="cw-bar-gap" />
-
-        {/* Download bars — blue, right group */}
-        <div className="cw-bar-group">
-          {dnBars.map((h, i) => (
-            <div key={i} className="cw-bar dn" style={{ height: `${h}px` }} />
-          ))}
-        </div>
-      </div>
-
     </div>
   );
 }

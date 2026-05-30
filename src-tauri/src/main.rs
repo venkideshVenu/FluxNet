@@ -4,8 +4,8 @@ mod commands;
 mod monitor;
 
 use commands::network::{
-    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
-    set_compact_always_on_top, set_compact_opacity, set_pill_always_on_top,
+    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
+    set_compact_always_on_top, set_compact_opacity, set_interface, set_pill_always_on_top,
     set_pill_opacity, SharedMonitorState,
 };
 use std::sync::Mutex;
