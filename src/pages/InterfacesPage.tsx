@@ -4,7 +4,34 @@ import { useNetworkStore } from "../store/networkStore";
 
 type InterfaceInfo = {
   name: string;
+  description: string;
+  ifIndex: number;
   status: string;
+  mac: string;
+  linkSpeedBps: number;
+};
+
+const formatLinkSpeed = (bps: number) => {
+  if (!bps || bps <= 0) {
+    return "0 bps";
+  }
+
+  const units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"];
+  let value = bps;
+  let i = 0;
+
+  while (value >= 1000 && i < units.length - 1) {
+    value /= 1000;
+    i += 1;
+  }
+
+  const rounded =
+    value >= 100
+      ? value.toFixed(0)
+      : value >= 10
+        ? value.toFixed(1)
+        : value.toFixed(2);
+  return `${rounded} ${units[i]}`;
 };
 
 export function InterfacesPage() {
@@ -52,39 +79,56 @@ export function InterfacesPage() {
               const isActive = iface.name === data.interfaceName;
               const isPending = selecting === iface.name;
               const statusLower = iface.status.toLowerCase();
-              const isDisconnected = statusLower === "disconnected";
-              const isSelectable = !isDisconnected;
+              const isUp = statusLower === "up";
+              const isSelectable = isUp;
               const statusLabel = iface.status || "Unknown";
               const badgeLabel = isPending
                 ? "Switching…"
                 : isActive
                   ? "Active"
                   : statusLabel;
+              const badgeClass = isActive
+                ? "active"
+                : isPending
+                  ? "selected"
+                  : isUp
+                    ? "connected"
+                    : "disconnected";
+              const linkSpeedLabel = formatLinkSpeed(iface.linkSpeedBps);
+              const macLabel = iface.mac || "—";
 
               return (
                 <div
                   key={iface.name}
-                  className="iface-row"
+                  className={`iface-row ${isSelectable ? "" : "disabled"}`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
                   }
-                  style={{
-                    cursor: isSelectable ? "pointer" : "default",
-                    opacity: isSelectable ? 1 : 0.5,
-                  }}
+                  aria-disabled={!isSelectable}
                 >
                   <div
-                    className={`iface-icon ${!isActive && !isPending ? "inactive" : ""}`}
+                    className={`iface-icon ${isUp ? "up" : "down"} ${!isActive && !isPending ? "inactive" : ""}`}
                   >
-                    {statusLower === "up" ? "⌘" : "◌"}
+                    {isUp ? "⌘" : "◌"}
                   </div>
-                  <div>
+                  <div className="iface-main">
                     <div className="iface-name">{iface.name}</div>
-                    <div className="iface-addr">{statusLabel}</div>
+                    <div className="iface-addr">{iface.description || "—"}</div>
+                    <div className="iface-meta">
+                      IF {iface.ifIndex} · {macLabel}
+                    </div>
                   </div>
-                  <span
-                    className={`iface-badge ${isActive ? "active" : isPending ? "selected" : "idle"}`}
-                  >
+                  <div className="iface-details">
+                    <div className="iface-stat">
+                      <div className="iface-stat-label">Link</div>
+                      <div className="iface-stat-value">{linkSpeedLabel}</div>
+                    </div>
+                    <div className="iface-stat">
+                      <div className="iface-stat-label">Status</div>
+                      <div className="iface-stat-value">{statusLabel}</div>
+                    </div>
+                  </div>
+                  <span className={`iface-badge ${badgeClass}`}>
                     {badgeLabel}
                   </span>
                 </div>

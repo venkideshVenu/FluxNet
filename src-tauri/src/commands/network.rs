@@ -1,12 +1,19 @@
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
-use serde_json::Value;
-use std::process::Command;
+use std::ffi::CStr;
 use std::sync::Mutex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
+use windows::core::{PSTR, PWSTR};
+use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, NO_ERROR};
+use windows::Win32::NetworkManagement::IpHelper::{
+    GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_SOFTWARE_LOOPBACK,
+    IP_ADAPTER_ADDRESSES_LH,
+};
+use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
+use windows::Win32::Networking::WinSock::AF_UNSPEC;
 
 pub struct HistoryPoint {
     pub upload: f64,
@@ -14,10 +21,15 @@ pub struct HistoryPoint {
     pub timestamp_secs: u64,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct InterfaceInfo {
     pub name: String,
+    pub description: String,
+    pub if_index: u32,
     pub status: String,
+    pub mac: String,
+    pub link_speed_bps: u64,
 }
 
 pub struct MonitorState {
@@ -30,6 +42,8 @@ pub struct MonitorState {
     pub peak_download: f64,
     pub history: Vec<HistoryPoint>, // ring buffer, max 120 points
     pub start_time: Instant,
+    pub interfaces_cache: Vec<InterfaceInfo>,
+    pub interfaces_cache_at: Option<Instant>,
 }
 
 impl Default for MonitorState {
@@ -44,6 +58,8 @@ impl Default for MonitorState {
             peak_download: 0.0,
             history: Vec::with_capacity(120),
             start_time: Instant::now(),
+            interfaces_cache: Vec::new(),
+            interfaces_cache_at: None,
         }
     }
 }
@@ -178,30 +194,77 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
 }
 
 #[tauri::command]
-pub fn get_interfaces(_state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
-    let output = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-Command",
-            "Get-NetAdapter | Select-Object Name, Status | ConvertTo-Json",
-        ])
-        .output();
+pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
+    {
+        let s = state.lock().unwrap();
+        if let Some(at) = s.interfaces_cache_at {
+            if at.elapsed() < Duration::from_secs(10) {
+                return s.interfaces_cache.clone();
+            }
+        }
+    }
 
+    let interfaces = read_interfaces_from_windows();
+
+    let mut s = state.lock().unwrap();
+    s.interfaces_cache = interfaces.clone();
+    s.interfaces_cache_at = Some(Instant::now());
+
+    interfaces
+}
+
+fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
     let mut interfaces = Vec::new();
 
-    let Ok(output) = output else {
-        return interfaces;
+    let mut buf_len: u32 = 0;
+    let mut ret = unsafe {
+        GetAdaptersAddresses(
+            AF_UNSPEC.0 as u32,
+            GAA_FLAG_INCLUDE_ALL_INTERFACES,
+            None,
+            None,
+            &mut buf_len,
+        )
     };
 
-    let json = String::from_utf8_lossy(&output.stdout);
-    let Ok(parsed) = serde_json::from_str::<Value>(&json) else {
+    if ret != ERROR_BUFFER_OVERFLOW.0 && ret != NO_ERROR.0 {
         return interfaces;
+    }
+
+    if buf_len == 0 {
+        return interfaces;
+    }
+
+    let mut buffer = vec![0u8; buf_len as usize];
+    let adapter_ptr = buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH;
+
+    ret = unsafe {
+        GetAdaptersAddresses(
+            AF_UNSPEC.0 as u32,
+            GAA_FLAG_INCLUDE_ALL_INTERFACES,
+            None,
+            Some(adapter_ptr),
+            &mut buf_len,
+        )
     };
 
-    let mut push_iface = |item: &Value, list: &mut Vec<InterfaceInfo>| {
-        let name = item["Name"].as_str().unwrap_or("").to_string();
+    if ret != NO_ERROR.0 {
+        return interfaces;
+    }
+
+    let mut current = adapter_ptr;
+    while !current.is_null() {
+        let adapter = unsafe { &*current };
+
+        if adapter.IfType == IF_TYPE_SOFTWARE_LOOPBACK {
+            current = adapter.Next;
+            continue;
+        }
+
+        let name = pwstr_to_string(adapter.FriendlyName);
         if name.is_empty() {
-            return;
+            current = adapter.Next;
+            continue;
         }
 
         let lower = name.to_lowercase();
@@ -209,22 +272,83 @@ pub fn get_interfaces(_state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
             || lower.contains("wi-fi direct")
             || lower.contains("wifi direct")
         {
-            return;
+            current = adapter.Next;
+            continue;
         }
 
-        let status = item["Status"].as_str().unwrap_or("").to_string();
-        list.push(InterfaceInfo { name, status });
-    };
+        let description = pwstr_to_string(adapter.Description);
+        let if_index = unsafe { adapter.Anonymous1.Anonymous.IfIndex };
+        let status = oper_status_to_string(adapter.OperStatus);
+        let mac = format_mac(&adapter.PhysicalAddress, adapter.PhysicalAddressLength);
+        let link_speed_bps = adapter.TransmitLinkSpeed.max(adapter.ReceiveLinkSpeed);
 
-    if let Some(arr) = parsed.as_array() {
-        for item in arr {
-            push_iface(item, &mut interfaces);
-        }
-    } else if parsed.is_object() {
-        push_iface(&parsed, &mut interfaces);
+        interfaces.push(InterfaceInfo {
+            name,
+            description,
+            if_index,
+            status,
+            mac,
+            link_speed_bps,
+        });
+
+        current = adapter.Next;
     }
 
     interfaces
+}
+
+fn pwstr_to_string(p: PWSTR) -> String {
+    if p.0.is_null() {
+        return String::new();
+    }
+
+    unsafe {
+        let mut len = 0;
+        while *p.0.add(len) != 0 {
+            len += 1;
+        }
+        let slice = std::slice::from_raw_parts(p.0, len);
+        String::from_utf16_lossy(slice)
+    }
+}
+
+fn pstr_to_string(p: PSTR) -> String {
+    if p.0.is_null() {
+        return String::new();
+    }
+
+    unsafe {
+        CStr::from_ptr(p.0 as *const i8)
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+
+fn oper_status_to_string(status: IF_OPER_STATUS) -> String {
+    match status.0 {
+        1 => "Up",
+        2 => "Disconnected",
+        3 => "Testing",
+        4 => "Unknown",
+        5 => "Dormant",
+        6 => "Not Present",
+        7 => "Lower Layer Down",
+        _ => "Unknown",
+    }
+    .to_string()
+}
+
+fn format_mac(bytes: &[u8; 8], len: u32) -> String {
+    let len = len.min(8) as usize;
+    if len == 0 {
+        return String::new();
+    }
+
+    bytes[..len]
+        .iter()
+        .map(|b| format!("{:02X}", b))
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 #[tauri::command]
