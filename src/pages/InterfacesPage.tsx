@@ -38,6 +38,7 @@ export function InterfacesPage() {
   const { data } = useNetworkStore();
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selecting, setSelecting] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "up" | "down">("all");
 
   useEffect(() => {
     invoke<InterfaceInfo[]>("get_interfaces")
@@ -56,6 +57,20 @@ export function InterfacesPage() {
     }
   };
 
+  const totalCount = interfaces.length;
+  const upCount = interfaces.filter(
+    (iface) => iface.status.toLowerCase() === "up",
+  ).length;
+  const downCount = totalCount - upCount;
+
+  const visibleInterfaces = interfaces.filter((iface) => {
+    if (filter === "all") {
+      return true;
+    }
+    const isUp = iface.status.toLowerCase() === "up";
+    return filter === "up" ? isUp : !isUp;
+  });
+
   return (
     <div className="page">
       <div className="page-header">
@@ -67,15 +82,57 @@ export function InterfacesPage() {
         </div>
       </div>
 
+      <div className="iface-hero">
+        <div className="iface-hero-card">
+          <div className="iface-hero-title">Active Interface</div>
+          <div className="iface-hero-value">
+            {data.interfaceName || "No active interface"}
+          </div>
+          <div className="iface-hero-meta">
+            {upCount} up · {downCount} down · {totalCount} total
+          </div>
+        </div>
+        <div className="iface-hero-card iface-hero-actions">
+          <div className="iface-hero-title">Filter</div>
+          <div className="iface-chips">
+            <button
+              className={`iface-chip ${filter === "all" ? "active" : ""}`}
+              onClick={() => setFilter("all")}
+              type="button"
+            >
+              All ({totalCount})
+            </button>
+            <button
+              className={`iface-chip ${filter === "up" ? "active" : ""}`}
+              onClick={() => setFilter("up")}
+              type="button"
+            >
+              Up ({upCount})
+            </button>
+            <button
+              className={`iface-chip ${filter === "down" ? "active" : ""}`}
+              onClick={() => setFilter("down")}
+              type="button"
+            >
+              Down ({downCount})
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="chart-card">
-        {interfaces.length === 0 ? (
+        {visibleInterfaces.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">⚡</div>
-            <div className="empty-state-text">Loading interfaces…</div>
+            <div className="empty-state-text">
+              {interfaces.length === 0
+                ? "Loading interfaces…"
+                : "No interfaces match this filter."}
+            </div>
           </div>
         ) : (
           <div className="iface-list">
-            {interfaces.map((iface) => {
+            {visibleInterfaces.map((iface) => {
               const isActive = iface.name === data.interfaceName;
               const isPending = selecting === iface.name;
               const statusLower = iface.status.toLowerCase();
@@ -100,7 +157,7 @@ export function InterfacesPage() {
               return (
                 <div
                   key={iface.name}
-                  className={`iface-row ${isSelectable ? "" : "disabled"}`}
+                  className={`iface-row ${isSelectable ? "" : "disabled"} ${isActive ? "highlight" : ""}`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
                   }
@@ -112,8 +169,12 @@ export function InterfacesPage() {
                     {isUp ? "⌘" : "◌"}
                   </div>
                   <div className="iface-main">
-                    <div className="iface-name">{iface.name}</div>
-                    <div className="iface-addr">{iface.description || "—"}</div>
+                    <div className="iface-name" title={iface.name}>
+                      {iface.name}
+                    </div>
+                    <div className="iface-addr" title={iface.description || ""}>
+                      {iface.description || "—"}
+                    </div>
                     <div className="iface-meta">
                       IF {iface.ifIndex} · {macLabel}
                     </div>

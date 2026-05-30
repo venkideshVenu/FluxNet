@@ -9,8 +9,8 @@ use tauri::{AppHandle, Manager, State};
 use windows::core::{PSTR, PWSTR};
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
-    GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_SOFTWARE_LOOPBACK,
-    IP_ADAPTER_ADDRESSES_LH,
+    GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_ETHERNET_CSMACD,
+    IF_TYPE_IEEE80211, IF_TYPE_SOFTWARE_LOOPBACK, IP_ADAPTER_ADDRESSES_LH,
 };
 use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
@@ -267,16 +267,38 @@ fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
             continue;
         }
 
-        let lower = name.to_lowercase();
-        if lower.contains("local area connection*")
-            || lower.contains("wi-fi direct")
-            || lower.contains("wifi direct")
+        let description = pwstr_to_string(adapter.Description);
+        let name_lower = name.to_lowercase();
+        let desc_lower = description.to_lowercase();
+        if name_lower.contains("local area connection*")
+            || name_lower.contains("wi-fi direct")
+            || name_lower.contains("wifi direct")
+            || name_lower.contains("kernel debugger")
+            || name_lower.contains("native wifi filter")
+            || name_lower.contains("filter driver")
+            || desc_lower.contains("kernel debug")
+            || desc_lower.contains("lightweight filter")
+            || desc_lower.contains("wfp")
+            || desc_lower.contains("virtual")
+            || desc_lower.contains("qos")
+            || desc_lower.contains("ndis")
+            || desc_lower.contains("packet scheduler")
+            || desc_lower.contains("filter driver")
+            || desc_lower.contains("native wifi filter")
+            || desc_lower.contains("tunnel")
+            || desc_lower.contains("teredo")
+            || desc_lower.contains("ip-https")
         {
             current = adapter.Next;
             continue;
         }
 
-        let description = pwstr_to_string(adapter.Description);
+        if adapter.IfType != IF_TYPE_IEEE80211 && adapter.IfType != IF_TYPE_ETHERNET_CSMACD {
+            if !name_lower.contains("bluetooth") && !desc_lower.contains("bluetooth") {
+                current = adapter.Next;
+                continue;
+            }
+        }
         let if_index = unsafe { adapter.Anonymous1.Anonymous.IfIndex };
         let status = oper_status_to_string(adapter.OperStatus);
         let mac = format_mac(&adapter.PhysicalAddress, adapter.PhysicalAddressLength);
