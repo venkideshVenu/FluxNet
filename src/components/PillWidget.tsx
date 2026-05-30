@@ -33,7 +33,9 @@ export function PillWidget() {
   return (
     <div
       className="pill-root"
+      onMouseDown={handleDragStart}
       role="status"
+      title="Drag to move"
       aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}`}
     >
       {/* Download — LEFT */}
@@ -54,8 +56,6 @@ export function PillWidget() {
       {/* Drag dot */}
       <div
         className={`pill-live-dot ${isConnected ? "live" : "dead"}`}
-        onMouseDown={handleDragStart}
-        title="Drag to move"
         aria-hidden="true"
       />
     </div>

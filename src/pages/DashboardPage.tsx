@@ -71,21 +71,21 @@ export function DashboardPage() {
       {/* Stat cards */}
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="stat-label">Upload</div>
-          <div className="stat-value">
-            <span className="stat-num">{up.value}</span>
-            <span className="stat-unit">{up.unit}</span>
-          </div>
-          <span className="stat-badge up">↑ Live</span>
-        </div>
-
-        <div className="stat-card">
           <div className="stat-label">Download</div>
           <div className="stat-value">
             <span className="stat-num">{dn.value}</span>
             <span className="stat-unit">{dn.unit}</span>
           </div>
           <span className="stat-badge down">↓ Live</span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Upload</div>
+          <div className="stat-value">
+            <span className="stat-num">{up.value}</span>
+            <span className="stat-unit">{up.unit}</span>
+          </div>
+          <span className="stat-badge up">↑ Live</span>
         </div>
 
         <div className="stat-card">
@@ -136,11 +136,15 @@ export function DashboardPage() {
               />
               <Tooltip
                 contentStyle={{
-                  background: "#fff",
-                  border: "1px solid #ECEAF8",
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 11,
+                  color: "var(--text)",
                 }}
+                labelStyle={{ color: "var(--text-muted)" }}
+                itemStyle={{ color: "var(--text)" }}
+                cursor={{ stroke: "var(--accent-border)", strokeWidth: 1 }}
                 formatter={(val, name) => [
                   `${val ?? 0} MB/s`,
                   name === "upload" ? "Upload" : "Download",

@@ -9,6 +9,8 @@ async function boot() {
   const label = getCurrentWindow().label;
   const Root = label === "pill" ? PillApp : DashboardApp;
 
+  document.documentElement.setAttribute("data-app", label);
+
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <Root />

@@ -38,6 +38,12 @@
 
   overflow: visible;
   box-sizing: border-box;
+
+  cursor: grab;
+}
+
+.pill-root:active {
+  cursor: grabbing;
 }
 
 /* ── Stat Group ── */

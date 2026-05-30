@@ -70,17 +70,17 @@ export function HistoryPage() {
       {/* Summary row */}
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card">
-          <div className="stat-label">Peak upload</div>
-          <div className="stat-value">
-            <span className="stat-num">{pkUp.value}</span>
-            <span className="stat-unit">{pkUp.unit}</span>
-          </div>
-        </div>
-        <div className="stat-card">
           <div className="stat-label">Peak download</div>
           <div className="stat-value">
             <span className="stat-num">{pkDn.value}</span>
             <span className="stat-unit">{pkDn.unit}</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Peak upload</div>
+          <div className="stat-value">
+            <span className="stat-num">{pkUp.value}</span>
+            <span className="stat-unit">{pkUp.unit}</span>
           </div>
         </div>
         <div className="stat-card">
@@ -146,11 +146,15 @@ export function HistoryPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "#fff",
-                      border: "1px solid #ECEAF8",
+                      background: "var(--panel)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 11,
+                      color: "var(--text)",
                     }}
+                    labelStyle={{ color: "var(--text-muted)" }}
+                    itemStyle={{ color: "var(--text)" }}
+                    cursor={{ stroke: "var(--accent-border)", strokeWidth: 1 }}
                     formatter={(val, name) =>
                       typeof val === "number"
                         ? [

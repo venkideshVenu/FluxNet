@@ -48,14 +48,14 @@ body,
   -webkit-user-select: none;
 }
 
-body {
+html[data-app="pill"] body {
   background: transparent;
   overflow: hidden;
   cursor: default;
   display: flex;
 }
 
-#root {
+html[data-app="pill"] #root {
   display: flex;
   align-items: center;
   justify-content: center;
