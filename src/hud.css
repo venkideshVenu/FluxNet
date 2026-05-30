@@ -17,6 +17,23 @@
   --hud-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
+html[data-app="hud"][data-theme="light"] {
+  --hud-bg-outer: #eef3ff;
+  --hud-bg-card: rgba(250, 252, 255, 0.92);
+  --hud-border: rgba(111, 133, 199, 0.4);
+  --hud-rule: rgba(111, 133, 199, 0.2);
+  --hud-brand: rgba(63, 83, 147, 0.72);
+  --hud-label: rgba(77, 100, 163, 0.72);
+  --hud-up: #119a55;
+  --hud-dn: #197db4;
+  --hud-amber: #d97706;
+  --hud-danger: #dc2626;
+  --hud-neutral: #1f2f5f;
+  --hud-muted: rgba(31, 47, 95, 0.35);
+  --hud-dot-live: #119a55;
+  --hud-dot-dead: rgba(111, 133, 199, 0.45);
+}
+
 /* ── Reset ── */
 *,
 *::before,

@@ -4,8 +4,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "../store/networkStore";
 import {
   getStoredCompactIntervalMs,
+  getStoredHudIntervalMs,
   getStoredPillIntervalMs,
   LS_COMPACT_INTERVAL,
+  LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
 } from "../utils/polling";
 
@@ -42,6 +44,9 @@ export function useNetworkPoller() {
   const [compactIntervalMs, setCompactIntervalMs] = useState(() =>
     getStoredCompactIntervalMs(),
   );
+  const [hudIntervalMs, setHudIntervalMs] = useState(() =>
+    getStoredHudIntervalMs(),
+  );
 
   const getDayKey = () => {
     const now = new Date();
@@ -52,11 +57,24 @@ export function useNetworkPoller() {
   };
 
   useEffect(() => {
-    if (windowLabel !== "pill" && windowLabel !== "hud") return;
+    if (windowLabel !== "pill") return;
 
     const sync = () => setPillIntervalMs(getStoredPillIntervalMs());
     const handleStorage = (event: StorageEvent) => {
       if (event.key === LS_PILL_INTERVAL) sync();
+    };
+
+    sync();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [windowLabel]);
+
+  useEffect(() => {
+    if (windowLabel !== "hud") return;
+
+    const sync = () => setHudIntervalMs(getStoredHudIntervalMs());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LS_HUD_INTERVAL) sync();
     };
 
     sync();
@@ -141,11 +159,13 @@ export function useNetworkPoller() {
 
     poll();
     const intervalMs =
-      windowLabel === "pill" || windowLabel === "hud"
+      windowLabel === "pill"
         ? pillIntervalMs
-        : windowLabel === "compact"
-          ? compactIntervalMs
-          : dashboardIntervalMs;
+        : windowLabel === "hud"
+          ? hudIntervalMs
+          : windowLabel === "compact"
+            ? compactIntervalMs
+            : dashboardIntervalMs;
     timerRef.current = setInterval(poll, intervalMs);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -154,6 +174,7 @@ export function useNetworkPoller() {
   }, [
     dashboardIntervalMs,
     compactIntervalMs,
+    hudIntervalMs,
     pillIntervalMs,
     windowLabel,
     addTodayUsage,
