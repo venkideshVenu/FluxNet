@@ -18,6 +18,22 @@
   --pill-text: #1a1830;
 }
 
+html[data-app="pill"] body {
+  background: transparent;
+  overflow: hidden;
+  cursor: default;
+  display: flex;
+}
+
+html[data-app="pill"] #root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
 .pill-root {
   display: inline-flex;
   align-items: center;

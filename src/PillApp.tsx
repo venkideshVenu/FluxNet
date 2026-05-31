@@ -7,7 +7,7 @@ import {
   getStoredPillAlwaysOnTop,
   LS_PILL_ALWAYS_ON_TOP,
 } from "./utils/windowPrefs";
-import "./App.css";
+import "./pill.css";
 
 export default function PillApp() {
   useNetworkPoller();
