@@ -8,7 +8,7 @@ export function GamingHud() {
   // Start ping polling — only runs in this component
   usePingPoller(2000);
 
-  const { data, isConnected } = useNetworkStore();
+  const { data } = useNetworkStore();
   const { stats } = usePingStore();
 
   const up = formatSpeed(data.uploadBytesPerSec);
@@ -39,9 +39,15 @@ export function GamingHud() {
     <div className="hud-root">
       <div className="hud-card">
         {/* ── Header ── */}
-        <div className="hud-header" onMouseDown={handleDrag}>
-          <span className={`hud-live-dot ${isConnected ? "live" : "dead"}`} />
+        <div className="hud-header">
           <span className="hud-title">FLUXNET HUD</span>
+          <button
+            type="button"
+            className="hud-drag-handle"
+            title="Drag to move"
+            aria-label="Drag HUD widget"
+            onMouseDown={handleDrag}
+          />
         </div>
 
         <div className="hud-rule" />
