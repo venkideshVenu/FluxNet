@@ -1,60 +1,139 @@
+import { useEffect, useState } from "react";
 import {
-  AreaChart,
   Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts";
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
+import {
+  fetchDailySummary,
+  fetchHourlySummary,
+  fetchMonthlySummary,
+  fetchUsageStats,
+} from "../hooks/useStorageApi";
+import { formatBytes, formatSpeed } from "../utils/formatSpeed";
+import type {
+  DailyUsage,
+  HourlyUsage,
+  MonthlyUsage,
+  UsageStats,
+} from "../types/persistence";
+
+type Tab = "hourly" | "daily" | "monthly";
+
+type DisplayValue = { value: string; unit: string };
+
+function renderValue(result: DisplayValue) {
+  return `${result.value} ${result.unit}`;
+}
 
 export function HistoryPage() {
-  const { history, peakUpload, peakDownload } = useNetworkStore();
+  const [tab, setTab] = useState<Tab>("daily");
+  const [stats, setStats] = useState<UsageStats | null>(null);
+  const [hourly, setHourly] = useState<HourlyUsage[]>([]);
+  const [daily, setDaily] = useState<DailyUsage[]>([]);
+  const [monthly, setMonthly] = useState<MonthlyUsage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const chartData = history.map((p, i) => ({
-    t: i,
-    upload: +(p.upload / 1_048_576).toFixed(2),
-    download: +(p.download / 1_048_576).toFixed(2),
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        const [nextStats, nextHourly, nextDaily, nextMonthly] =
+          await Promise.all([
+            fetchUsageStats(),
+            fetchHourlySummary(48),
+            fetchDailySummary(30),
+            fetchMonthlySummary(),
+          ]);
+        setStats(nextStats);
+        setHourly(nextHourly);
+        setDaily(nextDaily);
+        setMonthly(nextMonthly);
+        setError(null);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const hourlyChart = [...hourly]
+    .sort((left, right) => left.hourStart - right.hourStart)
+    .map((point) => ({
+      label: new Date(point.hourStart * 1000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      download: point.avgDownloadBps / 1_000_000,
+      upload: point.avgUploadBps / 1_000_000,
+    }));
+
+  const dailyChart = [...daily]
+    .sort((left, right) => left.day.localeCompare(right.day))
+    .map((point) => ({
+      label: point.day.slice(5),
+      download: point.totalDownloadBytes / 1_000_000_000,
+      upload: point.totalUploadBytes / 1_000_000_000,
+    }));
+
+  const sortedMonthly = [...monthly].sort((left, right) =>
+    left.month.localeCompare(right.month),
+  );
+
+  const monthlyChart = sortedMonthly.map((point) => ({
+    label: point.month,
+    download: point.totalDownloadBytes / 1_000_000_000,
+    upload: point.totalUploadBytes / 1_000_000_000,
   }));
 
-  const maxValue = chartData.reduce(
-    (max, point) => Math.max(max, point.upload, point.download),
-    0,
-  );
-  const step =
-    maxValue <= 0.1
-      ? 0.02
-      : maxValue <= 0.5
-        ? 0.1
-        : maxValue <= 1
-          ? 0.2
-          : maxValue <= 2
-            ? 0.5
-            : maxValue <= 5
-              ? 1
-              : maxValue <= 20
-                ? 2
-                : maxValue <= 50
-                  ? 5
-                  : maxValue <= 100
-                    ? 10
-                    : maxValue <= 200
-                      ? 20
-                      : maxValue <= 500
-                        ? 50
-                        : 100;
-  const yMax = Math.max(step, Math.ceil(maxValue / step) * step);
-  const precision = maxValue < 1 ? 2 : maxValue < 10 ? 1 : 0;
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "hourly", label: "Last 48 h" },
+    { id: "daily", label: "Last 30 days" },
+    { id: "monthly", label: "Monthly" },
+  ];
 
-  const avgDownload = history.length
-    ? history.reduce((a, p) => a + p.download, 0) / history.length
-    : 0;
+  const summaryCards = stats
+    ? [
+        {
+          label: "Downloaded today",
+          value: renderValue(formatBytes(stats.todayDownloadBytes)),
+        },
+        {
+          label: "Uploaded today",
+          value: renderValue(formatBytes(stats.todayUploadBytes)),
+        },
+        {
+          label: "This week",
+          value: renderValue(formatBytes(stats.weekDownloadBytes)),
+          sub: "↓",
+        },
+        {
+          label: "This month",
+          value: renderValue(formatBytes(stats.monthDownloadBytes)),
+          sub: "↓",
+        },
+      ]
+    : [];
 
-  const pkUp = formatSpeed(peakUpload);
-  const pkDn = formatSpeed(peakDownload);
-  const avgDn = formatSpeed(avgDownload);
+  const currentMonthly = sortedMonthly.length
+    ? sortedMonthly[sortedMonthly.length - 1]
+    : null;
 
   return (
     <div className="page">
@@ -62,95 +141,286 @@ export function HistoryPage() {
         <div>
           <div className="page-title">History</div>
           <div className="page-subtitle">
-            Last {history.length} seconds of data
+            Historical usage, peaks, and aggregate summaries
           </div>
         </div>
       </div>
 
-      {/* Summary row */}
-      <div className="stat-grid" style={{ marginBottom: 20 }}>
-        <div className="stat-card">
-          <div className="stat-label">Peak download</div>
-          <div className="stat-value">
-            <span className="stat-num">{pkDn.value}</span>
-            <span className="stat-unit">{pkDn.unit}</span>
-          </div>
+      {stats && (
+        <div
+          className="stat-grid"
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          }}
+        >
+          {summaryCards.map((card) => (
+            <StatCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              sub={card.sub}
+            />
+          ))}
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Peak upload</div>
-          <div className="stat-value">
-            <span className="stat-num">{pkUp.value}</span>
-            <span className="stat-unit">{pkUp.unit}</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Avg download</div>
-          <div className="stat-value">
-            <span className="stat-num">{avgDn.value}</span>
-            <span className="stat-unit">{avgDn.unit}</span>
-          </div>
-        </div>
+      )}
+
+      <div className="iface-chips" style={{ marginBottom: 20 }}>
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setTab(item.id)}
+            className={`iface-chip ${tab === item.id ? "active" : ""}`}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      <div className="chart-section">
-        <div className="chart-section-title">
-          Upload & Download — full history
+      {loading && <div className="page-subtitle">Loading history…</div>}
+      {error && (
+        <div className="page-subtitle" style={{ color: "#c33" }}>
+          {error}
         </div>
-        <div className="chart-card">
-          {history.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">〜</div>
-              <div className="empty-state-text">
-                No history yet. Data accumulates while FluxNet runs.
-              </div>
-            </div>
+      )}
+
+      {!loading && !error && tab === "hourly" && (
+        <ChartCard title="Average speed (MB/s)" subtitle="Last 48 hours">
+          {hourlyChart.length === 0 ? (
+            <EmptyMessage text="No hourly history yet. Data appears once storage summaries are available." />
           ) : (
-            <>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={hourlyChart}>
+                <defs>
+                  <linearGradient
+                    id="historyHourlyDown"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="5%"
+                      stopColor="var(--net-download)"
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--net-download)"
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                  <linearGradient
+                    id="historyHourlyUp"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="5%"
+                      stopColor="var(--net-upload)"
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--net-upload)"
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => Number(value).toFixed(0)}
+                  width={36}
+                />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#ECEAF8"
+                  vertical={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--panel)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    fontSize: 11,
+                    color: "var(--text)",
+                  }}
+                  labelStyle={{ color: "var(--text-muted)" }}
+                  itemStyle={{ color: "var(--text)" }}
+                  formatter={
+                    ((value: any, name: any) =>
+                      typeof value === "number"
+                        ? [
+                            `${value.toFixed(2)} MB/s`,
+                            name === "upload" ? "Upload" : "Download",
+                          ]
+                        : null) as any
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="download"
+                  stroke="var(--net-download)"
+                  strokeWidth={2}
+                  fill="url(#historyHourlyDown)"
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="upload"
+                  stroke="var(--net-upload)"
+                  strokeWidth={2}
+                  fill="url(#historyHourlyUp)"
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+      )}
+
+      {!loading && !error && tab === "daily" && (
+        <ChartCard title="Daily data usage (GB)" subtitle="Last 30 days">
+          {dailyChart.length === 0 ? (
+            <EmptyMessage text="No daily summaries yet." />
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={dailyChart} barGap={2}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#ECEAF8"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={4}
+                />
+                <YAxis
+                  tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => Number(value).toFixed(0)}
+                  width={36}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--panel)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    fontSize: 11,
+                    color: "var(--text)",
+                  }}
+                  labelStyle={{ color: "var(--text-muted)" }}
+                  itemStyle={{ color: "var(--text)" }}
+                  formatter={
+                    ((value: any, name: any) =>
+                      typeof value === "number"
+                        ? [
+                            `${value.toFixed(2)} GB`,
+                            name === "upload" ? "Upload" : "Download",
+                          ]
+                        : null) as any
+                  }
+                />
+                <Bar
+                  dataKey="download"
+                  fill="var(--net-download)"
+                  radius={[3, 3, 0, 0]}
+                  opacity={0.8}
+                />
+                <Bar
+                  dataKey="upload"
+                  fill="var(--net-upload)"
+                  radius={[3, 3, 0, 0]}
+                  opacity={0.8}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+      )}
+
+      {!loading && !error && tab === "monthly" && (
+        <div className="space-y-4">
+          <div
+            className="stat-grid"
+            style={{
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            }}
+          >
+            <StatCard
+              label="Latest month ↓"
+              value={
+                currentMonthly
+                  ? renderValue(formatBytes(currentMonthly.totalDownloadBytes))
+                  : "—"
+              }
+            />
+            <StatCard
+              label="Latest month ↑"
+              value={
+                currentMonthly
+                  ? renderValue(formatBytes(currentMonthly.totalUploadBytes))
+                  : "—"
+              }
+            />
+            <StatCard
+              label="Peak download"
+              value={
+                stats ? renderValue(formatSpeed(stats.peakDownloadBps)) : "—"
+              }
+            />
+            <StatCard
+              label="Peak upload"
+              value={
+                stats ? renderValue(formatSpeed(stats.peakUploadBps)) : "—"
+              }
+            />
+          </div>
+
+          <ChartCard
+            title="Monthly usage (GB)"
+            subtitle="Historical totals by month"
+          >
+            {monthlyChart.length === 0 ? (
+              <EmptyMessage text="No monthly summaries yet." />
+            ) : (
               <ResponsiveContainer width="100%" height={240}>
-                <AreaChart
-                  data={chartData}
-                  margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="hUp" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="var(--net-upload)"
-                        stopOpacity={0.15}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--net-upload)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                    <linearGradient id="hDn" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="var(--net-download)"
-                        stopOpacity={0.12}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--net-download)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
+                <BarChart data={monthlyChart} barGap={2}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="#ECEAF8"
                     vertical={false}
                   />
-                  <XAxis dataKey="t" hide />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: "#C8C5F5" }}
-                    axisLine={false}
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: "#C8C5F5", fontSize: 11 }}
                     tickLine={false}
-                    width={32}
-                    domain={[0, yMax]}
-                    tickCount={5}
-                    tickFormatter={(v) => Number(v).toFixed(precision)}
+                    axisLine={false}
+                    interval={0}
+                  />
+                  <YAxis
+                    tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => Number(value).toFixed(0)}
+                    width={36}
                   />
                   <Tooltip
                     contentStyle={{
@@ -162,61 +432,83 @@ export function HistoryPage() {
                     }}
                     labelStyle={{ color: "var(--text-muted)" }}
                     itemStyle={{ color: "var(--text)" }}
-                    cursor={{ stroke: "var(--accent-border)", strokeWidth: 1 }}
-                    formatter={(val, name) =>
-                      typeof val === "number"
-                        ? [
-                            `${val} MB/s`,
-                            name === "upload" ? "Upload" : "Download",
-                          ]
-                        : null
+                    formatter={
+                      ((value: any, name: any) =>
+                        typeof value === "number"
+                          ? [
+                              `${value.toFixed(2)} GB`,
+                              name === "upload" ? "Upload" : "Download",
+                            ]
+                          : null) as any
                     }
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="upload"
-                    stroke="var(--net-upload)"
-                    strokeWidth={2}
-                    fill="url(#hUp)"
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <Area
-                    type="monotone"
+                  <Bar
                     dataKey="download"
-                    stroke="var(--net-download)"
-                    strokeWidth={2}
-                    fill="url(#hDn)"
-                    dot={false}
-                    isAnimationActive={false}
+                    fill="var(--net-download)"
+                    radius={[3, 3, 0, 0]}
+                    opacity={0.8}
                   />
-                </AreaChart>
+                  <Bar
+                    dataKey="upload"
+                    fill="var(--net-upload)"
+                    radius={[3, 3, 0, 0]}
+                    opacity={0.8}
+                  />
+                </BarChart>
               </ResponsiveContainer>
-              <div className="chart-legend">
-                <div className="legend-item">
-                  <div
-                    className="legend-dot"
-                    style={{ background: "var(--net-upload)" }}
-                  />
-                  Upload
-                </div>
-                <div className="legend-item">
-                  <div
-                    className="legend-dot"
-                    style={{ background: "var(--net-download)" }}
-                  />
-                  Download
-                </div>
-                <span
-                  style={{ marginLeft: "auto", fontSize: 10, color: "#C8C5F5" }}
-                >
-                  MB/s
-                </span>
-              </div>
-            </>
-          )}
+            )}
+          </ChartCard>
         </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="stat-card">
+      <div className="stat-label">
+        {label} {sub}
+      </div>
+      <div className="stat-value">
+        <span className="stat-num">{value}</span>
       </div>
     </div>
   );
 }
+
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="chart-section">
+      <div className="chart-section-title">{title}</div>
+      <div className="chart-card">
+        <div className="page-subtitle" style={{ marginBottom: 16 }}>
+          {subtitle}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function EmptyMessage({ text }: { text: string }) {
+  return <div className="page-subtitle">{text}</div>;
+}
+
+export default HistoryPage;
