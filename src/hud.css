@@ -4,14 +4,14 @@
   --hud-bg-card: #13111f;
   --hud-border: rgba(90, 80, 180, 0.35);
   --hud-rule: rgba(90, 80, 180, 0.18);
-  --hud-brand: rgba(160, 150, 220, 0.55);
-  --hud-label: rgba(140, 130, 200, 0.6);
+  --hud-brand: rgba(235, 234, 255, 0.9);
+  --hud-label: rgba(214, 211, 255, 0.85);
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
   --hud-amber: #f59e0b;
   --hud-danger: #ef4444;
-  --hud-neutral: #eae9ff;
-  --hud-muted: rgba(234, 233, 255, 0.35);
+  --hud-neutral: #ffffff;
+  --hud-muted: rgba(234, 233, 255, 0.6);
   --hud-dot-live: var(--net-upload);
   --hud-dot-dead: rgba(90, 80, 180, 0.4);
   --hud-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
@@ -22,14 +22,14 @@ html[data-app="hud"][data-theme="light"] {
   --hud-bg-card: rgba(250, 252, 255, 0.92);
   --hud-border: rgba(111, 133, 199, 0.4);
   --hud-rule: rgba(111, 133, 199, 0.2);
-  --hud-brand: rgba(63, 83, 147, 0.72);
-  --hud-label: rgba(77, 100, 163, 0.72);
+  --hud-brand: rgba(29, 42, 92, 0.9);
+  --hud-label: rgba(44, 65, 129, 0.88);
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
   --hud-amber: #d97706;
   --hud-danger: #dc2626;
-  --hud-neutral: #1f2f5f;
-  --hud-muted: rgba(31, 47, 95, 0.35);
+  --hud-neutral: #16244a;
+  --hud-muted: rgba(31, 47, 95, 0.6);
   --hud-dot-live: var(--net-upload);
   --hud-dot-dead: rgba(111, 133, 199, 0.45);
 }
@@ -214,7 +214,8 @@ body {
 .hud-unit {
   font-size: 9px;
   font-weight: 400;
-  opacity: 0.8;
+  opacity: 1;
+  color: var(--hud-label);
   letter-spacing: 0;
   white-space: nowrap;
 }
