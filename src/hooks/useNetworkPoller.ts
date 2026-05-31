@@ -11,12 +11,9 @@ import {
   LS_PILL_INTERVAL,
 } from "../utils/polling";
 
-type RawStats = {
-  upload_bytes_per_sec: number;
-  download_bytes_per_sec: number;
-  interface_name: string;
-};
-
+// Every window uses the same full snapshot — this is the single source of truth.
+// get_network_stats is no longer used; get_dashboard_snapshot returns current
+// speeds, peaks, and history in one read from the backend's cached state.
 type RawSnapshot = {
   current_upload: number;
   current_download: number;
@@ -27,17 +24,13 @@ type RawSnapshot = {
 };
 
 export function useNetworkPoller() {
-  const setData = useNetworkStore((s) => s.setData);
-  const setConnected = useNetworkStore((s) => s.setConnected);
   const setSnapshot = useNetworkStore((s) => s.setSnapshot);
+  const setConnected = useNetworkStore((s) => s.setConnected);
   const addTodayUsage = useNetworkStore((s) => s.addTodayUsage);
   const resetTodayUsage = useNetworkStore((s) => s.resetTodayUsage);
-  // Read the interval live from the store — changes in Settings take effect immediately
+
+  // Per-window poll intervals
   const dashboardIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSampleAtRef = useRef<number | null>(null);
-  const lastDayKeyRef = useRef<string>("" as string);
-  const windowLabel = getCurrentWindow().label;
   const [pillIntervalMs, setPillIntervalMs] = useState(() =>
     getStoredPillIntervalMs(),
   );
@@ -48,22 +41,24 @@ export function useNetworkPoller() {
     getStoredHudIntervalMs(),
   );
 
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSampleAtRef = useRef<number | null>(null);
+  const lastDayKeyRef = useRef<string>("");
+  const windowLabel = getCurrentWindow().label;
+
   const getDayKey = () => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   };
+
+  // ── Sync per-window intervals from localStorage ──────────────────────────
 
   useEffect(() => {
     if (windowLabel !== "pill") return;
-
     const sync = () => setPillIntervalMs(getStoredPillIntervalMs());
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === LS_PILL_INTERVAL) sync();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === LS_PILL_INTERVAL) sync();
     };
-
     sync();
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
@@ -71,12 +66,10 @@ export function useNetworkPoller() {
 
   useEffect(() => {
     if (windowLabel !== "hud") return;
-
     const sync = () => setHudIntervalMs(getStoredHudIntervalMs());
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === LS_HUD_INTERVAL) sync();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === LS_HUD_INTERVAL) sync();
     };
-
     sync();
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
@@ -84,22 +77,28 @@ export function useNetworkPoller() {
 
   useEffect(() => {
     if (windowLabel !== "compact") return;
-
     const sync = () => setCompactIntervalMs(getStoredCompactIntervalMs());
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === LS_COMPACT_INTERVAL) sync();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === LS_COMPACT_INTERVAL) sync();
     };
-
     sync();
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, [windowLabel]);
+
+  // ── Main polling loop ─────────────────────────────────────────────────────
+  //
+  // All windows call get_dashboard_snapshot — the single Tauri command that
+  // returns current speeds, peaks, and history from the backend's cache.
+  // The background Rust task is the only thing that ever samples the NIC;
+  // these frontend polls are pure reads.
 
   useEffect(() => {
     const poll = async () => {
       try {
         const now = Date.now();
         const dayKey = getDayKey();
+
         if (!lastDayKeyRef.current) {
           lastDayKeyRef.current = dayKey;
         }
@@ -109,48 +108,28 @@ export function useNetworkPoller() {
           lastSampleAtRef.current = now;
         }
 
-        if (windowLabel === "pill" || windowLabel === "hud") {
-          // Pill only needs current speeds — lightweight
-          const stats = await invoke<RawStats>("get_network_stats");
-          setData({
-            uploadBytesPerSec: stats.upload_bytes_per_sec,
-            downloadBytesPerSec: stats.download_bytes_per_sec,
-            interfaceName: stats.interface_name,
-          });
+        const snap = await invoke<RawSnapshot>("get_dashboard_snapshot");
 
-          if (lastSampleAtRef.current !== null) {
-            const elapsedSec = (now - lastSampleAtRef.current) / 1000;
-            if (elapsedSec > 0) {
-              addTodayUsage(
-                stats.upload_bytes_per_sec * elapsedSec,
-                stats.download_bytes_per_sec * elapsedSec,
-              );
-            }
-          }
-          lastSampleAtRef.current = now;
-        } else {
-          // Compact + main need history for charts
-          const snap = await invoke<RawSnapshot>("get_dashboard_snapshot");
-          setSnapshot({
-            currentUpload: snap.current_upload,
-            currentDownload: snap.current_download,
-            peakUpload: snap.peak_upload,
-            peakDownload: snap.peak_download,
-            interfaceName: snap.interface_name,
-            history: snap.history,
-          });
+        setSnapshot({
+          currentUpload: snap.current_upload,
+          currentDownload: snap.current_download,
+          peakUpload: snap.peak_upload,
+          peakDownload: snap.peak_download,
+          interfaceName: snap.interface_name,
+          history: snap.history,
+        });
 
-          if (lastSampleAtRef.current !== null) {
-            const elapsedSec = (now - lastSampleAtRef.current) / 1000;
-            if (elapsedSec > 0) {
-              addTodayUsage(
-                snap.current_upload * elapsedSec,
-                snap.current_download * elapsedSec,
-              );
-            }
+        // Accumulate today's usage estimate using elapsed wall-clock time.
+        if (lastSampleAtRef.current !== null) {
+          const elapsedSec = (now - lastSampleAtRef.current) / 1000;
+          if (elapsedSec > 0) {
+            addTodayUsage(
+              snap.current_upload * elapsedSec,
+              snap.current_download * elapsedSec,
+            );
           }
-          lastSampleAtRef.current = now;
         }
+        lastSampleAtRef.current = now;
       } catch (err) {
         console.error("FluxNet poll error:", err);
         setConnected(false);
@@ -158,6 +137,7 @@ export function useNetworkPoller() {
     };
 
     poll();
+
     const intervalMs =
       windowLabel === "pill"
         ? pillIntervalMs
@@ -166,11 +146,11 @@ export function useNetworkPoller() {
           : windowLabel === "compact"
             ? compactIntervalMs
             : dashboardIntervalMs;
+
     timerRef.current = setInterval(poll, intervalMs);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-    // Re-run whenever the interval changes — clears the old timer and starts a new one
   }, [
     dashboardIntervalMs,
     compactIntervalMs,
@@ -179,8 +159,7 @@ export function useNetworkPoller() {
     windowLabel,
     addTodayUsage,
     resetTodayUsage,
-    setData,
-    setConnected,
     setSnapshot,
+    setConnected,
   ]);
 }

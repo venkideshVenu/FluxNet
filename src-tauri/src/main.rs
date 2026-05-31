@@ -6,10 +6,10 @@ mod monitor;
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
     set_compact_always_on_top, set_compact_opacity, set_hud_always_on_top, set_hud_opacity,
-    set_interface, set_pill_always_on_top, set_pill_opacity, SharedMonitorState,
+    set_interface, set_pill_always_on_top, set_pill_opacity, tick_sample, SharedMonitorState,
 };
 use commands::ping::{get_ping_stats, SharedPingState};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
@@ -17,12 +17,16 @@ use tauri::{
 };
 
 fn main() {
+    // Use Arc<Mutex<_>> so we can clone it into the background task.
+    let monitor_state: SharedMonitorState =
+        Arc::new(Mutex::new(commands::network::MonitorState::default()));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
-        .manage(Mutex::new(commands::network::MonitorState::default()) as SharedMonitorState)
+        .manage(monitor_state.clone())
         .manage(Mutex::new(commands::ping::PingState::default()) as SharedPingState)
         .invoke_handler(tauri::generate_handler![
             get_network_stats,
@@ -38,10 +42,28 @@ fn main() {
             set_pill_opacity,
             get_ping_stats,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            // ── Single background sampler ─────────────────────────────────
+            // Ticks every 500 ms — the only place that ever calls
+            // tick_sample(). All Tauri commands just read the cached result.
+            // This guarantees every window sees identical numbers.
+            let state_for_task = monitor_state.clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval =
+                    tokio::time::interval(std::time::Duration::from_millis(500));
+                loop {
+                    interval.tick().await;
+                    let mut s = state_for_task.lock().unwrap();
+                    tick_sample(&mut s);
+                }
+            });
+
+            // ── Tray menu ─────────────────────────────────────────────────
             let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
-            let show_pill = MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
-            let hide_pill = MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
+            let show_pill =
+                MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
+            let hide_pill =
+                MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
             let show_compact = MenuItem::with_id(
                 app,
                 "show_compact",
