@@ -50,19 +50,19 @@ export function GamingHud() {
         <div className="hud-rows">
           <div className="hud-row">
             <span className="hud-row-label">
-              <span className="hud-arrow">↑</span> UPLOAD
+              <span className="hud-arrow">↓</span> DOWNLOAD
             </span>
-            <span className="hud-row-value up">
-              {up.value} <span className="hud-unit">{up.unit}</span>
+            <span className="hud-row-value dn">
+              {dn.value} <span className="hud-unit">{dn.unit}</span>
             </span>
           </div>
 
           <div className="hud-row">
             <span className="hud-row-label">
-              <span className="hud-arrow">↓</span> DOWNLOAD
+              <span className="hud-arrow">↑</span> UPLOAD
             </span>
-            <span className="hud-row-value dn">
-              {dn.value} <span className="hud-unit">{dn.unit}</span>
+            <span className="hud-row-value up">
+              {up.value} <span className="hud-unit">{up.unit}</span>
             </span>
           </div>
         </div>
