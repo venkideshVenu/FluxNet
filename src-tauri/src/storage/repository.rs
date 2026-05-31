@@ -1,7 +1,8 @@
+use chrono::{Datelike, Local};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
-// ── Types returned to the frontend ───────────────────────────────────────────
+// ── Serialisable types returned to the frontend ───────────────────────────────
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -27,7 +28,7 @@ pub struct HourlyUsage {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyUsage {
-    pub day: String,
+    pub day: String, // "YYYY-MM-DD"
     pub avg_download_bps: f64,
     pub avg_upload_bps: f64,
     pub peak_download_bps: f64,
@@ -39,13 +40,14 @@ pub struct DailyUsage {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MonthlyUsage {
-    pub month: String,
+    pub month: String, // "YYYY-MM"
     pub total_download_bytes: i64,
     pub total_upload_bytes: i64,
     pub peak_download_bps: f64,
     pub peak_upload_bps: f64,
 }
 
+/// Aggregate summary returned to the dashboard stats cards.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageStats {
@@ -59,9 +61,9 @@ pub struct UsageStats {
     pub peak_upload_bps: f64,
 }
 
-// ── Write ─────────────────────────────────────────────────────────────────────
+// ── Writes ────────────────────────────────────────────────────────────────────
 
-/// Insert a single raw bandwidth sample.
+/// Insert one 500 ms raw bandwidth sample.
 pub fn insert_sample(
     conn: &Connection,
     timestamp: i64,
@@ -79,7 +81,7 @@ pub fn insert_sample(
 }
 
 /// Delete raw samples older than `cutoff_ts` (Unix seconds).
-/// Call once per minute to keep the table at ≤ 7 days.
+/// Called every 60 s from the background task to keep the table at ≤ 7 days.
 pub fn cleanup_old_samples(conn: &Connection, cutoff_ts: i64) -> rusqlite::Result<()> {
     conn.execute(
         "DELETE FROM bandwidth_samples WHERE timestamp < ?1",
@@ -88,9 +90,9 @@ pub fn cleanup_old_samples(conn: &Connection, cutoff_ts: i64) -> rusqlite::Resul
     Ok(())
 }
 
-// ── Aggregation writes ────────────────────────────────────────────────────────
+// ── Aggregation upserts ───────────────────────────────────────────────────────
 
-pub fn upsert_hourly(conn: &Connection, usage: &HourlyUsage) -> rusqlite::Result<()> {
+pub fn upsert_hourly(conn: &Connection, u: &HourlyUsage) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO hourly_usage
              (hour_start, avg_download_bps, avg_upload_bps,
@@ -106,20 +108,20 @@ pub fn upsert_hourly(conn: &Connection, usage: &HourlyUsage) -> rusqlite::Result
              total_upload_bytes   = excluded.total_upload_bytes,
              sample_count         = excluded.sample_count",
         params![
-            usage.hour_start,
-            usage.avg_download_bps,
-            usage.avg_upload_bps,
-            usage.peak_download_bps,
-            usage.peak_upload_bps,
-            usage.total_download_bytes,
-            usage.total_upload_bytes,
-            usage.sample_count,
+            u.hour_start,
+            u.avg_download_bps,
+            u.avg_upload_bps,
+            u.peak_download_bps,
+            u.peak_upload_bps,
+            u.total_download_bytes,
+            u.total_upload_bytes,
+            u.sample_count,
         ],
     )?;
     Ok(())
 }
 
-pub fn upsert_daily(conn: &Connection, usage: &DailyUsage) -> rusqlite::Result<()> {
+pub fn upsert_daily(conn: &Connection, u: &DailyUsage) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO daily_usage
              (day, avg_download_bps, avg_upload_bps,
@@ -134,19 +136,19 @@ pub fn upsert_daily(conn: &Connection, usage: &DailyUsage) -> rusqlite::Result<(
              total_download_bytes = excluded.total_download_bytes,
              total_upload_bytes   = excluded.total_upload_bytes",
         params![
-            usage.day,
-            usage.avg_download_bps,
-            usage.avg_upload_bps,
-            usage.peak_download_bps,
-            usage.peak_upload_bps,
-            usage.total_download_bytes,
-            usage.total_upload_bytes,
+            u.day,
+            u.avg_download_bps,
+            u.avg_upload_bps,
+            u.peak_download_bps,
+            u.peak_upload_bps,
+            u.total_download_bytes,
+            u.total_upload_bytes,
         ],
     )?;
     Ok(())
 }
 
-pub fn upsert_monthly(conn: &Connection, usage: &MonthlyUsage) -> rusqlite::Result<()> {
+pub fn upsert_monthly(conn: &Connection, u: &MonthlyUsage) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO monthly_usage
              (month, total_download_bytes, total_upload_bytes,
@@ -158,11 +160,11 @@ pub fn upsert_monthly(conn: &Connection, usage: &MonthlyUsage) -> rusqlite::Resu
              peak_download_bps    = excluded.peak_download_bps,
              peak_upload_bps      = excluded.peak_upload_bps",
         params![
-            usage.month,
-            usage.total_download_bytes,
-            usage.total_upload_bytes,
-            usage.peak_download_bps,
-            usage.peak_upload_bps,
+            u.month,
+            u.total_download_bytes,
+            u.total_upload_bytes,
+            u.peak_download_bps,
+            u.peak_upload_bps,
         ],
     )?;
     Ok(())
@@ -170,7 +172,7 @@ pub fn upsert_monthly(conn: &Connection, usage: &MonthlyUsage) -> rusqlite::Resu
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
 
-/// Raw samples for a time window — used by the live history chart.
+/// Raw samples from `since_ts` onwards, ascending — used by the live history chart.
 pub fn get_samples_since(
     conn: &Connection,
     since_ts: i64,
@@ -191,7 +193,7 @@ pub fn get_samples_since(
     rows.collect()
 }
 
-/// Hourly rows for the last N hours — used for the hourly chart.
+/// Hourly rows from `since_ts` onwards, ascending — used for the 24/48 h chart.
 pub fn get_hourly_since(conn: &Connection, since_ts: i64) -> rusqlite::Result<Vec<HourlyUsage>> {
     let mut stmt = conn.prepare(
         "SELECT hour_start, avg_download_bps, avg_upload_bps,
@@ -216,7 +218,7 @@ pub fn get_hourly_since(conn: &Connection, since_ts: i64) -> rusqlite::Result<Ve
     rows.collect()
 }
 
-/// All daily rows — used for the 30-day overview.
+/// Most-recent `n` daily rows, returned in ascending date order.
 pub fn get_daily_last_n(conn: &Connection, n: i64) -> rusqlite::Result<Vec<DailyUsage>> {
     let mut stmt = conn.prepare(
         "SELECT day, avg_download_bps, avg_upload_bps,
@@ -237,12 +239,13 @@ pub fn get_daily_last_n(conn: &Connection, n: i64) -> rusqlite::Result<Vec<Daily
             total_upload_bytes: row.get(6)?,
         })
     })?;
-    let mut rows: Vec<_> = rows.collect::<rusqlite::Result<_>>()?;
-    rows.reverse(); // ascending for chart rendering
-    Ok(rows)
+    // Collected in DESC order; reverse so charts get ascending dates.
+    let mut result: Vec<DailyUsage> = rows.collect::<rusqlite::Result<_>>()?;
+    result.reverse();
+    Ok(result)
 }
 
-/// All monthly rows.
+/// All monthly rows in ascending order.
 pub fn get_monthly_all(conn: &Connection) -> rusqlite::Result<Vec<MonthlyUsage>> {
     let mut stmt = conn.prepare(
         "SELECT month, total_download_bytes, total_upload_bytes,
@@ -262,35 +265,46 @@ pub fn get_monthly_all(conn: &Connection) -> rusqlite::Result<Vec<MonthlyUsage>>
     rows.collect()
 }
 
-/// Aggregate usage stats across today / this week / this month.
+/// Compute today / this-week / this-month totals plus all-time peaks.
+/// Falls back gracefully to 0 if tables are still empty (first run).
 pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
-    use chrono::{Datelike, Duration, Local, Timelike};
     let now = Local::now();
     let today_str = now.format("%Y-%m-%d").to_string();
     let month_str = now.format("%Y-%m").to_string();
-    let week_ago = (now - Duration::days(7)).timestamp();
-    let month_start = {
-        let d = now.with_day(1).unwrap();
-        d.with_hour(0)
-            .unwrap()
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
+    let week_ago = (now - chrono::Duration::days(7)).timestamp();
+
+    // ── Today: read from daily_usage (written by the hourly rollup) ──────
+    // Falls back to summing raw samples for the current calendar day so
+    // the card is not empty until the first rollup fires.
+    let today_start = {
+        use chrono::TimeZone;
+        Local
+            .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
             .unwrap()
             .timestamp()
     };
 
-    // Today from daily_usage (most accurate, written by aggregation engine)
     let today: (i64, i64) = conn
         .query_row(
-            "SELECT COALESCE(total_download_bytes,0), COALESCE(total_upload_bytes,0)
+            "SELECT COALESCE(total_download_bytes, 0),
+                    COALESCE(total_upload_bytes,   0)
              FROM daily_usage WHERE day = ?1",
             params![today_str],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
-        .unwrap_or((0, 0));
+        .unwrap_or_else(|_| {
+            // Fallback: estimate from raw samples for today only.
+            conn.query_row(
+                "SELECT COALESCE(CAST(SUM(download_bps * 0.5) AS INTEGER), 0),
+                         COALESCE(CAST(SUM(upload_bps   * 0.5) AS INTEGER), 0)
+                  FROM bandwidth_samples WHERE timestamp >= ?1",
+                params![today_start],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap_or((0, 0))
+        });
 
-    // Last 7 days from raw samples for accuracy
+    // ── Last 7 days: from raw samples (high accuracy, within 7-day window) ─
     let week: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(CAST(SUM(download_bps * 0.5) AS INTEGER), 0),
@@ -301,29 +315,27 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
         )
         .unwrap_or((0, 0));
 
-    // This calendar month from daily_usage
+    // ── This calendar month: sum daily_usage rows ─────────────────────────
     let month: (i64, i64) = conn
         .query_row(
-            "SELECT COALESCE(SUM(total_download_bytes),0),
-                    COALESCE(SUM(total_upload_bytes),0)
+            "SELECT COALESCE(SUM(total_download_bytes), 0),
+                    COALESCE(SUM(total_upload_bytes),   0)
              FROM daily_usage WHERE day LIKE ?1",
             params![format!("{}%", month_str)],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0, 0));
 
-    // All-time session peaks (from hourly)
+    // ── All-time peaks: max across hourly_usage ───────────────────────────
     let peaks: (f64, f64) = conn
         .query_row(
-            "SELECT COALESCE(MAX(peak_download_bps),0.0),
-                    COALESCE(MAX(peak_upload_bps),0.0)
+            "SELECT COALESCE(MAX(peak_download_bps), 0.0),
+                    COALESCE(MAX(peak_upload_bps),   0.0)
              FROM hourly_usage",
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0.0, 0.0));
-
-    let _ = month_start; // suppress unused warning if chrono path differs
 
     Ok(UsageStats {
         today_download_bytes: today.0,
