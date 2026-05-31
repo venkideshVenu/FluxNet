@@ -27,6 +27,7 @@
         "title": "FluxNet",
         "width": 270,
         "height": 54,
+        "center": true,
         "minWidth": 270,
         "minHeight": 54,
         "maxHeight": 54,
@@ -46,6 +47,8 @@
         "title": "FluxNet",
         "width": 240,
         "height": 240,
+        "x": 1680,
+        "y": 420,
         "minWidth": 240,
         "minHeight": 240,
         "maxWidth": 240,
@@ -56,8 +59,6 @@
         "skipTaskbar": true,
         "shadow": false,
         "dragDropEnabled": false,
-        "x": 280,
-        "y": 40,
         "visible": false,
         "url": "index.html"
       },
@@ -77,8 +78,8 @@
         "skipTaskbar": true,
         "shadow": false,
         "dragDropEnabled": false,
-        "x": 40,
-        "y": 280,
+        "x": 1680,
+        "y": 200,
         "visible": false,
         "url": "index.html"
       }
