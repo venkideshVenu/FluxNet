@@ -18,6 +18,22 @@
   --pill-text: #1a1830;
 }
 
+html[data-app="pill"] body {
+  background: transparent;
+  overflow: hidden;
+  cursor: default;
+  display: flex;
+}
+
+html[data-app="pill"] #root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
 .pill-root {
   display: inline-flex;
   align-items: center;
@@ -60,13 +76,13 @@
 /* ── Download Value ── */
 
 .pill-value.download {
-  color: #35d07f;
+  color: var(--net-download);
 }
 
 /* ── Upload Value ── */
 
 .pill-value.upload {
-  color: #ff6b6b;
+  color: var(--net-upload);
 }
 
 /* ── Value ── */

@@ -7,6 +7,7 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { InterfacesPage } from "./pages/InterfacesPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { WidgetSettingsPage } from "./pages/WidgetSettingsPage";
 import {
   THEMES,
   applyAccent,
@@ -37,6 +38,7 @@ export default function DashboardApp() {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/interfaces" element={<InterfacesPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/widgets" element={<WidgetSettingsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -2,7 +2,7 @@ use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
 use std::ffi::CStr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
@@ -44,6 +44,11 @@ pub struct MonitorState {
     pub start_time: Instant,
     pub interfaces_cache: Vec<InterfaceInfo>,
     pub interfaces_cache_at: Option<Instant>,
+
+    // ── Cached result of the last background tick ─────────────────────────
+    // All Tauri commands read from here; only the background task writes here.
+    pub last_upload: f64,
+    pub last_download: f64,
 }
 
 impl Default for MonitorState {
@@ -60,15 +65,25 @@ impl Default for MonitorState {
             start_time: Instant::now(),
             interfaces_cache: Vec::new(),
             interfaces_cache_at: None,
+            last_upload: 0.0,
+            last_download: 0.0,
         }
     }
 }
 
-pub type SharedMonitorState = Mutex<MonitorState>;
+pub type SharedMonitorState = Arc<Mutex<MonitorState>>;
 
-fn sample_network_stats(s: &mut MonitorState) -> NetworkStats {
+// ── Single background sampler ─────────────────────────────────────────────────
+//
+// Called once every 500 ms from a dedicated tokio task spawned in main().
+// Every Tauri command is now a cheap read from the cached values — no
+// sampling happens inside any command handler, so multiple windows can
+// call commands concurrently without interfering with each other.
+
+pub fn tick_sample(s: &mut MonitorState) {
     s.networks.refresh();
 
+    // Auto-select interface on first run or if it got cleared.
     if s.interface.is_empty() {
         let mut best_name = String::new();
         let mut best_bytes = 0u64;
@@ -77,7 +92,6 @@ fn sample_network_stats(s: &mut MonitorState) -> NetworkStats {
             if name == "lo" || name == "Loopback Pseudo-Interface 1" {
                 continue;
             }
-
             let total = data.total_received() + data.total_transmitted();
             if total > best_bytes {
                 best_bytes = total;
@@ -98,65 +112,58 @@ fn sample_network_stats(s: &mut MonitorState) -> NetworkStats {
 
     let now = Instant::now();
 
-    match read_total_counters(&s.networks, &s.interface) {
-        Some((tx, rx)) => {
-            if s.last_sample.is_none() {
-                // Prime counters on first sample to avoid a huge initial spike.
-                s.prev_tx = tx;
-                s.prev_rx = rx;
-                s.last_sample = Some(now);
-                return NetworkStats {
-                    upload_bytes_per_sec: 0.0,
-                    download_bytes_per_sec: 0.0,
-                    interface_name: s.interface.clone(),
-                };
-            }
-
-            let elapsed = now.duration_since(s.last_sample.unwrap()).as_secs_f64();
-            let upload = calculate_speed(tx, s.prev_tx, elapsed);
-            let download = calculate_speed(rx, s.prev_rx, elapsed);
-
-            if upload > s.peak_upload {
-                s.peak_upload = upload;
-            }
-            if download > s.peak_download {
-                s.peak_download = download;
-            }
-
-            let ts = now.duration_since(s.start_time).as_secs();
-            if s.history.len() >= 120 {
-                s.history.remove(0);
-            }
-            s.history.push(HistoryPoint {
-                upload,
-                download,
-                timestamp_secs: ts,
-            });
-
+    if let Some((tx, rx)) = read_total_counters(&s.networks, &s.interface) {
+        if s.last_sample.is_none() {
+            // Prime on first tick — no speed yet.
             s.prev_tx = tx;
             s.prev_rx = rx;
             s.last_sample = Some(now);
-
-            NetworkStats {
-                upload_bytes_per_sec: upload,
-                download_bytes_per_sec: download,
-                interface_name: s.interface.clone(),
-            }
+            return;
         }
-        None => NetworkStats {
-            upload_bytes_per_sec: 0.0,
-            download_bytes_per_sec: 0.0,
-            interface_name: s.interface.clone(),
-        },
+
+        let elapsed = now.duration_since(s.last_sample.unwrap()).as_secs_f64();
+        let upload = calculate_speed(tx, s.prev_tx, elapsed);
+        let download = calculate_speed(rx, s.prev_rx, elapsed);
+
+        if upload > s.peak_upload {
+            s.peak_upload = upload;
+        }
+        if download > s.peak_download {
+            s.peak_download = download;
+        }
+
+        let ts = now.duration_since(s.start_time).as_secs();
+        if s.history.len() >= 120 {
+            s.history.remove(0);
+        }
+        s.history.push(HistoryPoint {
+            upload,
+            download,
+            timestamp_secs: ts,
+        });
+
+        s.prev_tx = tx;
+        s.prev_rx = rx;
+        s.last_sample = Some(now);
+
+        // ── Write the cache ────────────────────────────────────────────────
+        s.last_upload = upload;
+        s.last_download = download;
     }
 }
 
-// ── Existing commands ────────────────────────────────────────────────────────
+// ── Tauri commands — all read-only, never sample ─────────────────────────────
 
+/// Lightweight: returns only current up/down speeds.
+/// Used by Pill and HUD windows.
 #[tauri::command]
 pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
-    let mut s = state.lock().unwrap();
-    sample_network_stats(&mut s)
+    let s = state.lock().unwrap();
+    NetworkStats {
+        upload_bytes_per_sec: s.last_upload,
+        download_bytes_per_sec: s.last_download,
+        interface_name: s.interface.clone(),
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -176,13 +183,14 @@ pub struct HistorySnapshotPoint {
     pub t: u64,
 }
 
+/// Full snapshot: speeds + peaks + history.
+/// Used by Compact and Dashboard windows.
 #[tauri::command]
 pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
-    let mut s = state.lock().unwrap();
-    let _ = sample_network_stats(&mut s);
+    let s = state.lock().unwrap();
     DashboardSnapshot {
-        current_upload: s.history.last().map(|p| p.upload).unwrap_or(0.0),
-        current_download: s.history.last().map(|p| p.download).unwrap_or(0.0),
+        current_upload: s.last_upload,
+        current_download: s.last_download,
         peak_upload: s.peak_upload,
         peak_download: s.peak_download,
         interface_name: s.interface.clone(),
@@ -304,6 +312,7 @@ fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
                 continue;
             }
         }
+
         let if_index = unsafe { adapter.Anonymous1.Anonymous.IfIndex };
         let status = oper_status_to_string(adapter.OperStatus);
         let mac = format_mac(&adapter.PhysicalAddress, adapter.PhysicalAddressLength);
@@ -328,7 +337,6 @@ fn pwstr_to_string(p: PWSTR) -> String {
     if p.0.is_null() {
         return String::new();
     }
-
     unsafe {
         let mut len = 0;
         while *p.0.add(len) != 0 {
@@ -343,7 +351,6 @@ fn pstr_to_string(p: PSTR) -> String {
     if p.0.is_null() {
         return String::new();
     }
-
     unsafe {
         CStr::from_ptr(p.0 as *const i8)
             .to_string_lossy()
@@ -370,7 +377,6 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
     if len == 0 {
         return String::new();
     }
-
     bytes[..len]
         .iter()
         .map(|b| format!("{:02X}", b))
@@ -387,6 +393,8 @@ pub fn set_interface(name: String, state: State<SharedMonitorState>) {
     s.last_sample = None;
     s.peak_upload = 0.0;
     s.peak_download = 0.0;
+    s.last_upload = 0.0;
+    s.last_download = 0.0;
     s.history.clear();
 }
 
@@ -397,9 +405,8 @@ pub fn reset_peaks(state: State<SharedMonitorState>) {
     s.peak_download = 0.0;
 }
 
-// ── New settings commands ────────────────────────────────────────────────────
+// ── Window settings commands ──────────────────────────────────────────────────
 
-/// Set the pill window's always-on-top state.
 #[tauri::command]
 pub fn set_pill_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
     let window = app
@@ -408,13 +415,11 @@ pub fn set_pill_always_on_top(value: bool, app: AppHandle) -> Result<(), String>
     window.set_always_on_top(value).map_err(|e| e.to_string())
 }
 
-/// Set the pill window's opacity (0.0 – 1.0).
 #[tauri::command]
 pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("pill")
         .ok_or_else(|| "pill window not found".to_string())?;
-    // clamp to [0.1, 1.0] so the window is never invisible
     let clamped = value.clamp(0.1, 1.0);
     window
         .eval(&format!(
@@ -424,7 +429,6 @@ pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Set the compact window's always-on-top state.
 #[tauri::command]
 pub fn set_compact_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
     let window = app
@@ -433,13 +437,11 @@ pub fn set_compact_always_on_top(value: bool, app: AppHandle) -> Result<(), Stri
     window.set_always_on_top(value).map_err(|e| e.to_string())
 }
 
-/// Set the compact window's opacity (0.0 – 1.0).
 #[tauri::command]
 pub fn set_compact_opacity(value: f64, app: AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("compact")
         .ok_or_else(|| "compact window not found".to_string())?;
-    // clamp to [0.1, 1.0] so the window is never invisible
     let clamped = value.clamp(0.1, 1.0);
     window
         .eval(&format!(
@@ -449,7 +451,6 @@ pub fn set_compact_opacity(value: f64, app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Set the HUD window's always-on-top state.
 #[tauri::command]
 pub fn set_hud_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
     let window = app
@@ -458,13 +459,11 @@ pub fn set_hud_always_on_top(value: bool, app: AppHandle) -> Result<(), String> 
     window.set_always_on_top(value).map_err(|e| e.to_string())
 }
 
-/// Set the HUD window's opacity (0.0 – 1.0).
 #[tauri::command]
 pub fn set_hud_opacity(value: f64, app: AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("hud")
         .ok_or_else(|| "hud window not found".to_string())?;
-    // clamp to [0.1, 1.0] so the window is never invisible
     let clamped = value.clamp(0.1, 1.0);
     window
         .eval(&format!(
