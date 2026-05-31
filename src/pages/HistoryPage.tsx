@@ -115,18 +115,26 @@ export function HistoryPage() {
                     <linearGradient id="hUp" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="5%"
-                        stopColor="#22C97A"
+                        stopColor="var(--net-upload)"
                         stopOpacity={0.15}
                       />
-                      <stop offset="95%" stopColor="#22C97A" stopOpacity={0} />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--net-upload)"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                     <linearGradient id="hDn" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="5%"
-                        stopColor="#4FBBF7"
+                        stopColor="var(--net-download)"
                         stopOpacity={0.12}
                       />
-                      <stop offset="95%" stopColor="#4FBBF7" stopOpacity={0} />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--net-download)"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -167,7 +175,7 @@ export function HistoryPage() {
                   <Area
                     type="monotone"
                     dataKey="upload"
-                    stroke="#22C97A"
+                    stroke="var(--net-upload)"
                     strokeWidth={2}
                     fill="url(#hUp)"
                     dot={false}
@@ -176,7 +184,7 @@ export function HistoryPage() {
                   <Area
                     type="monotone"
                     dataKey="download"
-                    stroke="#4FBBF7"
+                    stroke="var(--net-download)"
                     strokeWidth={2}
                     fill="url(#hDn)"
                     dot={false}
@@ -188,14 +196,14 @@ export function HistoryPage() {
                 <div className="legend-item">
                   <div
                     className="legend-dot"
-                    style={{ background: "#22C97A" }}
+                    style={{ background: "var(--net-upload)" }}
                   />
                   Upload
                 </div>
                 <div className="legend-item">
                   <div
                     className="legend-dot"
-                    style={{ background: "#4FBBF7" }}
+                    style={{ background: "var(--net-download)" }}
                   />
                   Download
                 </div>

@@ -28,6 +28,8 @@ body,
   --accent-border: #c8c5f5;
   --accent-muted: #e0def5;
   --accent-shadow: rgba(124, 111, 247, 0.2);
+  --net-upload: #119a55;
+  --net-download: #197db4;
 }
 
 :root[data-theme="dark"] {

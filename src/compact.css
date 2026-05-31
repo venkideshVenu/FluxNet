@@ -191,7 +191,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-live-dot.live {
-  background: #22c97a;
+  background: var(--net-upload);
   box-shadow: 0 0 4px rgba(34, 201, 122, 0.5);
 }
 
@@ -295,11 +295,11 @@ html[data-app="compact"] #root {
 }
 
 .cw-dir.up {
-  background: #22c97a;
+  background: var(--net-upload);
 }
 
 .cw-dir.dn {
-  background: #4fbbf7;
+  background: var(--net-download);
 }
 
 /* ── Today totals ── */

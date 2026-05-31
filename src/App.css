@@ -60,13 +60,13 @@
 /* ── Download Value ── */
 
 .pill-value.download {
-  color: #35d07f;
+  color: var(--net-download);
 }
 
 /* ── Upload Value ── */
 
 .pill-value.upload {
-  color: #ff6b6b;
+  color: var(--net-upload);
 }
 
 /* ── Value ── */

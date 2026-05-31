@@ -273,7 +273,7 @@ body {
   gap: 6px;
   font-size: 11px;
   font-weight: 500;
-  color: #0d9153;
+  color: var(--net-upload);
   background: #dcfbee;
   border-radius: 20px;
   padding: 4px 10px;
@@ -283,7 +283,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #22c97a;
+  background: var(--net-upload);
   animation: pulse 2s infinite;
 }
 
@@ -359,11 +359,11 @@ body {
 
 .stat-badge.up {
   background: #dcfbee;
-  color: #0d9153;
+  color: var(--net-upload);
 }
 .stat-badge.down {
   background: #e0f4ff;
-  color: #1370aa;
+  color: var(--net-download);
 }
 .stat-badge.peak {
   background: var(--accent-soft-2);
@@ -480,12 +480,12 @@ body {
 
 .iface-icon.up {
   background: #dcfbee;
-  color: #0d9153;
+  color: var(--net-upload);
 }
 
 .iface-icon.down {
   background: #f1f4f8;
-  color: #6b7280;
+  color: var(--net-download);
 }
 
 .iface-icon.inactive {
@@ -570,7 +570,7 @@ body {
 
 .iface-badge.active {
   background: #dcfbee;
-  color: #0d9153;
+  color: var(--net-upload);
 }
 .iface-badge.selected {
   background: var(--accent-soft);
@@ -579,7 +579,7 @@ body {
 
 .iface-badge.connected {
   background: #e0f4ff;
-  color: #1370aa;
+  color: var(--net-download);
 }
 
 .iface-badge.disconnected {

@@ -6,13 +6,13 @@
   --hud-rule: rgba(90, 80, 180, 0.18);
   --hud-brand: rgba(160, 150, 220, 0.55);
   --hud-label: rgba(140, 130, 200, 0.6);
-  --hud-up: #22c97a;
-  --hud-dn: #4fbbf7;
+  --hud-up: var(--net-upload);
+  --hud-dn: var(--net-download);
   --hud-amber: #f59e0b;
   --hud-danger: #ef4444;
   --hud-neutral: #eae9ff;
   --hud-muted: rgba(234, 233, 255, 0.35);
-  --hud-dot-live: #22c97a;
+  --hud-dot-live: var(--net-upload);
   --hud-dot-dead: rgba(90, 80, 180, 0.4);
   --hud-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
@@ -24,13 +24,13 @@ html[data-app="hud"][data-theme="light"] {
   --hud-rule: rgba(111, 133, 199, 0.2);
   --hud-brand: rgba(63, 83, 147, 0.72);
   --hud-label: rgba(77, 100, 163, 0.72);
-  --hud-up: #119a55;
-  --hud-dn: #197db4;
+  --hud-up: var(--net-upload);
+  --hud-dn: var(--net-download);
   --hud-amber: #d97706;
   --hud-danger: #dc2626;
   --hud-neutral: #1f2f5f;
   --hud-muted: rgba(31, 47, 95, 0.35);
-  --hud-dot-live: #119a55;
+  --hud-dot-live: var(--net-upload);
   --hud-dot-dead: rgba(111, 133, 199, 0.45);
 }
 

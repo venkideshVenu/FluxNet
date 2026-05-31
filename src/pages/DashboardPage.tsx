@@ -111,12 +111,28 @@ export function DashboardPage() {
             >
               <defs>
                 <linearGradient id="colorUp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22C97A" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#22C97A" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="var(--net-upload)"
+                    stopOpacity={0.15}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--net-upload)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
                 <linearGradient id="colorDn" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4FBBF7" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#4FBBF7" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="var(--net-download)"
+                    stopOpacity={0.15}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--net-download)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -153,7 +169,7 @@ export function DashboardPage() {
               <Area
                 type="monotone"
                 dataKey="upload"
-                stroke="#22C97A"
+                stroke="var(--net-upload)"
                 strokeWidth={2}
                 fill="url(#colorUp)"
                 dot={false}
@@ -163,7 +179,7 @@ export function DashboardPage() {
               <Area
                 type="monotone"
                 dataKey="download"
-                stroke="#4FBBF7"
+                stroke="var(--net-download)"
                 strokeWidth={2}
                 fill="url(#colorDn)"
                 dot={false}
@@ -175,11 +191,17 @@ export function DashboardPage() {
 
           <div className="chart-legend">
             <div className="legend-item">
-              <div className="legend-dot" style={{ background: "#22C97A" }} />
+              <div
+                className="legend-dot"
+                style={{ background: "var(--net-upload)" }}
+              />
               Upload
             </div>
             <div className="legend-item">
-              <div className="legend-dot" style={{ background: "#4FBBF7" }} />
+              <div
+                className="legend-dot"
+                style={{ background: "var(--net-download)" }}
+              />
               Download
             </div>
             <span
