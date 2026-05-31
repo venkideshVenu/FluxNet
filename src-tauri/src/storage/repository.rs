@@ -264,7 +264,7 @@ pub fn get_monthly_all(conn: &Connection) -> rusqlite::Result<Vec<MonthlyUsage>>
 
 /// Aggregate usage stats across today / this week / this month.
 pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
-    use chrono::{Datelike, Duration, Local};
+    use chrono::{Datelike, Duration, Local, Timelike};
     let now = Local::now();
     let today_str = now.format("%Y-%m-%d").to_string();
     let month_str = now.format("%Y-%m").to_string();
