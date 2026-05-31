@@ -18,20 +18,20 @@
 }
 
 html[data-app="hud"][data-theme="light"] {
-  --hud-bg-outer: #eef3ff;
-  --hud-bg-card: rgba(250, 252, 255, 0.92);
-  --hud-border: rgba(111, 133, 199, 0.4);
-  --hud-rule: rgba(111, 133, 199, 0.2);
-  --hud-brand: rgba(29, 42, 92, 0.9);
-  --hud-label: rgba(44, 65, 129, 0.88);
+  --hud-bg-outer: transparent;
+  --hud-bg-card: rgba(255, 255, 255, 0.96);
+  --hud-border: rgba(24, 33, 61, 0.1);
+  --hud-rule: rgba(24, 33, 61, 0.08);
+  --hud-brand: #18213d;
+  --hud-label: #51607f;
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
-  --hud-amber: #d97706;
+  --hud-amber: #c97d00;
   --hud-danger: #dc2626;
-  --hud-neutral: #16244a;
-  --hud-muted: rgba(31, 47, 95, 0.6);
+  --hud-neutral: #18213d;
+  --hud-muted: #7a86a5;
   --hud-dot-live: var(--net-upload);
-  --hud-dot-dead: rgba(111, 133, 199, 0.45);
+  --hud-dot-dead: rgba(24, 33, 61, 0.25);
 }
 
 /* ── Reset ── */
@@ -84,6 +84,12 @@ body {
   grid-template-rows: auto 1px 1fr 1px 1fr;
   padding: 0;
   overflow: hidden;
+}
+
+html[data-app="hud"][data-theme="light"] .hud-card {
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.1),
+    0 3px 10px rgba(15, 23, 42, 0.05);
 }
 
 /* ── Header ── */
@@ -168,7 +174,7 @@ body {
 /* ── Label (left side) ── */
 .hud-row-label {
   font-size: 7px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--hud-label);
@@ -215,7 +221,7 @@ body {
   font-size: 9px;
   font-weight: 400;
   opacity: 1;
-  color: var(--hud-label);
+  color: var(--hud-muted);
   letter-spacing: 0;
   white-space: nowrap;
 }

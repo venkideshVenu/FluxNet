@@ -57,7 +57,11 @@ html[data-app="compact"] #root {
 
 /* ── Light mode card ── */
 :root[data-theme="light"] .cw-root {
-  background: rgba(252, 252, 255, 0.98);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(24, 33, 61, 0.1);
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.1),
+    0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 /* ── Dark mode card ── */
@@ -79,6 +83,10 @@ html[data-app="compact"] #root {
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: #9995cc;
+}
+
+:root[data-theme="light"] .cw-brand {
+  color: #667394;
 }
 
 :root[data-theme="dark"] .cw-brand {
@@ -149,6 +157,12 @@ html[data-app="compact"] #root {
   color: #eae9ff;
 }
 
+:root[data-theme="light"] .cw-iface-name,
+:root[data-theme="light"] .cw-num,
+:root[data-theme="light"] .cw-today-num {
+  color: #18213d;
+}
+
 .cw-iface-sub {
   font-size: 8px;
   color: #9995cc;
@@ -156,6 +170,12 @@ html[data-app="compact"] #root {
 
 :root[data-theme="dark"] .cw-iface-sub {
   color: #5b5890;
+}
+
+:root[data-theme="light"] .cw-iface-sub,
+:root[data-theme="light"] .cw-unit,
+:root[data-theme="light"] .cw-today-unit {
+  color: #6d7897;
 }
 
 .cw-status-right {
@@ -180,6 +200,11 @@ html[data-app="compact"] #root {
 :root[data-theme="dark"] .cw-status-pill {
   background: #1e1c3a;
   color: #b0aaff;
+}
+
+:root[data-theme="light"] .cw-status-pill {
+  background: rgba(72, 99, 255, 0.08);
+  color: #32437a;
 }
 
 .cw-live-dot {
@@ -212,11 +237,19 @@ html[data-app="compact"] #root {
   color: #3d3a70;
 }
 
+:root[data-theme="light"] .cw-interval {
+  color: #7c88a8;
+}
+
 /* ── Divider ── */
 .cw-divider {
   height: 1px;
   background: #eceaf8;
   margin: 5px 0 6px;
+}
+
+:root[data-theme="light"] .cw-divider {
+  background: rgba(24, 33, 61, 0.08);
 }
 
 :root[data-theme="dark"] .cw-divider {
@@ -252,6 +285,11 @@ html[data-app="compact"] #root {
   color: #8e89c8;
 }
 
+:root[data-theme="light"] .cw-speed-label,
+:root[data-theme="light"] .cw-today-label {
+  color: #55607f;
+}
+
 .cw-speed-value {
   display: inline-flex;
   align-items: baseline;
@@ -273,6 +311,11 @@ html[data-app="compact"] #root {
   color: #eae9ff;
 }
 
+:root[data-theme="light"] .cw-num,
+:root[data-theme="light"] .cw-today-num {
+  color: #18213d;
+}
+
 .cw-unit {
   font-size: 9px;
   font-weight: 400;
@@ -284,6 +327,11 @@ html[data-app="compact"] #root {
 
 :root[data-theme="dark"] .cw-unit {
   color: #5b5890;
+}
+
+:root[data-theme="light"] .cw-unit,
+:root[data-theme="light"] .cw-today-unit {
+  color: #7c88a8;
 }
 
 .cw-dir {
