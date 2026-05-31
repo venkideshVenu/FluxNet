@@ -30,18 +30,18 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: 0;
   box-sizing: border-box;
   overflow: visible;
 }
 
 /* ── Card shell ── */
 .cw-root {
-  width: 200px;
+  width: 240px;
   max-width: 100%;
   background: #ffffff;
   border-radius: 20px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -60,13 +60,13 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .cw-brand {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #9995cc;
 }
@@ -77,8 +77,8 @@ html[data-app="compact"] #root {
 
 /* Drag handle — short horizontal bar top-right */
 .cw-drag-handle {
-  width: 28px;
-  height: 18px;
+  width: 24px;
+  height: 16px;
   border-radius: 2px;
   background: transparent;
   cursor: grab;
@@ -99,7 +99,7 @@ html[data-app="compact"] #root {
 
 .cw-drag-handle::before {
   content: "";
-  width: 16px;
+  width: 14px;
   height: 3px;
   border-radius: 2px;
   background: #e0def5;
@@ -114,8 +114,8 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 7px;
 }
 
 .cw-iface {
@@ -125,7 +125,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-iface-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #1a1830;
   white-space: nowrap;
@@ -138,7 +138,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-iface-sub {
-  font-size: 10px;
+  font-size: 9px;
   color: #9995cc;
 }
 
@@ -149,20 +149,20 @@ html[data-app="compact"] #root {
 .cw-status-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
 }
 
 .cw-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
+  gap: 4px;
+  font-size: 9px;
   font-weight: 600;
   color: #5b54c4;
   background: #eeedfe;
   border-radius: 99px;
-  padding: 3px 8px;
+  padding: 3px 7px;
 }
 
 :root[data-theme="dark"] .cw-status-pill {
@@ -192,7 +192,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-interval {
-  font-size: 10px;
+  font-size: 9px;
   color: #c8c5f5;
 }
 
@@ -204,7 +204,7 @@ html[data-app="compact"] #root {
 .cw-divider {
   height: 1px;
   background: #eceaf8;
-  margin: 6px 0 8px;
+  margin: 5px 0 7px;
 }
 
 :root[data-theme="dark"] .cw-divider {
@@ -215,21 +215,21 @@ html[data-app="compact"] #root {
 .cw-speeds {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cw-speed-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cw-speed-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 5px;
+  font-size: 10px;
   font-weight: 600;
   color: #5b5890;
 }
@@ -241,17 +241,17 @@ html[data-app="compact"] #root {
 .cw-speed-value {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
 }
 
 .cw-num {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 500;
   color: #1a1830;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
-  min-width: 52px;
+  min-width: 44px;
   text-align: right;
 }
 
@@ -260,12 +260,12 @@ html[data-app="compact"] #root {
 }
 
 .cw-unit {
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 400;
   color: #9995cc;
   line-height: 1;
   align-self: flex-end;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 :root[data-theme="dark"] .cw-unit {
@@ -273,8 +273,8 @@ html[data-app="compact"] #root {
 }
 
 .cw-dir {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 2px;
   display: inline-block;
   flex-shrink: 0;
@@ -293,11 +293,11 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cw-today-label {
-  font-size: 11px;
+  font-size: 10px;
   color: #9995cc;
 }
 
@@ -308,7 +308,7 @@ html[data-app="compact"] #root {
 .cw-today-values {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cw-today-item {
@@ -319,7 +319,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-today-num {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: #1a1830;
 }
@@ -329,7 +329,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-today-unit {
-  font-size: 10px;
+  font-size: 9px;
   color: #9995cc;
 }
 
