@@ -35,18 +35,24 @@ html[data-app="compact"] #root {
   overflow: visible;
 }
 
+:root {
+  --compact-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
 /* ── Card shell ── */
 .cw-root {
-  width: 240px;
+  width: 180px;
   max-width: 100%;
   background: rgba(18, 16, 32, 0.94);
-  border-radius: 20px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 0;
   border: 1px solid #e5e3f6;
   cursor: default;
+  font-family: var(--compact-font);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ── Light mode card ── */
@@ -64,13 +70,13 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 
 .cw-brand {
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: #9995cc;
 }
@@ -81,8 +87,8 @@ html[data-app="compact"] #root {
 
 /* Drag handle — short horizontal bar top-right */
 .cw-drag-handle {
-  width: 24px;
-  height: 16px;
+  width: 22px;
+  height: 15px;
   border-radius: 2px;
   background: transparent;
   cursor: grab;
@@ -103,8 +109,8 @@ html[data-app="compact"] #root {
 
 .cw-drag-handle::before {
   content: "";
-  width: 14px;
-  height: 3px;
+  width: 12px;
+  height: 2px;
   border-radius: 2px;
   background: #e0def5;
 }
@@ -118,8 +124,8 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 7px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .cw-iface {
@@ -129,8 +135,10 @@ html[data-app="compact"] #root {
 }
 
 .cw-iface-name {
-  font-size: 12px;
+  font-size: 8px;
   font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
   color: #1a1830;
   white-space: nowrap;
   overflow: hidden;
@@ -142,7 +150,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-iface-sub {
-  font-size: 9px;
+  font-size: 8px;
   color: #9995cc;
 }
 
@@ -161,12 +169,12 @@ html[data-app="compact"] #root {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   color: #5b54c4;
   background: #eeedfe;
   border-radius: 99px;
-  padding: 3px 7px;
+  padding: 2px 6px;
 }
 
 :root[data-theme="dark"] .cw-status-pill {
@@ -196,7 +204,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-interval {
-  font-size: 9px;
+  font-size: 8px;
   color: #c8c5f5;
 }
 
@@ -208,7 +216,7 @@ html[data-app="compact"] #root {
 .cw-divider {
   height: 1px;
   background: #eceaf8;
-  margin: 5px 0 7px;
+  margin: 5px 0 6px;
 }
 
 :root[data-theme="dark"] .cw-divider {
@@ -219,22 +227,24 @@ html[data-app="compact"] #root {
 .cw-speeds {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .cw-speed-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
 }
 
 .cw-speed-label {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
   color: #5b5890;
 }
 
@@ -249,13 +259,13 @@ html[data-app="compact"] #root {
 }
 
 .cw-num {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 500;
   color: #1a1830;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  min-width: 44px;
+  line-height: 1;
+  min-width: 36px;
   text-align: right;
 }
 
@@ -269,7 +279,7 @@ html[data-app="compact"] #root {
   color: #9995cc;
   line-height: 1;
   align-self: flex-end;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 :root[data-theme="dark"] .cw-unit {
@@ -297,11 +307,13 @@ html[data-app="compact"] #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
 }
 
 .cw-today-label {
-  font-size: 10px;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
   color: #9995cc;
 }
 
@@ -312,7 +324,7 @@ html[data-app="compact"] #root {
 .cw-today-values {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .cw-today-item {
@@ -323,7 +335,7 @@ html[data-app="compact"] #root {
 }
 
 .cw-today-num {
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 600;
   color: #1a1830;
 }
