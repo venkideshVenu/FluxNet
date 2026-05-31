@@ -173,77 +173,307 @@ function CompactPreview({
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", padding: "24px" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        height: "100%",
+        padding: "24px",
+      }}
+    >
       <div style={card}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "7px" }}>
-          <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: textBrand }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "7px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "9px",
+              fontWeight: 600,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: textBrand,
+            }}
+          >
             FluxNet
           </span>
-          <div style={{ width: "22px", height: "15px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ width: "12px", height: "2px", borderRadius: "2px", background: textMuted }} />
+          <div
+            style={{
+              width: "22px",
+              height: "15px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "12px",
+                height: "2px",
+                borderRadius: "2px",
+                background: textMuted,
+              }}
+            />
           </div>
         </div>
 
         {/* Status row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", marginBottom: "6px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "6px",
+            marginBottom: "6px",
+          }}
+        >
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: "8px", fontWeight: 600, letterSpacing: "0.11em", textTransform: "uppercase", color: textPrimary }}>
+            <span
+              style={{
+                fontSize: "8px",
+                fontWeight: 600,
+                letterSpacing: "0.11em",
+                textTransform: "uppercase",
+                color: textPrimary,
+              }}
+            >
               en0
             </span>
             <span style={{ fontSize: "8px", color: textMuted }}>Connected</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "8px", fontWeight: 600, color: pillColor, background: pillBg, borderRadius: "99px", padding: "2px 6px" }}>
-              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: upColor, boxShadow: "0 0 4px rgba(34,201,122,0.5)" }} />
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "8px",
+                fontWeight: 600,
+                color: pillColor,
+                background: pillBg,
+                borderRadius: "99px",
+                padding: "2px 6px",
+              }}
+            >
+              <span
+                style={{
+                  width: "6px",
+                  height: "6px",
+                  borderRadius: "50%",
+                  background: upColor,
+                  boxShadow: "0 0 4px rgba(34,201,122,0.5)",
+                }}
+              />
               Live
             </span>
-            <span style={{ fontSize: "8px", color: textMuted }}>{intervalMs / 1000}s</span>
+            <span style={{ fontSize: "8px", color: textMuted }}>
+              {intervalMs / 1000}s
+            </span>
           </div>
         </div>
 
         {/* Divider */}
-        <div style={{ height: "1px", background: divider, margin: "5px 0 6px" }} />
+        <div
+          style={{ height: "1px", background: divider, margin: "5px 0 6px" }}
+        />
 
         {/* Speeds */}
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "8px", fontWeight: 600, letterSpacing: "0.11em", textTransform: "uppercase", color: textMuted }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "2px", background: dnColor, display: "inline-block" }} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                fontSize: "8px",
+                fontWeight: 600,
+                letterSpacing: "0.11em",
+                textTransform: "uppercase",
+                color: textMuted,
+              }}
+            >
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "2px",
+                  background: dnColor,
+                  display: "inline-block",
+                }}
+              />
               Download
             </span>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: "4px" }}>
-              <span style={{ fontSize: "15px", fontWeight: 500, color: textPrimary, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>24.5</span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: "4px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  color: textPrimary,
+                  letterSpacing: "-0.02em",
+                  fontVariantNumeric: "tabular-nums",
+                  lineHeight: 1,
+                }}
+              >
+                24.5
+              </span>
               <span style={{ fontSize: "9px", color: textMuted }}>MB/s</span>
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "8px", fontWeight: 600, letterSpacing: "0.11em", textTransform: "uppercase", color: textMuted }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "2px", background: upColor, display: "inline-block" }} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                fontSize: "8px",
+                fontWeight: 600,
+                letterSpacing: "0.11em",
+                textTransform: "uppercase",
+                color: textMuted,
+              }}
+            >
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "2px",
+                  background: upColor,
+                  display: "inline-block",
+                }}
+              />
               Upload
             </span>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: "4px" }}>
-              <span style={{ fontSize: "15px", fontWeight: 500, color: textPrimary, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>3.2</span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: "4px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  color: textPrimary,
+                  letterSpacing: "-0.02em",
+                  fontVariantNumeric: "tabular-nums",
+                  lineHeight: 1,
+                }}
+              >
+                3.2
+              </span>
               <span style={{ fontSize: "9px", color: textMuted }}>MB/s</span>
             </span>
           </div>
         </div>
 
         {/* Divider */}
-        <div style={{ height: "1px", background: divider, margin: "5px 0 6px" }} />
+        <div
+          style={{ height: "1px", background: divider, margin: "5px 0 6px" }}
+        />
 
         {/* Today */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "8px", letterSpacing: "0.11em", textTransform: "uppercase", color: textMuted }}>Today</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "7px" }}>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: "4px" }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "2px", background: dnColor, display: "inline-block", alignSelf: "center" }} />
-              <span style={{ fontSize: "12px", fontWeight: 600, color: textPrimary, fontVariantNumeric: "tabular-nums" }}>12.3</span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "8px",
+              letterSpacing: "0.11em",
+              textTransform: "uppercase",
+              color: textMuted,
+            }}
+          >
+            Today
+          </span>
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: "7px" }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: "4px",
+              }}
+            >
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "2px",
+                  background: dnColor,
+                  display: "inline-block",
+                  alignSelf: "center",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: textPrimary,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                12.3
+              </span>
               <span style={{ fontSize: "9px", color: textMuted }}>GB</span>
             </span>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: "4px" }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "2px", background: upColor, display: "inline-block", alignSelf: "center" }} />
-              <span style={{ fontSize: "12px", fontWeight: 600, color: textPrimary, fontVariantNumeric: "tabular-nums" }}>2.1</span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: "4px",
+              }}
+            >
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "2px",
+                  background: upColor,
+                  display: "inline-block",
+                  alignSelf: "center",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: textPrimary,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                2.1
+              </span>
               <span style={{ fontSize: "9px", color: textMuted }}>GB</span>
             </span>
           </span>
@@ -293,14 +523,46 @@ function HudPreview({
   const amber = isDark ? "#f59e0b" : "#c97d00";
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", padding: "24px" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        height: "100%",
+        padding: "24px",
+      }}
+    >
       <div style={card}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px" }}>
-          <span style={{ fontSize: "8px", fontWeight: 600, letterSpacing: "0.15em", color: brand, textTransform: "uppercase" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "9px 12px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "8px",
+              fontWeight: 600,
+              letterSpacing: "0.15em",
+              color: brand,
+              textTransform: "uppercase",
+            }}
+          >
             FLUXNET HUD
           </span>
-          <div style={{ width: "12px", height: "2px", borderRadius: "2px", background: brand, opacity: 0.5 }} />
+          <div
+            style={{
+              width: "12px",
+              height: "2px",
+              borderRadius: "2px",
+              background: brand,
+              opacity: 0.5,
+            }}
+          />
         </div>
 
         <div style={rule} />
@@ -308,15 +570,66 @@ function HudPreview({
         {/* Speed rows */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           {[
-            { arrow: "↓", label: "DOWNLOAD", value: "24.5", unit: "MB/s", color: dnColor },
-            { arrow: "↑", label: "UPLOAD", value: "3.2", unit: "MB/s", color: upColor },
+            {
+              arrow: "↓",
+              label: "DOWNLOAD",
+              value: "24.5",
+              unit: "MB/s",
+              color: dnColor,
+            },
+            {
+              arrow: "↑",
+              label: "UPLOAD",
+              value: "3.2",
+              unit: "MB/s",
+              color: upColor,
+            },
           ].map((row) => (
-            <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", columnGap: "8px", padding: "4px 10px", flex: "1 1 0" }}>
-              <span style={{ fontSize: "7px", fontWeight: 600, letterSpacing: "0.11em", textTransform: "uppercase", color: labelColor, display: "flex", alignItems: "center", gap: "5px" }}>
+            <div
+              key={row.label}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                alignItems: "center",
+                columnGap: "8px",
+                padding: "4px 10px",
+                flex: "1 1 0",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "7px",
+                  fontWeight: 600,
+                  letterSpacing: "0.11em",
+                  textTransform: "uppercase",
+                  color: labelColor,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px",
+                }}
+              >
                 <span style={{ opacity: 0.7 }}>{row.arrow}</span> {row.label}
               </span>
-              <span style={{ fontSize: "14px", fontWeight: 500, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.005em", lineHeight: 1, display: "flex", alignItems: "baseline", gap: "2px", color: row.color, justifyContent: "flex-end" }}>
-                {row.value} <span style={{ fontSize: "9px", color: muted, fontWeight: 400 }}>{row.unit}</span>
+              <span
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  fontVariantNumeric: "tabular-nums",
+                  letterSpacing: "-0.005em",
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: "2px",
+                  color: row.color,
+                  justifyContent: "flex-end",
+                }}
+              >
+                {row.value}{" "}
+                <span
+                  style={{ fontSize: "9px", color: muted, fontWeight: 400 }}
+                >
+                  {row.unit}
+                </span>
               </span>
             </div>
           ))}
@@ -326,15 +639,75 @@ function HudPreview({
 
         {/* Ping/Loss rows */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", columnGap: "8px", padding: "4px 10px", flex: "1 1 0" }}>
-            <span style={{ fontSize: "7px", fontWeight: 600, letterSpacing: "0.11em", textTransform: "uppercase", color: labelColor }}>PING</span>
-            <span style={{ fontSize: "14px", fontWeight: 500, fontVariantNumeric: "tabular-nums", color: amber, display: "flex", alignItems: "baseline", gap: "2px" }}>
-              42 <span style={{ fontSize: "9px", color: muted, fontWeight: 400 }}>ms</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto",
+              alignItems: "center",
+              columnGap: "8px",
+              padding: "4px 10px",
+              flex: "1 1 0",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "7px",
+                fontWeight: 600,
+                letterSpacing: "0.11em",
+                textTransform: "uppercase",
+                color: labelColor,
+              }}
+            >
+              PING
+            </span>
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 500,
+                fontVariantNumeric: "tabular-nums",
+                color: amber,
+                display: "flex",
+                alignItems: "baseline",
+                gap: "2px",
+              }}
+            >
+              42{" "}
+              <span style={{ fontSize: "9px", color: muted, fontWeight: 400 }}>
+                ms
+              </span>
             </span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", columnGap: "8px", padding: "4px 10px", flex: "1 1 0" }}>
-            <span style={{ fontSize: "7px", fontWeight: 600, letterSpacing: "0.11em", textTransform: "uppercase", color: labelColor }}>LOSS</span>
-            <span style={{ fontSize: "14px", fontWeight: 500, fontVariantNumeric: "tabular-nums", color: neutral }}>0.0%</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto",
+              alignItems: "center",
+              columnGap: "8px",
+              padding: "4px 10px",
+              flex: "1 1 0",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "7px",
+                fontWeight: 600,
+                letterSpacing: "0.11em",
+                textTransform: "uppercase",
+                color: labelColor,
+              }}
+            >
+              LOSS
+            </span>
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 500,
+                fontVariantNumeric: "tabular-nums",
+                color: neutral,
+              }}
+            >
+              0.0%
+            </span>
           </div>
         </div>
       </div>
@@ -387,40 +760,40 @@ function WidgetSection({
 }) {
   return (
     <div className="widget-section">
-      <div
-        className="settings-section-title"
-        style={{ color: accentColor }}
-      >
+      <div className="settings-section-title" style={{ color: accentColor }}>
         {title}
       </div>
 
       <div className="widget-section-body">
-        {/* Left: Settings Panel */}
+        {/* Settings Panel (left) */}
         <div className="widget-settings-panel">
-          <div className="settings-card" style={{ borderTop: `2px solid ${accentColor}22` }}>
+          <div
+            className="settings-card"
+            style={{ borderTop: `2px solid ${accentColor}22` }}
+          >
             {settings}
           </div>
-
-          {/* Visibility / Apply button at bottom */}
-          <button
-            className={`visibility-btn ${isVisible ? "visible" : "hidden"}`}
-            onClick={onToggleVisible}
-            style={{
-              background: isVisible ? `${accentColor}18` : "transparent",
-              borderColor: isVisible ? accentColor : "var(--border)",
-              color: isVisible ? accentColor : "var(--text-muted)",
-            }}
-          >
-            <span className="visibility-btn-dot" style={{ background: isVisible ? accentColor : "var(--text-muted)" }} />
-            {isVisible ? "Widget Visible — Click to Hide" : "Widget Hidden — Click to Show"}
-          </button>
         </div>
 
-        {/* Right: Live Preview */}
+        {/* Live Preview (right) */}
         <div className="widget-preview-panel" style={{ background: previewBg }}>
-          <div className="preview-label">Live Preview</div>
           <div className="preview-content">{preview}</div>
         </div>
+
+        {/* Show Widget Button (bottom, spans full width) */}
+        <button
+          className={`visibility-btn ${isVisible ? "visible" : "hidden"}`}
+          onClick={onToggleVisible}
+          style={{
+            color: accentColor,
+          }}
+        >
+          <span
+            className="visibility-btn-dot"
+            style={{ background: accentColor }}
+          />
+          {isVisible ? "Hide Widget" : "Show Widget"}
+        </button>
       </div>
     </div>
   );
@@ -432,9 +805,15 @@ export function WidgetSettingsPage() {
   const [compactVisible, setCompactVisible] = useState(false);
   const [hudVisible, setHudVisible] = useState(false);
 
-  const [pillAlwaysOnTop, setPillAlwaysOnTop] = useState(() => getStoredPillAlwaysOnTop());
-  const [compactAlwaysOnTop, setCompactAlwaysOnTop] = useState(() => getStoredCompactAlwaysOnTop());
-  const [hudAlwaysOnTop, setHudAlwaysOnTop] = useState(() => getStoredHudAlwaysOnTop());
+  const [pillAlwaysOnTop, setPillAlwaysOnTop] = useState(() =>
+    getStoredPillAlwaysOnTop(),
+  );
+  const [compactAlwaysOnTop, setCompactAlwaysOnTop] = useState(() =>
+    getStoredCompactAlwaysOnTop(),
+  );
+  const [hudAlwaysOnTop, setHudAlwaysOnTop] = useState(() =>
+    getStoredHudAlwaysOnTop(),
+  );
 
   const [pillOpacity, setPillOpacity] = useState(() => {
     const saved = localStorage.getItem(LS_OPACITY);
@@ -449,13 +828,25 @@ export function WidgetSettingsPage() {
     return saved ? Number(saved) : 88;
   });
 
-  const [pillColorMode, setPillColorMode] = useState<ColorMode>(() => getStoredPillMode());
-  const [compactColorMode, setCompactColorMode] = useState<ColorMode>(() => getStoredCompactMode());
-  const [hudColorMode, setHudColorMode] = useState<ColorMode>(() => getStoredHudMode());
+  const [pillColorMode, setPillColorMode] = useState<ColorMode>(() =>
+    getStoredPillMode(),
+  );
+  const [compactColorMode, setCompactColorMode] = useState<ColorMode>(() =>
+    getStoredCompactMode(),
+  );
+  const [hudColorMode, setHudColorMode] = useState<ColorMode>(() =>
+    getStoredHudMode(),
+  );
 
-  const [pillIntervalMs, setPillIntervalMs] = useState(() => getStoredPillIntervalMs());
-  const [compactIntervalMs, setCompactIntervalMs] = useState(() => getStoredCompactIntervalMs());
-  const [hudIntervalMs, setHudIntervalMs] = useState(() => getStoredHudIntervalMs());
+  const [pillIntervalMs, setPillIntervalMs] = useState(() =>
+    getStoredPillIntervalMs(),
+  );
+  const [compactIntervalMs, setCompactIntervalMs] = useState(() =>
+    getStoredCompactIntervalMs(),
+  );
+  const [hudIntervalMs, setHudIntervalMs] = useState(() =>
+    getStoredHudIntervalMs(),
+  );
 
   useEffect(() => {
     (async () => {
@@ -511,34 +902,58 @@ export function WidgetSettingsPage() {
   const handlePillAlwaysOnTop = async (value: boolean) => {
     setPillAlwaysOnTop(value);
     localStorage.setItem(LS_PILL_ALWAYS_ON_TOP, String(value));
-    try { await invoke("set_pill_always_on_top", { value }); } catch { /* noop */ }
+    try {
+      await invoke("set_pill_always_on_top", { value });
+    } catch {
+      /* noop */
+    }
   };
 
   const handleCompactAlwaysOnTop = async (value: boolean) => {
     setCompactAlwaysOnTop(value);
     localStorage.setItem(LS_COMPACT_ALWAYS_ON_TOP, String(value));
-    try { await invoke("set_compact_always_on_top", { value }); } catch { /* noop */ }
+    try {
+      await invoke("set_compact_always_on_top", { value });
+    } catch {
+      /* noop */
+    }
   };
 
   const handleHudAlwaysOnTop = async (value: boolean) => {
     setHudAlwaysOnTop(value);
     localStorage.setItem(LS_HUD_ALWAYS_ON_TOP, String(value));
-    try { await invoke("set_hud_always_on_top", { value }); } catch { /* noop */ }
+    try {
+      await invoke("set_hud_always_on_top", { value });
+    } catch {
+      /* noop */
+    }
   };
 
   const handlePillOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_OPACITY, String(value));
-    try { await invoke("set_pill_opacity", { value: value / 100 }); } catch { /* noop */ }
+    try {
+      await invoke("set_pill_opacity", { value: value / 100 });
+    } catch {
+      /* noop */
+    }
   };
 
   const handleCompactOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_COMPACT_OPACITY, String(value));
-    try { await invoke("set_compact_opacity", { value: value / 100 }); } catch { /* noop */ }
+    try {
+      await invoke("set_compact_opacity", { value: value / 100 });
+    } catch {
+      /* noop */
+    }
   };
 
   const handleHudOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_HUD_OPACITY, String(value));
-    try { await invoke("set_hud_opacity", { value: value / 100 }); } catch { /* noop */ }
+    try {
+      await invoke("set_hud_opacity", { value: value / 100 });
+    } catch {
+      /* noop */
+    }
   };
 
   const handlePillColorMode = (mode: ColorMode) => {
@@ -587,7 +1002,8 @@ export function WidgetSettingsPage() {
         <div>
           <div className="page-title">Widget Settings</div>
           <div className="page-subtitle">
-            Configure Pill, Compact, and HUD widget behavior — preview updates live
+            Configure Pill, Compact, and HUD widget behavior — preview updates
+            live
           </div>
         </div>
       </div>
@@ -607,26 +1023,39 @@ export function WidgetSettingsPage() {
             <SettingsRow>
               <div>
                 <div className="settings-label">Always on top</div>
-                <div className="settings-sub">Float the pill widget above all windows</div>
+                <div className="settings-sub">
+                  Float the pill widget above all windows
+                </div>
               </div>
-              <Toggle checked={pillAlwaysOnTop} onChange={() => handlePillAlwaysOnTop(!pillAlwaysOnTop)} />
+              <Toggle
+                checked={pillAlwaysOnTop}
+                onChange={() => handlePillAlwaysOnTop(!pillAlwaysOnTop)}
+              />
             </SettingsRow>
 
             <SettingsRow>
               <div>
                 <div className="settings-label">Dark mode</div>
-                <div className="settings-sub">Use a dark theme for the pill widget</div>
+                <div className="settings-sub">
+                  Use a dark theme for the pill widget
+                </div>
               </div>
               <Toggle
                 checked={pillColorMode === "dark"}
-                onChange={() => handlePillColorMode(pillColorMode === "dark" ? "light" : "dark")}
+                onChange={() =>
+                  handlePillColorMode(
+                    pillColorMode === "dark" ? "light" : "dark",
+                  )
+                }
               />
             </SettingsRow>
 
             <SettingsRow>
               <div>
                 <div className="settings-label">Refresh interval</div>
-                <div className="settings-sub">How often the pill widget updates</div>
+                <div className="settings-sub">
+                  How often the pill widget updates
+                </div>
               </div>
               <select
                 className="fn-select"
@@ -634,7 +1063,9 @@ export function WidgetSettingsPage() {
                 onChange={(e) => handlePillInterval(e.target.value)}
               >
                 {intervalOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             </SettingsRow>
@@ -651,8 +1082,16 @@ export function WidgetSettingsPage() {
                 max={100}
                 value={pillOpacity}
                 onChange={(e) => setPillOpacity(Number(e.target.value))}
-                onMouseUp={(e) => handlePillOpacityCommit(Number((e.target as HTMLInputElement).value))}
-                onTouchEnd={(e) => handlePillOpacityCommit(Number((e.target as HTMLInputElement).value))}
+                onMouseUp={(e) =>
+                  handlePillOpacityCommit(
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
+                onTouchEnd={(e) =>
+                  handlePillOpacityCommit(
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
               />
             </SettingsRow>
           </>
@@ -666,34 +1105,43 @@ export function WidgetSettingsPage() {
         previewBg="linear-gradient(135deg, #0c0b18 0%, #16142a 100%)"
         isVisible={hudVisible}
         onToggleVisible={toggleHud}
-        preview={
-          <HudPreview colorMode={hudColorMode} opacity={hudOpacity} />
-        }
+        preview={<HudPreview colorMode={hudColorMode} opacity={hudOpacity} />}
         settings={
           <>
             <SettingsRow>
               <div>
                 <div className="settings-label">Always on top</div>
-                <div className="settings-sub">Float the HUD widget above all windows</div>
+                <div className="settings-sub">
+                  Float the HUD widget above all windows
+                </div>
               </div>
-              <Toggle checked={hudAlwaysOnTop} onChange={() => handleHudAlwaysOnTop(!hudAlwaysOnTop)} />
+              <Toggle
+                checked={hudAlwaysOnTop}
+                onChange={() => handleHudAlwaysOnTop(!hudAlwaysOnTop)}
+              />
             </SettingsRow>
 
             <SettingsRow>
               <div>
                 <div className="settings-label">Dark mode</div>
-                <div className="settings-sub">Use a dark theme for the HUD widget</div>
+                <div className="settings-sub">
+                  Use a dark theme for the HUD widget
+                </div>
               </div>
               <Toggle
                 checked={hudColorMode === "dark"}
-                onChange={() => handleHudColorMode(hudColorMode === "dark" ? "light" : "dark")}
+                onChange={() =>
+                  handleHudColorMode(hudColorMode === "dark" ? "light" : "dark")
+                }
               />
             </SettingsRow>
 
             <SettingsRow>
               <div>
                 <div className="settings-label">Refresh interval</div>
-                <div className="settings-sub">How often the HUD widget updates</div>
+                <div className="settings-sub">
+                  How often the HUD widget updates
+                </div>
               </div>
               <select
                 className="fn-select"
@@ -701,7 +1149,9 @@ export function WidgetSettingsPage() {
                 onChange={(e) => handleHudInterval(e.target.value)}
               >
                 {intervalOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             </SettingsRow>
@@ -718,8 +1168,16 @@ export function WidgetSettingsPage() {
                 max={100}
                 value={hudOpacity}
                 onChange={(e) => setHudOpacity(Number(e.target.value))}
-                onMouseUp={(e) => handleHudOpacityCommit(Number((e.target as HTMLInputElement).value))}
-                onTouchEnd={(e) => handleHudOpacityCommit(Number((e.target as HTMLInputElement).value))}
+                onMouseUp={(e) =>
+                  handleHudOpacityCommit(
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
+                onTouchEnd={(e) =>
+                  handleHudOpacityCommit(
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
               />
             </SettingsRow>
           </>
@@ -745,26 +1203,39 @@ export function WidgetSettingsPage() {
             <SettingsRow>
               <div>
                 <div className="settings-label">Always on top</div>
-                <div className="settings-sub">Float the compact widget above all windows</div>
+                <div className="settings-sub">
+                  Float the compact widget above all windows
+                </div>
               </div>
-              <Toggle checked={compactAlwaysOnTop} onChange={() => handleCompactAlwaysOnTop(!compactAlwaysOnTop)} />
+              <Toggle
+                checked={compactAlwaysOnTop}
+                onChange={() => handleCompactAlwaysOnTop(!compactAlwaysOnTop)}
+              />
             </SettingsRow>
 
             <SettingsRow>
               <div>
                 <div className="settings-label">Dark mode</div>
-                <div className="settings-sub">Use a dark theme for the compact widget</div>
+                <div className="settings-sub">
+                  Use a dark theme for the compact widget
+                </div>
               </div>
               <Toggle
                 checked={compactColorMode === "dark"}
-                onChange={() => handleCompactColorMode(compactColorMode === "dark" ? "light" : "dark")}
+                onChange={() =>
+                  handleCompactColorMode(
+                    compactColorMode === "dark" ? "light" : "dark",
+                  )
+                }
               />
             </SettingsRow>
 
             <SettingsRow>
               <div>
                 <div className="settings-label">Refresh interval</div>
-                <div className="settings-sub">How often the compact widget updates</div>
+                <div className="settings-sub">
+                  How often the compact widget updates
+                </div>
               </div>
               <select
                 className="fn-select"
@@ -772,7 +1243,9 @@ export function WidgetSettingsPage() {
                 onChange={(e) => handleCompactInterval(e.target.value)}
               >
                 {intervalOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             </SettingsRow>
@@ -789,8 +1262,16 @@ export function WidgetSettingsPage() {
                 max={100}
                 value={compactOpacity}
                 onChange={(e) => setCompactOpacity(Number(e.target.value))}
-                onMouseUp={(e) => handleCompactOpacityCommit(Number((e.target as HTMLInputElement).value))}
-                onTouchEnd={(e) => handleCompactOpacityCommit(Number((e.target as HTMLInputElement).value))}
+                onMouseUp={(e) =>
+                  handleCompactOpacityCommit(
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
+                onTouchEnd={(e) =>
+                  handleCompactOpacityCommit(
+                    Number((e.target as HTMLInputElement).value),
+                  )
+                }
               />
             </SettingsRow>
           </>

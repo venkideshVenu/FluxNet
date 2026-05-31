@@ -50,7 +50,6 @@ body,
   -webkit-user-select: none;
 }
 
-
 /* ─────────────────────────────────────────────────────────────────────────────
    Widget Settings Page — Layout additions
    Add these rules into your existing global stylesheet (e.g. app.css / index.css)
@@ -65,41 +64,53 @@ body,
   margin-bottom: 0;
 }
 
-/* ── Two-column body: settings left, preview right ── */
+/* ── Two-column body with rounded outline ── */
 .widget-section-body {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: 1fr 280px;
+  grid-template-rows: auto auto;
+  gap: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.01)
+  );
 }
 
-/* ── Settings panel (left column) ── */
+/* ── Settings panel ── */
 .widget-settings-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 20px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  grid-column: 1;
+  grid-row: 1;
 }
 
-/* ── Visibility / apply button ── */
+/* ── Show Widget button ── */
 .visibility-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid;
+  padding: 12px 16px;
+  border-radius: 0;
+  border: none;
   background: transparent;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.2s ease;
   font-family: inherit;
   letter-spacing: 0.01em;
+  text-transform: uppercase;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .visibility-btn:hover {
-  filter: brightness(1.1);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .visibility-btn-dot {
@@ -107,33 +118,30 @@ body,
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  margin-right: 4px;
 }
 
 .visibility-btn.visible .visibility-btn-dot {
   box-shadow: 0 0 5px currentColor;
 }
 
-/* ── Preview panel (right column) ── */
+/* ── Preview panel (right side) ── */
 .widget-preview-panel {
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  border: none;
   overflow: hidden;
-  position: sticky;
-  top: 16px;
-  min-height: 220px;
+  position: static;
+  min-height: auto;
   display: flex;
   flex-direction: column;
+  background: transparent;
+  grid-column: 2;
+  grid-row: 1;
 }
 
-/* ── "Live Preview" label inside the preview panel ── */
+/* ── "Live Preview" label (hidden) ── */
 .preview-label {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
-  padding: 10px 14px 0;
-  flex-shrink: 0;
+  display: none;
 }
 
 /* ── The actual preview content area ── */
@@ -142,7 +150,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
+  min-height: 220px;
 }
 
 /* ─── Responsive: stack on narrow screens ─── */
@@ -151,8 +159,12 @@ body,
     grid-template-columns: 1fr;
   }
 
+  .widget-settings-panel {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
   .widget-preview-panel {
-    position: static;
     min-height: 160px;
   }
 }
