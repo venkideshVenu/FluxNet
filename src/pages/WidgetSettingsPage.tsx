@@ -867,9 +867,14 @@ export function WidgetSettingsPage() {
     try {
       const pill = await WebviewWindow.getByLabel("pill");
       if (!pill) return;
-      if (pillVisible) await pill.hide();
-      else await pill.show();
-      setPillVisible((v) => !v);
+      const nextVisible = !pillVisible;
+      if (nextVisible) await pill.show();
+      else await pill.hide();
+      setPillVisible(nextVisible);
+      await invoke("set_widget_visibility", {
+        label: "pill",
+        visible: nextVisible,
+      });
     } catch (err) {
       console.error("pill toggle failed:", err);
     }
@@ -879,9 +884,14 @@ export function WidgetSettingsPage() {
     try {
       const compact = await WebviewWindow.getByLabel("compact");
       if (!compact) return;
-      if (compactVisible) await compact.hide();
-      else await compact.show();
-      setCompactVisible((v) => !v);
+      const nextVisible = !compactVisible;
+      if (nextVisible) await compact.show();
+      else await compact.hide();
+      setCompactVisible(nextVisible);
+      await invoke("set_widget_visibility", {
+        label: "compact",
+        visible: nextVisible,
+      });
     } catch (err) {
       console.error("compact toggle failed:", err);
     }
@@ -891,9 +901,14 @@ export function WidgetSettingsPage() {
     try {
       const hud = await WebviewWindow.getByLabel("hud");
       if (!hud) return;
-      if (hudVisible) await hud.hide();
-      else await hud.show();
-      setHudVisible((v) => !v);
+      const nextVisible = !hudVisible;
+      if (nextVisible) await hud.show();
+      else await hud.hide();
+      setHudVisible(nextVisible);
+      await invoke("set_widget_visibility", {
+        label: "hud",
+        visible: nextVisible,
+      });
     } catch (err) {
       console.error("hud toggle failed:", err);
     }

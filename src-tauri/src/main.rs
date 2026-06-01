@@ -4,11 +4,13 @@ mod commands;
 mod monitor;
 mod storage;
 mod window_positions;
+mod window_visibility;
 
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
     set_compact_always_on_top, set_compact_opacity, set_hud_always_on_top, set_hud_opacity,
-    set_interface, set_pill_always_on_top, set_pill_opacity, tick_sample, SharedMonitorState,
+    set_interface, set_pill_always_on_top, set_pill_opacity, set_widget_visibility, tick_sample,
+    SharedMonitorState,
 };
 use commands::ping::{get_ping_stats, SharedPingState};
 use commands::storage::{
@@ -19,6 +21,7 @@ use storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
 use storage::repository::{cleanup_old_samples, insert_sample};
 use storage::DbState;
 use window_positions::{restore_widget_positions, save_widget_position};
+use window_visibility::{restore_widget_visibility, save_widget_visibility};
 
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -52,6 +55,7 @@ fn main() {
             set_hud_opacity,
             set_pill_always_on_top,
             set_pill_opacity,
+            set_widget_visibility,
             get_ping_stats,
             // ── new persistence commands ──────────────────────────────────
             get_usage_stats_cmd,
@@ -77,6 +81,7 @@ fn main() {
             app.manage(db_state);
             let app_handle = app.handle().clone();
             restore_widget_positions(&app_handle);
+            restore_widget_visibility(&app_handle);
 
             // ── Single background sampler ─────────────────────────────────
             // Ticks every 500 ms — the only place that ever calls
@@ -205,22 +210,26 @@ fn main() {
                     "show_pill" => {
                         if let Some(w) = app.get_webview_window("pill") {
                             let _ = w.show();
+                            save_widget_visibility(app, "pill", true);
                         }
                     }
                     "hide_pill" => {
                         if let Some(w) = app.get_webview_window("pill") {
                             let _ = w.hide();
+                            save_widget_visibility(app, "pill", false);
                         }
                     }
                     "show_compact" => {
                         if let Some(w) = app.get_webview_window("compact") {
                             let _ = w.show();
                             let _ = w.set_focus();
+                            save_widget_visibility(app, "compact", true);
                         }
                     }
                     "hide_compact" => {
                         if let Some(w) = app.get_webview_window("compact") {
                             let _ = w.hide();
+                            save_widget_visibility(app, "compact", false);
                         }
                     }
                     "dashboard" => open_dashboard(app),
@@ -236,9 +245,11 @@ fn main() {
                         if let Some(w) = app.get_webview_window("pill") {
                             if w.is_visible().unwrap_or(false) {
                                 let _ = w.hide();
+                                save_widget_visibility(&app, "pill", false);
                             } else {
                                 let _ = w.show();
                                 let _ = w.set_focus();
+                                save_widget_visibility(&app, "pill", true);
                             }
                         }
                     }

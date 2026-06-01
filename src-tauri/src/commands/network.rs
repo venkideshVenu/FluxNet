@@ -1,6 +1,7 @@
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
+use crate::window_visibility::save_widget_visibility;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
@@ -415,6 +416,12 @@ pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
             clamped
         ))
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_widget_visibility(label: String, visible: bool, app: AppHandle) -> Result<(), String> {
+    save_widget_visibility(&app, &label, visible);
+    Ok(())
 }
 
 #[tauri::command]
