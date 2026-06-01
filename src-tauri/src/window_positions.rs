@@ -8,6 +8,8 @@ use std::{
 };
 use tauri::{AppHandle, Manager, PhysicalPosition, Position};
 
+use crate::window_visibility::apply_widget_visibility;
+
 const WINDOW_POSITIONS_FILE: &str = "widget-positions.json";
 
 /// How long to wait after the last Moved event before flushing to disk.
@@ -33,17 +35,17 @@ type WindowPositions = BTreeMap<String, StoredWindowPosition>;
 // This eliminates the load/save race and the per-event I/O.
 
 struct PositionStore {
-    positions:     WindowPositions,
-    last_move_at:  Option<Instant>,  // when the last Moved event arrived
-    needs_flush:   bool,             // true if the in-memory map is ahead of disk
+    positions: WindowPositions,
+    last_move_at: Option<Instant>, // when the last Moved event arrived
+    needs_flush: bool,             // true if the in-memory map is ahead of disk
 }
 
 impl PositionStore {
     fn new() -> Self {
         Self {
-            positions:    WindowPositions::new(),
+            positions: WindowPositions::new(),
             last_move_at: None,
-            needs_flush:  false,
+            needs_flush: false,
         }
     }
 }
@@ -53,7 +55,9 @@ impl PositionStore {
 static STORE: std::sync::OnceLock<Arc<Mutex<PositionStore>>> = std::sync::OnceLock::new();
 
 fn get_store() -> Arc<Mutex<PositionStore>> {
-    STORE.get_or_init(|| Arc::new(Mutex::new(PositionStore::new()))).clone()
+    STORE
+        .get_or_init(|| Arc::new(Mutex::new(PositionStore::new())))
+        .clone()
 }
 
 // ── File I/O helpers ──────────────────────────────────────────────────────────
@@ -92,6 +96,9 @@ fn flush_to_disk(app: &AppHandle, positions: &WindowPositions) {
 /// Call this once from `setup()`. Loads the saved positions from disk into the
 /// in-memory store, then schedules a deferred restore (200 ms) so the webview
 /// windows are guaranteed to be fully created before `set_position()` is called.
+///
+/// Visibility is applied in the same deferred task, after positions, so widgets
+/// appear in the correct place before being shown.
 pub fn restore_widget_positions(app: &AppHandle) {
     // Seed the in-memory store from disk so subsequent saves don't clobber
     // positions for windows that haven't moved yet in this session.
@@ -107,7 +114,7 @@ pub fn restore_widget_positions(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
-        let store    = get_store();
+        let store = get_store();
         let positions = store.lock().unwrap().positions.clone();
 
         for label in ["pill", "compact", "hud"] {
@@ -126,6 +133,9 @@ pub fn restore_widget_positions(app: &AppHandle) {
                 y: safe_y,
             }));
         }
+
+        // Apply visibility after positioning so widgets appear in the right place.
+        apply_widget_visibility(&app_handle);
     });
 }
 
@@ -142,10 +152,13 @@ pub fn save_widget_position(app: &AppHandle, label: &str, position: PhysicalPosi
         let mut s = store.lock().unwrap();
         s.positions.insert(
             label.to_string(),
-            StoredWindowPosition { x: position.x, y: position.y },
+            StoredWindowPosition {
+                x: position.x,
+                y: position.y,
+            },
         );
         s.last_move_at = Some(Instant::now());
-        s.needs_flush  = true;
+        s.needs_flush = true;
     }
 
     // Spawn a task that waits for the debounce window to expire, then flushes.
@@ -162,7 +175,8 @@ pub fn save_widget_position(app: &AppHandle, label: &str, position: PhysicalPosi
                 return;
             }
             // Only flush if the debounce window has actually expired.
-            let elapsed = s.last_move_at
+            let elapsed = s
+                .last_move_at
                 .map(|t| t.elapsed())
                 .unwrap_or(DEBOUNCE_DURATION);
             if elapsed < DEBOUNCE_DURATION {
@@ -198,20 +212,20 @@ fn clamp_to_screen(app: &AppHandle, label: &str, x: i32, y: i32) -> (i32, i32) {
 
     // Check if the position falls within any monitor's work area (with margin).
     for monitor in &monitors {
-        let pos  = monitor.position();
+        let pos = monitor.position();
         let size = monitor.size();
 
-        let left   = pos.x;
-        let top    = pos.y;
-        let right  = pos.x + size.width as i32;
+        let left = pos.x;
+        let top = pos.y;
+        let right = pos.x + size.width as i32;
         let bottom = pos.y + size.height as i32;
 
         // The widget is "on" this monitor if its top-left corner is within it.
         if x >= left && x < right && y >= top && y < bottom {
             // It's on a valid monitor — clamp to keep at least SCREEN_MARGIN
             // pixels visible so the user can always grab and move it.
-            let clamped_x = x.clamp(left, right  - SCREEN_MARGIN);
-            let clamped_y = y.clamp(top,  bottom - SCREEN_MARGIN);
+            let clamped_x = x.clamp(left, right - SCREEN_MARGIN);
+            let clamped_y = y.clamp(top, bottom - SCREEN_MARGIN);
             return (clamped_x, clamped_y);
         }
     }
@@ -219,10 +233,10 @@ fn clamp_to_screen(app: &AppHandle, label: &str, x: i32, y: i32) -> (i32, i32) {
     // Position is on no known monitor (e.g. second screen was disconnected).
     // Fall back to the top-right area of the primary monitor.
     let primary = &monitors[0];
-    let ppos    = primary.position();
-    let psize   = primary.size();
+    let ppos = primary.position();
+    let psize = primary.size();
 
-    let fallback_x = ppos.x + psize.width  as i32 - 200;
+    let fallback_x = ppos.x + psize.width as i32 - 200;
     let fallback_y = ppos.y + 40;
 
     (fallback_x, fallback_y)

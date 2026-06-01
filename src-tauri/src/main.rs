@@ -9,19 +9,19 @@ mod window_visibility;
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
     set_compact_always_on_top, set_compact_opacity, set_hud_always_on_top, set_hud_opacity,
-    set_interface, set_pill_always_on_top, set_pill_opacity, set_widget_visibility, tick_sample,
-    SharedMonitorState,
+    set_interface, set_pill_always_on_top, set_pill_opacity, tick_sample, SharedMonitorState,
 };
 use commands::ping::{get_ping_stats, SharedPingState};
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
 };
+use commands::visibility::set_widget_visibility;
 use storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
 use storage::repository::{cleanup_old_samples, insert_sample};
 use storage::DbState;
-use window_positions::{restore_widget_positions, save_widget_position};
-use window_visibility::{restore_widget_visibility, save_widget_visibility};
+use window_positions::restore_widget_positions;
+use window_visibility::{load_widget_visibility, save_widget_visibility};
 
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -55,7 +55,6 @@ fn main() {
             set_hud_opacity,
             set_pill_always_on_top,
             set_pill_opacity,
-            set_widget_visibility,
             get_ping_stats,
             // ── new persistence commands ──────────────────────────────────
             get_usage_stats_cmd,
@@ -63,12 +62,8 @@ fn main() {
             get_hourly_summary,
             get_daily_summary,
             get_monthly_summary,
+            set_widget_visibility,
         ])
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Moved(position) = event {
-                save_widget_position(&window.app_handle(), window.label(), *position);
-            }
-        })
         .setup(move |app| {
             // ── Open SQLite database ──────────────────────────────────────
             // Resolves to %APPDATA%\FluxNet\fluxnet.db on Windows.
@@ -79,9 +74,6 @@ fn main() {
 
             let db_state = DbState::open(&app_data_dir).expect("failed to open FluxNet database");
             app.manage(db_state);
-            let app_handle = app.handle().clone();
-            restore_widget_positions(&app_handle);
-            restore_widget_visibility(&app_handle);
 
             // ── Single background sampler ─────────────────────────────────
             // Ticks every 500 ms — the only place that ever calls
@@ -170,6 +162,13 @@ fn main() {
                 }
             });
 
+            // ── Restore widget state (positions first, then visibility) ────
+            // Load visibility into memory before restoring positions so the
+            // deferred task can apply visibility immediately after positioning.
+            let app_handle = app.handle();
+            load_widget_visibility(&app_handle);
+            restore_widget_positions(&app_handle);
+
             // ── Tray menu ─────────────────────────────────────────────────
             let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
             let show_pill = MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
@@ -188,6 +187,8 @@ fn main() {
                 true,
                 None::<&str>,
             )?;
+            let show_hud = MenuItem::with_id(app, "show_hud", "Show HUD", true, None::<&str>)?;
+            let hide_hud = MenuItem::with_id(app, "hide_hud", "Hide HUD", true, None::<&str>)?;
             let dashboard =
                 MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
             let menu = Menu::with_items(
@@ -198,6 +199,8 @@ fn main() {
                     &hide_pill,
                     &show_compact,
                     &hide_compact,
+                    &show_hud,
+                    &hide_hud,
                     &quit,
                 ],
             )?;
@@ -232,6 +235,19 @@ fn main() {
                             save_widget_visibility(app, "compact", false);
                         }
                     }
+                    "show_hud" => {
+                        if let Some(w) = app.get_webview_window("hud") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                            save_widget_visibility(app, "hud", true);
+                        }
+                    }
+                    "hide_hud" => {
+                        if let Some(w) = app.get_webview_window("hud") {
+                            let _ = w.hide();
+                            save_widget_visibility(app, "hud", false);
+                        }
+                    }
                     "dashboard" => open_dashboard(app),
                     _ => {}
                 })
@@ -245,11 +261,11 @@ fn main() {
                         if let Some(w) = app.get_webview_window("pill") {
                             if w.is_visible().unwrap_or(false) {
                                 let _ = w.hide();
-                                save_widget_visibility(&app, "pill", false);
+                                save_widget_visibility(app, "pill", false);
                             } else {
                                 let _ = w.show();
                                 let _ = w.set_focus();
-                                save_widget_visibility(&app, "pill", true);
+                                save_widget_visibility(app, "pill", true);
                             }
                         }
                     }
