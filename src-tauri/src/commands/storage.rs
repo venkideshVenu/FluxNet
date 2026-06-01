@@ -21,7 +21,7 @@ pub fn get_usage_stats_cmd(db: State<DbState>) -> Result<UsageStats, String> {
     get_usage_stats(&conn).map_err(|e| e.to_string())
 }
 
-/// Raw 500 ms samples for the last `minutes` minutes (default 60).
+/// Raw 500 ms samples for the last `minutes` minutes (default 60 if omitted).
 /// Used by the live history chart on HistoryPage.
 #[tauri::command]
 pub fn get_history_range(

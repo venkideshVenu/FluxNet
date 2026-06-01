@@ -44,10 +44,9 @@ pub fn rollup_hourly(conn: &Connection) -> rusqlite::Result<()> {
         .map(|s| s.upload_bps)
         .fold(f64::NEG_INFINITY, f64::max);
 
-    // Each sample spans ~0.5 s (500 ms poll interval).
-    // total_bytes ≈ avg_bps × 3600 s (one full hour).
-    let total_dl = (avg_dl * 3600.0) as i64;
-    let total_ul = (avg_ul * 3600.0) as i64;
+    // each sample covers ~0.5 s (the poll interval)
+    let total_dl = (samples.iter().map(|s| s.download_bps * 0.5).sum::<f64>()) as i64;
+    let total_ul = (samples.iter().map(|s| s.upload_bps * 0.5).sum::<f64>()) as i64;
 
     upsert_hourly(
         conn,
@@ -133,8 +132,12 @@ pub fn rollup_daily(conn: &Connection) -> rusqlite::Result<()> {
 ///
 /// Called from `main.rs` on the first day of a new month.
 pub fn rollup_monthly(conn: &Connection) -> rusqlite::Result<()> {
-    // "Last month" = any point 32+ days ago guarantees we're in the previous month.
-    let last_month = Local::now() - chrono::Duration::days(32);
+    // Go to the first day of this month, then step back one day into last month.
+    let now = Local::now();
+    let first_of_this_month = Local
+        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+        .unwrap();
+    let last_month = first_of_this_month - chrono::Duration::days(1);
     let month_str = last_month.format("%Y-%m").to_string();
     let like_prefix = format!("{}%", month_str);
 

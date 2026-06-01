@@ -8,7 +8,8 @@ use crate::storage::migrations::get_migrations;
 ///
 /// Command handlers lock this for reads (get_usage_stats, etc.).
 /// The background sampler task opens its own separate connection via
-/// `DbState::open()` so writes never block command handlers.
+/// `DbState::open()` so writes never block command handlers. Migrations are
+/// idempotent, so a second open is safe even though it repeats the check.
 /// Both connections use WAL mode and can run concurrently safely.
 pub struct DbState(pub Mutex<Connection>);
 

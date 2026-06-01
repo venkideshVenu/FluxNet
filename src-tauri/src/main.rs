@@ -136,6 +136,9 @@ fn main() {
                     }
 
                     // ── 4. Hourly rollup — fires once when the hour turns ─
+                    // NOTE: This must run before the daily rollup at midnight.
+                    // The daily rollup depends on the 23:00–00:00 hour being
+                    // present in hourly_usage, which is created here.
                     let now_local = chrono::Local::now();
                     let current_hour = chrono::Timelike::hour(&now_local);
                     let current_day = chrono::Datelike::day(&now_local);
@@ -151,6 +154,8 @@ fn main() {
                     last_hour = Some(current_hour);
 
                     // ── 5. Daily rollup — fires once when the day turns ───
+                    // Keep this block after the hourly rollup to avoid dropping
+                    // the final hour of the previous day.
                     if let Some(prev_day) = last_day {
                         if prev_day != current_day {
                             // The day just changed — roll up yesterday.

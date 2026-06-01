@@ -239,7 +239,7 @@ pub fn get_daily_last_n(conn: &Connection, n: i64) -> rusqlite::Result<Vec<Daily
             total_upload_bytes: row.get(6)?,
         })
     })?;
-    // Collected in DESC order; reverse so charts get ascending dates.
+    // Query DESC to get the most-recent N rows, then reverse for ascending chart order.
     let mut result: Vec<DailyUsage> = rows.collect::<rusqlite::Result<_>>()?;
     result.reverse();
     Ok(result)
@@ -271,7 +271,9 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
     let now = Local::now();
     let today_str = now.format("%Y-%m-%d").to_string();
     let month_str = now.format("%Y-%m").to_string();
-    let week_ago = (now - chrono::Duration::days(7)).timestamp();
+    let week_start_date = (now - chrono::Duration::days(7))
+        .format("%Y-%m-%d")
+        .to_string();
 
     // ── Today: read from daily_usage (written by the hourly rollup) ──────
     // Falls back to summing raw samples for the current calendar day so
@@ -304,16 +306,32 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
             .unwrap_or((0, 0))
         });
 
-    // ── Last 7 days: from raw samples (high accuracy, within 7-day window) ─
-    let week: (i64, i64) = conn
+    // ── Last 7 days: completed days from daily_usage + today's partial samples ─
+    let week_from_daily: (i64, i64) = conn
+        .query_row(
+            "SELECT COALESCE(SUM(total_download_bytes), 0),
+                    COALESCE(SUM(total_upload_bytes),   0)
+             FROM daily_usage
+             WHERE day >= ?1 AND day < ?2",
+            params![week_start_date, today_str],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap_or((0, 0));
+
+    let week_from_today: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(CAST(SUM(download_bps * 0.5) AS INTEGER), 0),
                     COALESCE(CAST(SUM(upload_bps   * 0.5) AS INTEGER), 0)
              FROM bandwidth_samples WHERE timestamp >= ?1",
-            params![week_ago],
+            params![today_start],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0, 0));
+
+    let week = (
+        week_from_daily.0 + week_from_today.0,
+        week_from_daily.1 + week_from_today.1,
+    );
 
     // ── This calendar month: sum daily_usage rows ─────────────────────────
     let month: (i64, i64) = conn
