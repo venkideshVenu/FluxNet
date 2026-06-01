@@ -20,14 +20,14 @@ use commands::visibility::set_widget_visibility;
 use storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
 use storage::repository::{cleanup_old_samples, insert_sample};
 use storage::DbState;
-use window_positions::restore_widget_positions;
+use window_positions::{restore_widget_positions, save_widget_position};
 use window_visibility::{load_widget_visibility, save_widget_visibility};
 
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewWindowBuilder,
+    Manager, WebviewWindowBuilder, WindowEvent,
 };
 
 fn main() {
@@ -64,6 +64,12 @@ fn main() {
             get_monthly_summary,
             set_widget_visibility,
         ])
+        .on_window_event(|window, event| {
+            if let WindowEvent::Moved(position) = event {
+                let app_handle = window.app_handle();
+                save_widget_position(&app_handle, window.label(), *position);
+            }
+        })
         .setup(move |app| {
             // ── Open SQLite database ──────────────────────────────────────
             // Resolves to %APPDATA%\FluxNet\fluxnet.db on Windows.
