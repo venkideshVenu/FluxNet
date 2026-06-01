@@ -3,6 +3,7 @@
 mod commands;
 mod monitor;
 mod storage;
+mod window_positions;
 
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
@@ -17,6 +18,7 @@ use commands::storage::{
 use storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
 use storage::repository::{cleanup_old_samples, insert_sample};
 use storage::DbState;
+use window_positions::{restore_widget_positions, save_widget_position};
 
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -58,6 +60,11 @@ fn main() {
             get_daily_summary,
             get_monthly_summary,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Moved(position) = event {
+                save_widget_position(&window.app_handle(), window.label(), *position);
+            }
+        })
         .setup(move |app| {
             // ── Open SQLite database ──────────────────────────────────────
             // Resolves to %APPDATA%\FluxNet\fluxnet.db on Windows.
@@ -66,9 +73,10 @@ fn main() {
                 .app_data_dir()
                 .expect("failed to resolve app data dir");
 
-            let db_state =
-                DbState::open(&app_data_dir).expect("failed to open FluxNet database");
+            let db_state = DbState::open(&app_data_dir).expect("failed to open FluxNet database");
             app.manage(db_state);
+            let app_handle = app.handle().clone();
+            restore_widget_positions(&app_handle);
 
             // ── Single background sampler ─────────────────────────────────
             // Ticks every 500 ms — the only place that ever calls
@@ -83,11 +91,9 @@ fn main() {
 
             tauri::async_runtime::spawn(async move {
                 // Dedicated DB connection for the background writer.
-                let bg_db = DbState::open(&db_path_for_task)
-                    .expect("background DB open failed");
+                let bg_db = DbState::open(&db_path_for_task).expect("background DB open failed");
 
-                let mut interval =
-                    tokio::time::interval(std::time::Duration::from_millis(500));
+                let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
 
                 // Housekeeping timers
                 let mut last_cleanup = tokio::time::Instant::now();
@@ -95,7 +101,7 @@ fn main() {
 
                 // Track hour/day changes to trigger rollups exactly once.
                 let mut last_hour: Option<u32> = None;
-                let mut last_day:  Option<u32> = None;
+                let mut last_day: Option<u32> = None;
 
                 loop {
                     interval.tick().await;
@@ -129,7 +135,7 @@ fn main() {
                     // ── 4. Hourly rollup — fires once when the hour turns ─
                     let now_local = chrono::Local::now();
                     let current_hour = chrono::Timelike::hour(&now_local);
-                    let current_day  = chrono::Datelike::day(&now_local);
+                    let current_day = chrono::Datelike::day(&now_local);
 
                     if let Some(prev_hour) = last_hour {
                         if prev_hour != current_hour {
@@ -161,10 +167,8 @@ fn main() {
 
             // ── Tray menu ─────────────────────────────────────────────────
             let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
-            let show_pill =
-                MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
-            let hide_pill =
-                MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
+            let show_pill = MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
+            let hide_pill = MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
             let show_compact = MenuItem::with_id(
                 app,
                 "show_compact",
