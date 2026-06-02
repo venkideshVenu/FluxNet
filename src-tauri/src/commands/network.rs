@@ -1,12 +1,11 @@
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
-use std::ffi::CStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
-use windows::core::{PSTR, PWSTR};
+use windows::core::PWSTR;
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
     GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_ETHERNET_CSMACD,
@@ -344,17 +343,6 @@ fn pwstr_to_string(p: PWSTR) -> String {
         }
         let slice = std::slice::from_raw_parts(p.0, len);
         String::from_utf16_lossy(slice)
-    }
-}
-
-fn pstr_to_string(p: PSTR) -> String {
-    if p.0.is_null() {
-        return String::new();
-    }
-    unsafe {
-        CStr::from_ptr(p.0 as *const i8)
-            .to_string_lossy()
-            .into_owned()
     }
 }
 

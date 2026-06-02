@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { fetchUsageStats } from "../hooks/useStorageApi";
 import { useNetworkStore } from "../store/networkStore";
 import { formatBytes, formatSpeed } from "../utils/formatSpeed";
 import {
@@ -13,11 +14,15 @@ export function CompactWidget() {
   const [intervalMs, setIntervalMs] = useState(() =>
     getStoredCompactIntervalMs(),
   );
+  const [dbStats, setDbStats] = useState<{
+    dl: number;
+    ul: number;
+  } | null>(null);
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
-  const upToday = formatBytes(todayUploadBytes);
-  const dnToday = formatBytes(todayDownloadBytes);
+  const upToday = formatBytes(dbStats?.ul ?? todayUploadBytes);
+  const dnToday = formatBytes(dbStats?.dl ?? todayDownloadBytes);
 
   const handleDrag = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -41,6 +46,34 @@ export function CompactWidget() {
     sync();
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    const syncTodayTotals = async () => {
+      try {
+        const stats = await fetchUsageStats();
+        if (alive) {
+          setDbStats({
+            dl: stats.todayDownloadBytes,
+            ul: stats.todayUploadBytes,
+          });
+        }
+      } catch {
+        // Keep the in-memory estimate until the DB-backed totals are available.
+      }
+    };
+
+    void syncTodayTotals();
+    const id = setInterval(() => {
+      void syncTodayTotals();
+    }, 30_000);
+
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, []);
 
   const intervalLabel = `${intervalMs / 1000}s`;

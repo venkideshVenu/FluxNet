@@ -11,9 +11,9 @@ import {
   LS_PILL_INTERVAL,
 } from "../utils/polling";
 
-// Every window uses the same full snapshot — this is the single source of truth.
-// get_network_stats is no longer used; get_dashboard_snapshot returns current
-// speeds, peaks, and history in one read from the backend's cached state.
+// Dashboard and Compact use the full snapshot.
+// Pill and HUD use the lighter live-stats path because they only need the
+// current upload/download values.
 type RawSnapshot = {
   current_upload: number;
   current_download: number;
@@ -24,6 +24,7 @@ type RawSnapshot = {
 };
 
 export function useNetworkPoller() {
+  const setData = useNetworkStore((s) => s.setData);
   const setSnapshot = useNetworkStore((s) => s.setSnapshot);
   const setConnected = useNetworkStore((s) => s.setConnected);
   const addTodayUsage = useNetworkStore((s) => s.addTodayUsage);
@@ -88,16 +89,17 @@ export function useNetworkPoller() {
 
   // ── Main polling loop ─────────────────────────────────────────────────────
   //
-  // All windows call get_dashboard_snapshot — the single Tauri command that
-  // returns current speeds, peaks, and history from the backend's cache.
-  // The background Rust task is the only thing that ever samples the NIC;
-  // these frontend polls are pure reads.
+  // The background Rust task is the only thing that ever samples the NIC.
+  // These frontend polls are pure reads: Dashboard and Compact ask for the
+  // full snapshot, while Pill and HUD read only the current speeds.
 
   useEffect(() => {
     const poll = async () => {
       try {
         const now = Date.now();
         const dayKey = getDayKey();
+        let currentUpload = 0;
+        let currentDownload = 0;
 
         if (!lastDayKeyRef.current) {
           lastDayKeyRef.current = dayKey;
@@ -108,24 +110,44 @@ export function useNetworkPoller() {
           lastSampleAtRef.current = now;
         }
 
-        const snap = await invoke<RawSnapshot>("get_dashboard_snapshot");
+        if (windowLabel === "pill" || windowLabel === "hud") {
+          const stats = await invoke<{
+            upload_bytes_per_sec: number;
+            download_bytes_per_sec: number;
+            interface_name: string;
+          }>("get_network_stats");
 
-        setSnapshot({
-          currentUpload: snap.current_upload,
-          currentDownload: snap.current_download,
-          peakUpload: snap.peak_upload,
-          peakDownload: snap.peak_download,
-          interfaceName: snap.interface_name,
-          history: snap.history,
-        });
+          currentUpload = stats.upload_bytes_per_sec;
+          currentDownload = stats.download_bytes_per_sec;
+
+          setData({
+            uploadBytesPerSec: stats.upload_bytes_per_sec,
+            downloadBytesPerSec: stats.download_bytes_per_sec,
+            interfaceName: stats.interface_name,
+          });
+        } else {
+          const snap = await invoke<RawSnapshot>("get_dashboard_snapshot");
+
+          currentUpload = snap.current_upload;
+          currentDownload = snap.current_download;
+
+          setSnapshot({
+            currentUpload: snap.current_upload,
+            currentDownload: snap.current_download,
+            peakUpload: snap.peak_upload,
+            peakDownload: snap.peak_download,
+            interfaceName: snap.interface_name,
+            history: snap.history,
+          });
+        }
 
         // Accumulate today's usage estimate using elapsed wall-clock time.
         if (lastSampleAtRef.current !== null) {
           const elapsedSec = (now - lastSampleAtRef.current) / 1000;
           if (elapsedSec > 0) {
             addTodayUsage(
-              snap.current_upload * elapsedSec,
-              snap.current_download * elapsedSec,
+              currentUpload * elapsedSec,
+              currentDownload * elapsedSec,
             );
           }
         }
