@@ -4,7 +4,7 @@ use tauri::{
     App, AppHandle, Manager, WebviewWindowBuilder,
 };
 
-use crate::window_visibility::save_widget_visibility;
+use crate::commands::visibility::apply_widget_visibility;
 
 pub fn open_dashboard(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -67,44 +67,28 @@ pub fn build_tray(app: &App) -> tauri::Result<()> {
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
+
             "show_pill" => {
-                if let Some(w) = app.get_webview_window("pill") {
-                    let _ = w.show();
-                    save_widget_visibility(app, "pill", true);
-                }
+                let _ = apply_widget_visibility(app, "pill", true);
             }
             "hide_pill" => {
-                if let Some(w) = app.get_webview_window("pill") {
-                    let _ = w.hide();
-                    save_widget_visibility(app, "pill", false);
-                }
+                let _ = apply_widget_visibility(app, "pill", false);
             }
+
             "show_compact" => {
-                if let Some(w) = app.get_webview_window("compact") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                    save_widget_visibility(app, "compact", true);
-                }
+                let _ = apply_widget_visibility(app, "compact", true);
             }
             "hide_compact" => {
-                if let Some(w) = app.get_webview_window("compact") {
-                    let _ = w.hide();
-                    save_widget_visibility(app, "compact", false);
-                }
+                let _ = apply_widget_visibility(app, "compact", false);
             }
+
             "show_hud" => {
-                if let Some(w) = app.get_webview_window("hud") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                    save_widget_visibility(app, "hud", true);
-                }
+                let _ = apply_widget_visibility(app, "hud", true);
             }
             "hide_hud" => {
-                if let Some(w) = app.get_webview_window("hud") {
-                    let _ = w.hide();
-                    save_widget_visibility(app, "hud", false);
-                }
+                let _ = apply_widget_visibility(app, "hud", false);
             }
+
             "dashboard" => open_dashboard(app),
             _ => {}
         })
@@ -118,12 +102,9 @@ pub fn build_tray(app: &App) -> tauri::Result<()> {
 
                 if let Some(w) = app.get_webview_window("pill") {
                     if w.is_visible().unwrap_or(false) {
-                        let _ = w.hide();
-                        save_widget_visibility(app, "pill", false);
+                        let _ = apply_widget_visibility(app, "pill", false);
                     } else {
-                        let _ = w.show();
-                        let _ = w.set_focus();
-                        save_widget_visibility(app, "pill", true);
+                        let _ = apply_widget_visibility(app, "pill", true);
                     }
                 }
             }
