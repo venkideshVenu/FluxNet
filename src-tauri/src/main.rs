@@ -3,6 +3,7 @@
 mod commands;
 mod monitor;
 mod storage;
+mod dto;
 mod window_positions;
 mod window_visibility;
 

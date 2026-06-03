@@ -1,3 +1,4 @@
+use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo};
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
@@ -18,17 +19,6 @@ pub struct HistoryPoint {
     pub upload: f64,
     pub download: f64,
     pub timestamp_secs: u64,
-}
-
-#[derive(serde::Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct InterfaceInfo {
-    pub name: String,
-    pub description: String,
-    pub if_index: u32,
-    pub status: String,
-    pub mac: String,
-    pub link_speed_bps: u64,
 }
 
 pub struct MonitorState {
@@ -163,23 +153,6 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
         download_bytes_per_sec: s.last_download,
         interface_name: s.interface.clone(),
     }
-}
-
-#[derive(serde::Serialize)]
-pub struct DashboardSnapshot {
-    pub current_upload: f64,
-    pub current_download: f64,
-    pub peak_upload: f64,
-    pub peak_download: f64,
-    pub interface_name: String,
-    pub history: Vec<HistorySnapshotPoint>,
-}
-
-#[derive(serde::Serialize)]
-pub struct HistorySnapshotPoint {
-    pub upload: f64,
-    pub download: f64,
-    pub t: u64,
 }
 
 /// Full snapshot: speeds + peaks + history.

@@ -1,14 +1,8 @@
+use crate::dto::ping::PingStats;
 use crate::monitor::ping::measure_ping;
-use serde::Serialize;
 use std::net::IpAddr;
 use std::sync::Mutex;
 use tauri::State;
-
-#[derive(Serialize, Clone)]
-pub struct PingStats {
-    pub latency_ms: f64,   // -1.0 means timeout
-    pub loss_percent: f64, // rolling 10-sample loss %
-}
 
 pub struct PingState {
     /// Rolling window of last 10 results — true = lost
