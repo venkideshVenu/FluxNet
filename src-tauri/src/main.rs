@@ -4,6 +4,7 @@ mod background;
 mod commands;
 mod dto;
 mod monitor;
+mod persistence;
 mod setup;
 mod storage;
 mod tray;

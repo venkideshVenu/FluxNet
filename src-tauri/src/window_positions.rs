@@ -1,23 +1,17 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
-    fs,
-    path::PathBuf,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tauri::{AppHandle, Manager, PhysicalPosition, Position};
 
+use crate::persistence::persistent_store::PersistentStore;
+
 use crate::window_visibility::apply_widget_visibility;
 
 const WINDOW_POSITIONS_FILE: &str = "widget-positions.json";
-
-/// How long to wait after the last Moved event before flushing to disk.
-/// Windows fires Moved ~30-60x/sec during a drag; we only write once it stops.
 const DEBOUNCE_DURATION: Duration = Duration::from_millis(500);
-
-/// Minimum distance from the screen edge we enforce when restoring a position.
-/// Prevents widgets restored from a now-disconnected monitor being off-screen.
 const SCREEN_MARGIN: i32 = 50;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -27,12 +21,6 @@ struct StoredWindowPosition {
 }
 
 type WindowPositions = BTreeMap<String, StoredWindowPosition>;
-
-// ── Shared in-memory state ────────────────────────────────────────────────────
-//
-// Keeping the positions in memory means save_widget_position() never needs to
-// read the file first — it just updates the map and schedules a debounced flush.
-// This eliminates the load/save race and the per-event I/O.
 
 struct PositionStore {
     positions: WindowPositions,
@@ -50,9 +38,8 @@ impl PositionStore {
     }
 }
 
-// One global store shared across all window-event callbacks.
-// Initialised lazily on first use; the AppHandle is not stored here.
 static STORE: std::sync::OnceLock<Arc<Mutex<PositionStore>>> = std::sync::OnceLock::new();
+static DISK_STORE: PersistentStore<WindowPositions> = PersistentStore::new(WINDOW_POSITIONS_FILE);
 
 fn get_store() -> Arc<Mutex<PositionStore>> {
     STORE
@@ -60,49 +47,10 @@ fn get_store() -> Arc<Mutex<PositionStore>> {
         .clone()
 }
 
-// ── File I/O helpers ──────────────────────────────────────────────────────────
-
-fn positions_path(app: &AppHandle) -> Option<PathBuf> {
-    app.path()
-        .app_data_dir()
-        .ok()
-        .map(|dir| dir.join(WINDOW_POSITIONS_FILE))
-}
-
-fn load_positions_from_disk(app: &AppHandle) -> WindowPositions {
-    let Some(path) = positions_path(app) else {
-        return WindowPositions::new();
-    };
-    let Ok(contents) = fs::read_to_string(path) else {
-        return WindowPositions::new();
-    };
-    serde_json::from_str(&contents).unwrap_or_default()
-}
-
-fn flush_to_disk(app: &AppHandle, positions: &WindowPositions) {
-    let Some(path) = positions_path(app) else {
-        return;
-    };
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    if let Ok(serialized) = serde_json::to_string_pretty(positions) {
-        let _ = fs::write(path, serialized);
-    }
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-/// Call this once from `setup()`. Loads the saved positions from disk into the
-/// in-memory store, then schedules a deferred restore (200 ms) so the webview
-/// windows are guaranteed to be fully created before `set_position()` is called.
-///
-/// Visibility is applied in the same deferred task, after positions, so widgets
-/// appear in the correct place before being shown.
 pub fn restore_widget_positions(app: &AppHandle) {
-    // Seed the in-memory store from disk so subsequent saves don't clobber
-    // positions for windows that haven't moved yet in this session.
-    let positions = load_positions_from_disk(app);
+    DISK_STORE.load(app);
+
+    let positions = DISK_STORE.read(|p| p.clone());
     {
         let store = get_store();
         let mut s = store.lock().unwrap();
@@ -139,9 +87,6 @@ pub fn restore_widget_positions(app: &AppHandle) {
     });
 }
 
-/// Call this from `.on_window_event` for every `WindowEvent::Moved`.
-/// Updates the in-memory map immediately and schedules a debounced disk flush.
-/// Only widget windows (pill / compact / hud) are tracked; all others are ignored.
 pub fn save_widget_position(app: &AppHandle, label: &str, position: PhysicalPosition<i32>) {
     if !matches!(label, "pill" | "compact" | "hud") {
         return;
@@ -161,9 +106,6 @@ pub fn save_widget_position(app: &AppHandle, label: &str, position: PhysicalPosi
         s.needs_flush = true;
     }
 
-    // Spawn a task that waits for the debounce window to expire, then flushes.
-    // If more Moved events arrive they push `last_move_at` forward, causing
-    // earlier tasks to bail out without writing — only the last one wins.
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(DEBOUNCE_DURATION).await;
@@ -187,15 +129,13 @@ pub fn save_widget_position(app: &AppHandle, label: &str, position: PhysicalPosi
         };
 
         if should_flush {
-            flush_to_disk(&app_handle, &positions);
+            DISK_STORE.update(&app_handle, |saved| {
+                *saved = positions;
+            });
         }
     });
 }
 
-// ── Screen bounds guard ───────────────────────────────────────────────────────
-
-/// Returns `(x, y)` clamped so the widget is not placed entirely off-screen.
-/// Falls back to (100, 100) if monitor information is unavailable.
 fn clamp_to_screen(app: &AppHandle, label: &str, x: i32, y: i32) -> (i32, i32) {
     // Get the window so we can query available monitors.
     let Some(window) = app.get_webview_window(label) else {
