@@ -10,14 +10,11 @@ use crate::storage::{
 
 use chrono::{Duration, Local};
 
-// All commands return `Result<T, String>` so the frontend receives a
-// structured error string instead of a panic when something goes wrong.
-
 /// Summary card data: today / week / month totals plus all-time peaks.
 /// Refreshed by the frontend every 30 s.
 #[tauri::command]
 pub fn get_usage_stats_cmd(db: State<DbState>) -> Result<UsageStats, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let conn = db.0.lock();
     get_usage_stats(&conn).map_err(|e| e.to_string())
 }
 
@@ -28,7 +25,7 @@ pub fn get_history_range(
     db: State<DbState>,
     minutes: Option<i64>,
 ) -> Result<Vec<BandwidthSample>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let conn = db.0.lock();
     let since = (Local::now() - Duration::minutes(minutes.unwrap_or(60))).timestamp();
     get_samples_since(&conn, since).map_err(|e| e.to_string())
 }
@@ -40,7 +37,7 @@ pub fn get_hourly_summary(
     db: State<DbState>,
     hours: Option<i64>,
 ) -> Result<Vec<HourlyUsage>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let conn = db.0.lock();
     let since = (Local::now() - Duration::hours(hours.unwrap_or(48))).timestamp();
     get_hourly_since(&conn, since).map_err(|e| e.to_string())
 }
@@ -49,7 +46,7 @@ pub fn get_hourly_summary(
 /// Used by the "Last 30 days" bar chart.
 #[tauri::command]
 pub fn get_daily_summary(db: State<DbState>, days: Option<i64>) -> Result<Vec<DailyUsage>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let conn = db.0.lock();
     get_daily_last_n(&conn, days.unwrap_or(30)).map_err(|e| e.to_string())
 }
 
@@ -57,6 +54,6 @@ pub fn get_daily_summary(db: State<DbState>, days: Option<i64>) -> Result<Vec<Da
 /// Used by the monthly overview tab.
 #[tauri::command]
 pub fn get_monthly_summary(db: State<DbState>) -> Result<Vec<MonthlyUsage>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let conn = db.0.lock();
     get_monthly_all(&conn).map_err(|e| e.to_string())
 }

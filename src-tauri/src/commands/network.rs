@@ -2,7 +2,8 @@ use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
@@ -14,6 +15,8 @@ use windows::Win32::NetworkManagement::IpHelper::{
 };
 use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
+
+pub type SharedMonitorState = Arc<Mutex<MonitorState>>;
 
 pub struct HistoryPoint {
     pub upload: f64,
@@ -59,8 +62,6 @@ impl Default for MonitorState {
         }
     }
 }
-
-pub type SharedMonitorState = Arc<Mutex<MonitorState>>;
 
 // ── Single background sampler ─────────────────────────────────────────────────
 //
@@ -146,8 +147,8 @@ pub fn tick_sample(s: &mut MonitorState) {
 /// Lightweight: returns only current up/down speeds.
 /// Used by Pill and HUD windows.
 #[tauri::command]
-pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
-    let s = state.lock().unwrap();
+pub fn get_network_stats(state: tauri::State<SharedMonitorState>) -> NetworkStats {
+    let s = state.lock();
     NetworkStats {
         upload_bytes_per_sec: s.last_upload,
         download_bytes_per_sec: s.last_download,
@@ -159,7 +160,7 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
 /// Used by Compact and Dashboard windows.
 #[tauri::command]
 pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     DashboardSnapshot {
         current_upload: s.last_upload,
         current_download: s.last_download,
@@ -181,7 +182,7 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
 #[tauri::command]
 pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
     {
-        let s = state.lock().unwrap();
+        let s = state.lock();
         if let Some(at) = s.interfaces_cache_at {
             if at.elapsed() < Duration::from_secs(10) {
                 return s.interfaces_cache.clone();
@@ -191,7 +192,7 @@ pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
 
     let interfaces = read_interfaces_from_windows();
 
-    let mut s = state.lock().unwrap();
+    let mut s = state.lock();
     s.interfaces_cache = interfaces.clone();
     s.interfaces_cache_at = Some(Instant::now());
 
@@ -347,7 +348,7 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
 
 #[tauri::command]
 pub fn set_interface(name: String, state: State<SharedMonitorState>) {
-    let mut s = state.lock().unwrap();
+    let mut s = state.lock();
     s.interface = name;
     s.prev_tx = 0;
     s.prev_rx = 0;
@@ -361,7 +362,7 @@ pub fn set_interface(name: String, state: State<SharedMonitorState>) {
 
 #[tauri::command]
 pub fn reset_peaks(state: State<SharedMonitorState>) {
-    let mut s = state.lock().unwrap();
+    let mut s = state.lock();
     s.peak_upload = 0.0;
     s.peak_download = 0.0;
 }

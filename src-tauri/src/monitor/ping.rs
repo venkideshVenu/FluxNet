@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 use std::time::Duration;
-use surge_ping::{Client, Config, PingIdentifier, PingSequence, ICMP};
+use surge_ping::{Client, Config, PingIdentifier, PingSequence};
 use tokio::time::timeout;
 
 pub struct PingResult {

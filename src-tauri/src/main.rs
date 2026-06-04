@@ -30,7 +30,7 @@ use std::sync::Mutex;
 
 use tauri::{Manager, WindowEvent};
 
-use crate::window_positions::{PositionSender, enqueue_position};
+use crate::window_positions::{enqueue_position, PositionSender};
 
 fn main() {
     tauri::Builder::default()
@@ -38,8 +38,10 @@ fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
-        .manage(Mutex::new(commands::network::MonitorState::default()))
-        .manage(Mutex::new(commands::ping::PingState::default()) as SharedPingState)
+        .manage(parking_lot::Mutex::new(
+            commands::network::MonitorState::default(),
+        ))
+        .manage(parking_lot::Mutex::new(commands::ping::PingState::default()))
         .invoke_handler(tauri::generate_handler![
             get_network_stats,
             get_dashboard_snapshot,
