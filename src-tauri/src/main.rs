@@ -16,21 +16,15 @@ use commands::network::{
     set_compact_always_on_top, set_compact_opacity, set_hud_always_on_top, set_hud_opacity,
     set_interface, set_pill_always_on_top, set_pill_opacity,
 };
-
-use commands::ping::{get_ping_stats, SharedPingState};
-
+use commands::ping::{get_ping_stats};
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
 };
-
 use commands::visibility::set_widget_visibility;
-
-use std::sync::Mutex;
-
 use tauri::{Manager, WindowEvent};
-
 use crate::window_positions::{enqueue_position, PositionSender};
+use std::sync::Arc;  // Added
 
 fn main() {
     tauri::Builder::default()
@@ -38,10 +32,14 @@ fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
-        .manage(parking_lot::Mutex::new(
+        // Manage Arc<Mutex<MonitorState>> – matches SharedMonitorState
+        .manage(Arc::new(parking_lot::Mutex::new(
             commands::network::MonitorState::default(),
-        ))
-        .manage(parking_lot::Mutex::new(commands::ping::PingState::default()))
+        )))
+        // Manage Arc<Mutex<PingState>> – matches SharedPingState
+        .manage(Arc::new(parking_lot::Mutex::new(
+            commands::ping::PingState::default(),
+        )))
         .invoke_handler(tauri::generate_handler![
             get_network_stats,
             get_dashboard_snapshot,
@@ -64,7 +62,6 @@ fn main() {
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Moved(position) = event {
-                // Retrieve the sender from Tauri state
                 let app_handle = window.app_handle();
                 if let Some(sender) = app_handle.try_state::<PositionSender>() {
                     enqueue_position(&sender.0, window.label(), *position);
