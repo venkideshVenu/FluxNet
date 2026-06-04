@@ -27,6 +27,7 @@ rusqlite_migration = "1.2"
 chrono = { version = "0.4", features = ["serde"] }
 parking_lot = "0.12.5"
 tracing = "0.1.44"
+tokio-util = { version = "0.7", features = ["rt"] }
 
 [dev-dependencies]
 # For unit testing Rust code
