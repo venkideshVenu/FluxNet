@@ -3,7 +3,7 @@ use tauri::{App, Manager};
 
 use crate::{
     background::sampler::start_sampler, commands::network::SharedMonitorState, storage::DbState,
-    tray::build_tray, window_positions::restore_widget_positions,
+    tray::build_tray, window_positions::{restore_widget_positions, spawn_position_writer},
     window_visibility::load_widget_visibility,
 };
 
@@ -27,10 +27,14 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
 
     let app_handle = app.handle();
 
-    load_widget_visibility(&app_handle);
+    let pos_sender = spawn_position_writer(app_handle.clone());
+    app.manage(pos_sender); // store the sender in Tauri state
+
+    // Restore positions after the webviews are ready (uses on_webview_event)
     restore_widget_positions(&app_handle);
 
-    build_tray(app)?;
+    // Build tray, etc.
+    crate::tray::build_tray(app)?;
 
     Ok(())
 }

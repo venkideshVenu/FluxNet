@@ -30,7 +30,7 @@ use std::sync::Mutex;
 
 use tauri::{Manager, WindowEvent};
 
-use window_positions::save_widget_position;
+use crate::window_positions::{PositionSender, enqueue_position};
 
 fn main() {
     tauri::Builder::default()
@@ -62,8 +62,11 @@ fn main() {
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Moved(position) = event {
+                // Retrieve the sender from Tauri state
                 let app_handle = window.app_handle();
-                save_widget_position(&app_handle, window.label(), *position);
+                if let Some(sender) = app_handle.try_state::<PositionSender>() {
+                    enqueue_position(&sender.0, window.label(), *position);
+                }
             }
         })
         .setup(setup::setup)

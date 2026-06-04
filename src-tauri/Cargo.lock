@@ -1064,6 +1064,7 @@ name = "fluxnet"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "parking_lot",
  "rusqlite",
  "rusqlite_migration",
  "serde",
@@ -1075,6 +1076,7 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-opener",
  "tokio",
+ "tracing",
  "windows 0.58.0",
 ]
 

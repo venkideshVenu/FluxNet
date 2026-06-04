@@ -1,38 +1,35 @@
+use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     fs,
     path::PathBuf,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, OnceLock},
 };
-
 use tauri::{AppHandle, Manager};
 
-pub struct PersistentStore<T>
-where
-    T: Serialize + DeserializeOwned + Default + Clone,
-{
-    store: OnceLock<Arc<Mutex<T>>>,
+pub trait Persistent: Serialize + DeserializeOwned + Default + Clone + Send + 'static {}
+impl<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static> Persistent for T {}
+
+pub struct PersistentStore<T: Persistent> {
+    inner: OnceLock<Arc<Mutex<T>>>,
     filename: &'static str,
 }
 
-impl<T> PersistentStore<T>
-where
-    T: Serialize + DeserializeOwned + Default + Clone,
-{
+impl<T: Persistent> PersistentStore<T> {
     pub const fn new(filename: &'static str) -> Self {
         Self {
-            store: OnceLock::new(),
+            inner: OnceLock::new(),
             filename,
         }
     }
 
-    fn get_store(&self) -> Arc<Mutex<T>> {
-        self.store
+    fn get_arc(&self) -> Arc<Mutex<T>> {
+        self.inner
             .get_or_init(|| Arc::new(Mutex::new(T::default())))
             .clone()
     }
 
-    fn path(&self, app: &AppHandle) -> Option<PathBuf> {
+    fn file_path(&self, app: &AppHandle) -> Option<PathBuf> {
         app.path()
             .app_data_dir()
             .ok()
@@ -40,56 +37,77 @@ where
     }
 
     pub fn load(&self, app: &AppHandle) {
-        let data = self
-            .path(app)
-            .and_then(|path| fs::read_to_string(path).ok())
-            .and_then(|contents| serde_json::from_str::<T>(&contents).ok())
-            .unwrap_or_default();
-
-        let store = self.get_store();
-        let mut guard = store.lock().unwrap();
-        *guard = data;
+        let data = self.load_from_disk(app);
+        *self.get_arc().lock() = data;
     }
 
-    pub fn flush(&self, app: &AppHandle) {
-        let snapshot = {
-            let store = self.get_store();
-            let guard = store.lock().unwrap();
-            guard.clone()
-        };
+    pub fn read<R, F: FnOnce(&T) -> R>(&self, f: F) -> R {
+        let arc = self.get_arc();
+        let guard = arc.lock();
+        f(&guard)
+    }
 
-        let Some(path) = self.path(app) else {
+    pub fn update<F: FnOnce(&mut T)>(&self, app: &AppHandle, f: F) {
+        {
+            let arc = self.get_arc();
+            let mut guard = arc.lock();
+            f(&mut *guard);
+        }
+        let snapshot = self.get_arc().lock().clone();
+        self.flush_to_disk(app, &snapshot);
+    }
+
+    fn load_from_disk(&self, app: &AppHandle) -> T {
+        let Some(path) = self.file_path(app) else {
+            return T::default();
+        };
+        let contents = match fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return T::default(),
+            Err(e) => {
+                tracing::warn!("Failed to read {}: {e}. Using defaults.", path.display());
+                return T::default();
+            }
+        };
+        match serde_json::from_str(&contents) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!("Failed to parse {}: {e}. Using defaults.", path.display());
+                let _ = fs::copy(&path, path.with_extension("json.bak"));
+                T::default()
+            }
+        }
+    }
+
+    fn flush_to_disk(&self, app: &AppHandle, data: &T) {
+        let Some(path) = self.file_path(app) else {
             return;
         };
-
         if let Some(parent) = path.parent() {
-            let _ = fs::create_dir_all(parent);
+            if let Err(e) = fs::create_dir_all(parent) {
+                tracing::error!("Failed to create dir {}: {e}", parent.display());
+                return;
+            }
         }
-
-        if let Ok(serialized) = serde_json::to_string_pretty(&snapshot) {
-            let _ = fs::write(path, serialized);
+        let serialized = match serde_json::to_string_pretty(data) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Serialization error: {e}");
+                return;
+            }
+        };
+        let tmp = path.with_extension("json.tmp");
+        if let Err(e) = fs::write(&tmp, &serialized) {
+            tracing::error!("Failed to write temp file {}: {e}", tmp.display());
+            return;
         }
-    }
-
-    pub fn update<F>(&self, app: &AppHandle, f: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        {
-            let store = self.get_store();
-            let mut guard = store.lock().unwrap();
-            f(&mut guard);
+        if let Err(e) = fs::rename(&tmp, &path) {
+            tracing::error!(
+                "Failed to rename {} -> {}: {e}",
+                tmp.display(),
+                path.display()
+            );
+            let _ = fs::remove_file(&tmp);
         }
-
-        self.flush(app);
-    }
-
-    pub fn read<R, F>(&self, f: F) -> R
-    where
-        F: FnOnce(&T) -> R,
-    {
-        let store = self.get_store();
-        let guard = store.lock().unwrap();
-        f(&guard)
     }
 }

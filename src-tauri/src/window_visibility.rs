@@ -1,41 +1,39 @@
 use crate::persistence::persistent_store::PersistentStore;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-};
+use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager};
 
-const WINDOW_VISIBILITY_FILE: &str = "widget-visibility.json";
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-struct StoredWindowVisibility {
-    visible: bool,
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct StoredVisibility {
+    #[serde(default = "default_true")]
+    pub visible: bool,
+}
+fn default_true() -> bool {
+    true
+}
+impl Default for StoredVisibility {
+    fn default() -> Self {
+        Self { visible: true }
+    }
 }
 
-type WindowVisibility = BTreeMap<String, StoredWindowVisibility>;
-
-static STORE: PersistentStore<WindowVisibility> = PersistentStore::new(WINDOW_VISIBILITY_FILE);
+pub type VisibilityMap = BTreeMap<String, StoredVisibility>;
+static STORE: PersistentStore<VisibilityMap> = PersistentStore::new("widget-visibility.json");
 
 pub fn load_widget_visibility(app: &AppHandle) {
     STORE.load(app);
 }
 
+// Fixed function name (was apply_widget_visibilit)
 pub fn apply_widget_visibility(app: &AppHandle) {
-    let visibility = STORE.read(|v| v.clone());
-
+    let map = STORE.read(|m| m.clone());
     for label in ["pill", "compact", "hud"] {
-        // No saved entry means this is a first launch or the entry was removed.
-        // Leave the window in whatever state tauri.conf.json defined — don't hide it.
-        let Some(saved) = visibility.get(label).copied() else {
+        let Some(saved) = map.get(label).copied() else {
             continue;
         };
-
         if let Some(window) = app.get_webview_window(label) {
             if saved.visible {
                 let _ = window.show();
-                // Intentionally NOT calling set_focus() here.
-                // The widget should restore silently without stealing focus
-                // from whatever the user was doing when the app auto-started.
             } else {
                 let _ = window.hide();
             }
@@ -43,19 +41,12 @@ pub fn apply_widget_visibility(app: &AppHandle) {
     }
 }
 
-pub fn save_widget_visibility(
-    app: &AppHandle,
-    label: &str,
-    visible: bool,
-) {
+pub fn save_widget_visibility(app: &AppHandle, label: &str, visible: bool) {
     if !matches!(label, "pill" | "compact" | "hud") {
+        tracing::warn!("save_widget_visibility: unknown label '{label}'");
         return;
     }
-
-    STORE.update(app, |visibility| {
-        visibility.insert(
-            label.to_string(),
-            StoredWindowVisibility { visible },
-        );
+    STORE.update(app, |map| {
+        map.insert(label.to_string(), StoredVisibility { visible });
     });
 }
