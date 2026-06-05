@@ -1,3 +1,4 @@
+use crate::commands::ping::{PingState, SharedPingState};
 use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo};
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
@@ -181,6 +182,7 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
 
 #[tauri::command]
 pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
+    // First check (read lock) – fast path
     {
         let s = state.lock();
         if let Some(at) = s.interfaces_cache_at {
@@ -190,12 +192,20 @@ pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
         }
     }
 
+    // Cache miss or expired – do the expensive Win32 call
     let interfaces = read_interfaces_from_windows();
 
+    // Second check (write lock) – prevent duplicate work
     let mut s = state.lock();
+    if let Some(at) = s.interfaces_cache_at {
+        if at.elapsed() < Duration::from_secs(10) {
+            // Another thread already refreshed the cache while we were doing the call
+            return s.interfaces_cache.clone();
+        }
+    }
+    // Still stale – update cache
     s.interfaces_cache = interfaces.clone();
     s.interfaces_cache_at = Some(Instant::now());
-
     interfaces
 }
 
@@ -347,8 +357,13 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
 }
 
 #[tauri::command]
-pub fn set_interface(name: String, state: State<SharedMonitorState>) {
-    let mut s = state.lock();
+pub fn set_interface(
+    name: String,
+    net_state: State<SharedMonitorState>,
+    ping_state: State<SharedPingState>,
+) {
+    // Reset network monitoring state
+    let mut s = net_state.lock();
     s.interface = name;
     s.prev_tx = 0;
     s.prev_rx = 0;
@@ -358,6 +373,10 @@ pub fn set_interface(name: String, state: State<SharedMonitorState>) {
     s.last_upload = 0.0;
     s.last_download = 0.0;
     s.history.clear();
+
+    // Reset ping state (latency, loss window)
+    let mut ps = ping_state.lock();
+    *ps = PingState::default();
 }
 
 #[tauri::command]

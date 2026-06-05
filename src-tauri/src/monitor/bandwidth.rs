@@ -9,15 +9,21 @@ pub struct NetworkStats {
 }
 
 /// Pure calculation — takes raw byte counters and a time delta, returns speed.
-/// This is the function we test in isolation.
+/// Handles 32‑bit counter wrap (e.g., adapters that wrap at 4 GiB).
 pub fn calculate_speed(current_bytes: u64, previous_bytes: u64, elapsed_secs: f64) -> f64 {
     if elapsed_secs <= 0.0 {
         return 0.0;
     }
-    if current_bytes < previous_bytes {
-        return 0.0; // counter reset guard
-    }
-    (current_bytes - previous_bytes) as f64 / elapsed_secs
+    let delta = if current_bytes >= previous_bytes {
+        current_bytes - previous_bytes
+    } else {
+        // 32-bit counter wrap: u32::MAX - previous + current + 1
+        (u32::MAX as u64)
+            .wrapping_add(1)
+            .wrapping_add(current_bytes)
+            .wrapping_sub(previous_bytes)
+    };
+    delta as f64 / elapsed_secs
 }
 
 /// Returns total cumulative bytes (tx, rx) for an interface
@@ -78,6 +84,20 @@ mod tests {
     fn test_list_interfaces_returns_something() {
         let networks = Networks::new_with_refreshed_list();
         let interfaces = list_interfaces(&networks);
-        assert!(!interfaces.is_empty(), "expected at least one network interface");
+        assert!(
+            !interfaces.is_empty(),
+            "expected at least one network interface"
+        );
+    }
+
+    #[test]
+    fn test_speed_handles_32bit_counter_wrap() {
+        // Simulate wrap: previous = u32::MAX - 100, current = 200
+        let prev = (u32::MAX as u64) - 100;
+        let curr = 200u64;
+        let elapsed = 1.0;
+        let speed = calculate_speed(curr, prev, elapsed);
+        // Delta should be (u32::MAX - prev) + curr + 1 = 100 + 200 + 1 = 301 bytes
+        assert_eq!(speed, 301.0);
     }
 }
