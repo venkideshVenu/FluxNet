@@ -40,12 +40,13 @@ pub fn start_sampler(
                     tick_counter = tick_counter.wrapping_add(1);
 
                     // ---- Network sampling (every 500 ms) ----
-                    let (dl, ul, iface) = {
+                    let (dl, ul, iface, is_priming) = {
                         let mut s = monitor_state.lock();
+                        let was_priming = s.last_sample.is_none();
                         tick_sample(&mut s);
-                        (s.last_download, s.last_upload, s.interface.clone())
+                        (s.last_download, s.last_upload, s.interface.clone(), was_priming)
                     };
-                    if !iface.is_empty() && (dl > 0.0 || ul > 0.0) {
+                    if !iface.is_empty() && !is_priming {
                         let now_ts = Local::now().timestamp();
                         let conn = db.0.lock();
                         let _ = insert_sample(&conn, now_ts, &iface, dl, ul);

@@ -4,9 +4,10 @@ use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
 
+use parking_lot::Mutex;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use parking_lot::Mutex;
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
 use windows::core::PWSTR;
@@ -34,7 +35,7 @@ pub struct MonitorState {
     pub networks: Networks,
     pub peak_upload: f64,
     pub peak_download: f64,
-    pub history: Vec<HistoryPoint>, // ring buffer, max 120 points
+    pub history: VecDeque<HistoryPoint>, // ring buffer, max 120 points
     pub start_time: Instant,
     pub interfaces_cache: Vec<InterfaceInfo>,
     pub interfaces_cache_at: Option<Instant>,
@@ -55,7 +56,7 @@ impl Default for MonitorState {
             networks: Networks::new_with_refreshed_list(),
             peak_upload: 0.0,
             peak_download: 0.0,
-            history: Vec::with_capacity(120),
+            history: VecDeque::with_capacity(120),
             start_time: Instant::now(),
             interfaces_cache: Vec::new(),
             interfaces_cache_at: None,
@@ -125,10 +126,11 @@ pub fn tick_sample(s: &mut MonitorState) {
         }
 
         let ts = now.duration_since(s.start_time).as_secs();
+        // Inside tick_sample:
         if s.history.len() >= 120 {
-            s.history.remove(0);
+            s.history.pop_front(); // O(1) instead of O(n)
         }
-        s.history.push(HistoryPoint {
+        s.history.push_back(HistoryPoint {
             upload,
             download,
             timestamp_secs: ts,
@@ -318,17 +320,10 @@ fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
 }
 
 fn pwstr_to_string(p: PWSTR) -> String {
-    if p.0.is_null() {
+    if p.is_null() {
         return String::new();
     }
-    unsafe {
-        let mut len = 0;
-        while *p.0.add(len) != 0 {
-            len += 1;
-        }
-        let slice = std::slice::from_raw_parts(p.0, len);
-        String::from_utf16_lossy(slice)
-    }
+    unsafe { p.to_string().unwrap_or_default() }
 }
 
 fn oper_status_to_string(status: IF_OPER_STATUS) -> String {
