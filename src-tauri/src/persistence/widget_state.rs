@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{ HashMap};
 
 /// Merged state for all widget-related persistence.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WidgetState {
-    pub positions: BTreeMap<String, StoredPosition>,
-    pub visibility: BTreeMap<String, StoredVisibility>,
+    pub positions: HashMap<String, StoredPosition>,
+    pub visibility: HashMap<String, StoredVisibility>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]

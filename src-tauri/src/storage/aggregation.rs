@@ -1,12 +1,12 @@
-use chrono::{Datelike, Local, TimeZone, Timelike};
+use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use rusqlite::Connection;
 
 use crate::storage::repository::{
     upsert_daily, upsert_hourly, upsert_monthly, DailyUsage, HourlyUsage, MonthlyUsage,
 };
 
-pub fn rollup_hourly(conn: &Connection) -> rusqlite::Result<()> {
-    let now = Local::now();
+pub fn rollup_hourly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result<()> {
+    let now = now;
 
     // Start of the hour that just completed (one hour before the current one)
     let current_hour_start = Local
@@ -72,8 +72,8 @@ pub fn rollup_hourly(conn: &Connection) -> rusqlite::Result<()> {
     )
 }
 
-pub fn rollup_daily(conn: &Connection) -> rusqlite::Result<()> {
-    let yesterday = Local::now() - chrono::Duration::days(1);
+pub fn rollup_daily(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result<()> {
+    let yesterday = now;
     let day_str = yesterday.format("%Y-%m-%d").to_string();
 
     let day_start = Local
@@ -140,9 +140,9 @@ pub fn rollup_daily(conn: &Connection) -> rusqlite::Result<()> {
 /// Roll up daily rows for *last month* into `monthly_usage`.
 ///
 /// Called from `main.rs` on the first day of a new month.
-pub fn rollup_monthly(conn: &Connection) -> rusqlite::Result<()> {
+pub fn rollup_monthly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result<()> {
     // Go to the first day of this month, then step back one day into last month.
-    let now = Local::now();
+    let now = now;
     let first_of_this_month = Local
         .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
         .unwrap();

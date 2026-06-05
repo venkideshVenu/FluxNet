@@ -25,3 +25,20 @@ pub struct HistorySnapshotPoint {
     pub download: f64,
     pub t: u64,
 }
+
+use serde::Serialize;
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkStatsEvent {
+    pub upload_bps: f64,
+    pub download_bps: f64,
+    pub interface_name: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PingStatsEvent {
+    pub latency_ms: f64,
+    pub loss_percent: f64,
+}

@@ -9,7 +9,7 @@ use chrono::{Datelike, Local, Timelike};
 use std::net::IpAddr;
 use std::sync::Arc;
 use sysinfo::Networks;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tokio_util::sync::CancellationToken;
 
 const PING_INTERVAL_TICKS: u32 = 10; // 10 * 500 ms = 5 seconds
@@ -20,7 +20,7 @@ pub fn start_sampler(
     ping_state: SharedPingState,
     cancel_token: CancellationToken,
     settings_store: Arc<SettingsStore>,
-    app_handle: AppHandle,  // needed to read settings
+    app_handle: AppHandle,
 ) {
     tauri::async_runtime::spawn(async move {
         let mut sample_interval = tokio::time::interval(std::time::Duration::from_millis(500));
@@ -31,7 +31,6 @@ pub fn start_sampler(
         let mut last_hour: Option<u32> = None;
         let mut last_day: Option<u32> = None;
 
-        // Create a Networks instance that we'll reuse and refresh each tick
         let mut networks = Networks::new_with_refreshed_list();
 
         loop {
@@ -45,6 +44,12 @@ pub fn start_sampler(
                 _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
+                    // ---- ONE call to Local::now() per tick ----
+                    let now_local = Local::now();
+                    let now_ts = now_local.timestamp();
+                    let current_hour = now_local.hour();
+                    let current_day = now_local.day();
+
                     // ---- Refresh network counters outside the lock ----
                     networks.refresh();
 
@@ -52,29 +57,34 @@ pub fn start_sampler(
                     let (dl, ul, iface, is_priming) = {
                         let mut s = monitor_state.lock();
                         let was_priming = s.last_sample.is_none();
-                        tick_sample_with_networks(&mut s, &networks);
+                        tick_sample_with_networks(&mut s, &networks, now_ts);
                         (s.last_download, s.last_upload, s.interface.clone(), was_priming)
                     };
                     if !iface.is_empty() && !is_priming {
-                        let now_ts = Local::now().timestamp();
                         let conn = db.0.lock();
                         let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
+                        // EMIT network event
+                        let _ = app_handle.emit("network-stats", &crate::dto::network::NetworkStatsEvent {
+                            upload_bps: ul,
+                            download_bps: dl,
+                            interface_name: iface,
+                        });
                     }
 
-                    // ---- Periodic ping (every 5 seconds) with configurable target ----
+                    // ---- Periodic ping (every 5 seconds) ----
                     if tick_counter % PING_INTERVAL_TICKS == 0 {
                         let target_str = settings_store.read(|s| s.ping_target.clone());
                         let target: IpAddr = target_str.parse().unwrap_or_else(|_| "1.1.1.1".parse().unwrap());
                         let result = measure_ping(target).await;
                         let mut ps = ping_state.lock();
+                        // Emit before updating? Better to emit after update so new data is fresh.
+                        // But either way works. Let's emit after update.
                         ps.update(result.latency_ms, result.loss);
+                        let stats = ps.current_stats();
+                        let _ = app_handle.emit("ping-stats", &stats);
                     }
 
-                    // ---- Rollups (unchanged) ----
-                    let now_local = Local::now();
-                    let current_hour = now_local.hour();
-                    let current_day = now_local.day();
-
+                    // ---- Rollups (using now_local) ----
                     let hour_changed = last_hour.map_or(false, |prev| prev != current_hour);
                     let day_changed = last_day.map_or(false, |prev| prev != current_day);
 
@@ -82,12 +92,12 @@ pub fn start_sampler(
                         let conn = db.0.lock();
                         let _ = conn.execute("BEGIN IMMEDIATE", []);
                         if hour_changed {
-                            let _ = rollup_hourly(&conn);
+                            let _ = rollup_hourly(&conn, now_local);
                         }
                         if day_changed {
-                            let _ = rollup_daily(&conn);
+                            let _ = rollup_daily(&conn, now_local);
                             if current_day == 1 {
-                                let _ = rollup_monthly(&conn);
+                                let _ = rollup_monthly(&conn, now_local);
                             }
                         }
                         let _ = conn.execute("COMMIT", []);
@@ -97,6 +107,7 @@ pub fn start_sampler(
                     last_day = Some(current_day);
                 }
                 _ = cleanup_interval.tick() => {
+                    // Use a fresh timestamp for cleanup
                     let cutoff = Local::now().timestamp() - 7 * 86_400;
                     let conn = db.0.lock();
                     if let Err(e) = cleanup_old_samples(&conn, cutoff) {

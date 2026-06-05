@@ -6,7 +6,7 @@ use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{spawn_position_writer};
+use crate::window_positions::spawn_position_writer;
 use std::error::Error;
 use std::fs;
 use std::sync::Arc;
@@ -83,7 +83,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         if old_pos_path.exists() {
             if let Ok(contents) = fs::read_to_string(&old_pos_path) {
                 if let Ok(positions) = serde_json::from_str::<
-                    std::collections::BTreeMap<String, StoredPosition>,
+                    std::collections::HashMap<String, StoredPosition>,
                 >(&contents)
                 {
                     state.positions = positions;
@@ -93,7 +93,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         if old_vis_path.exists() {
             if let Ok(contents) = fs::read_to_string(&old_vis_path) {
                 if let Ok(visibility) = serde_json::from_str::<
-                    std::collections::BTreeMap<String, StoredVisibility>,
+                    std::collections::HashMap<String, StoredVisibility>,
                 >(&contents)
                 {
                     state.visibility = visibility;

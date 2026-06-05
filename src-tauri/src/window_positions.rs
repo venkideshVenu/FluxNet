@@ -2,7 +2,7 @@ use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::{StoredPosition, WidgetState};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, PhysicalPosition};
+use tauri::{AppHandle, PhysicalPosition};
 use tokio::sync::mpsc;
 
 const DEBOUNCE_MS: u64 = 500;
