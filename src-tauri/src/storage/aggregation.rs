@@ -2,18 +2,13 @@ use chrono::{Datelike, Local, TimeZone, Timelike};
 use rusqlite::Connection;
 
 use crate::storage::repository::{
-    get_samples_since, upsert_daily, upsert_hourly, upsert_monthly, DailyUsage, HourlyUsage,
-    MonthlyUsage,
+    upsert_daily, upsert_hourly, upsert_monthly, DailyUsage, HourlyUsage, MonthlyUsage,
 };
 
-/// Roll up raw samples from the most recently *completed* hour into `hourly_usage`.
-///
-/// Called from `main.rs` once when the clock hour changes (e.g. 13:59 → 14:00).
-/// Uses an UPSERT so re-running is always safe.
 pub fn rollup_hourly(conn: &Connection) -> rusqlite::Result<()> {
     let now = Local::now();
 
-    // Start of the hour that just completed (one hour before the current one).
+    // Start of the hour that just completed (one hour before the current one)
     let current_hour_start = Local
         .with_ymd_and_hms(now.year(), now.month(), now.day(), now.hour(), 0, 0)
         .unwrap()
@@ -21,32 +16,46 @@ pub fn rollup_hourly(conn: &Connection) -> rusqlite::Result<()> {
     let hour_start = current_hour_start - 3600;
     let hour_end = current_hour_start;
 
-    // Pull raw samples that fall inside [hour_start, hour_end).
-    let all_samples = get_samples_since(conn, hour_start)?;
-    let samples: Vec<_> = all_samples
-        .into_iter()
-        .filter(|s| s.timestamp < hour_end)
-        .collect();
+    // Single query: compute all needed aggregates using LAG to get real elapsed seconds
+    let mut stmt = conn.prepare(
+        r#"
+        WITH time_deltas AS (
+            SELECT
+                download_bps,
+                upload_bps,
+                timestamp - LAG(timestamp) OVER (ORDER BY timestamp) AS delta_secs
+            FROM bandwidth_samples
+            WHERE timestamp >= ?1 AND timestamp < ?2
+        )
+        SELECT
+            COALESCE(SUM(download_bps * delta_secs), 0) AS total_download_bytes,
+            COALESCE(SUM(upload_bps   * delta_secs), 0) AS total_upload_bytes,
+            COUNT(*) AS sample_count,
+            COALESCE(AVG(download_bps), 0.0) AS avg_download_bps,
+            COALESCE(AVG(upload_bps),   0.0) AS avg_upload_bps,
+            COALESCE(MAX(download_bps), 0.0) AS peak_download_bps,
+            COALESCE(MAX(upload_bps),   0.0) AS peak_upload_bps
+        FROM time_deltas
+        "#,
+    )?;
 
-    if samples.is_empty() {
+    let row = stmt.query_row([hour_start, hour_end], |row| {
+        Ok((
+            row.get::<_, i64>(0)?, // total_download_bytes
+            row.get::<_, i64>(1)?, // total_upload_bytes
+            row.get::<_, i64>(2)?, // sample_count
+            row.get::<_, f64>(3)?, // avg_download_bps
+            row.get::<_, f64>(4)?, // avg_upload_bps
+            row.get::<_, f64>(5)?, // peak_download_bps
+            row.get::<_, f64>(6)?, // peak_upload_bps
+        ))
+    })?;
+
+    let (total_dl, total_ul, count, avg_dl, avg_ul, peak_dl, peak_ul) = row;
+
+    if count == 0 {
         return Ok(());
     }
-
-    let count = samples.len() as i64;
-    let avg_dl = samples.iter().map(|s| s.download_bps).sum::<f64>() / count as f64;
-    let avg_ul = samples.iter().map(|s| s.upload_bps).sum::<f64>() / count as f64;
-    let peak_dl = samples
-        .iter()
-        .map(|s| s.download_bps)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let peak_ul = samples
-        .iter()
-        .map(|s| s.upload_bps)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    // each sample covers ~0.5 s (the poll interval)
-    let total_dl = (samples.iter().map(|s| s.download_bps * 0.5).sum::<f64>()) as i64;
-    let total_ul = (samples.iter().map(|s| s.upload_bps * 0.5).sum::<f64>()) as i64;
 
     upsert_hourly(
         conn,

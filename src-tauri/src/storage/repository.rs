@@ -265,8 +265,6 @@ pub fn get_monthly_all(conn: &Connection) -> rusqlite::Result<Vec<MonthlyUsage>>
     rows.collect()
 }
 
-/// Compute today / this-week / this-month totals plus all-time peaks.
-/// Falls back gracefully to 0 if tables are still empty (first run).
 pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
     let now = Local::now();
     let today_str = now.format("%Y-%m-%d").to_string();
@@ -275,9 +273,6 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
         .format("%Y-%m-%d")
         .to_string();
 
-    // ── Today: read from daily_usage (written by the hourly rollup) ──────
-    // Falls back to summing raw samples for the current calendar day so
-    // the card is not empty until the first rollup fires.
     let today_start = {
         use chrono::TimeZone;
         Local
@@ -285,66 +280,68 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
             .unwrap()
             .timestamp()
     };
+    let today_end = today_start + 86_400;
 
+    // Today: first try daily_usage, fallback to accurate sum of raw samples
     let today: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(total_download_bytes, 0),
                     COALESCE(total_upload_bytes,   0)
              FROM daily_usage WHERE day = ?1",
-            params![today_str],
+            [&today_str], // Borrow instead of move
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or_else(|_| {
-            // Fallback: estimate from raw samples for today only.
-            conn.query_row(
-                "SELECT COALESCE(CAST(SUM(download_bps * 0.5) AS INTEGER), 0),
-                         COALESCE(CAST(SUM(upload_bps   * 0.5) AS INTEGER), 0)
-                  FROM bandwidth_samples WHERE timestamp >= ?1",
-                params![today_start],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .unwrap_or((0, 0))
+            // Accurate fallback using LAG
+            let mut stmt = conn
+                .prepare(
+                    r#"
+                WITH time_deltas AS (
+                    SELECT
+                        download_bps,
+                        upload_bps,
+                        timestamp - LAG(timestamp) OVER (ORDER BY timestamp) AS delta_secs
+                    FROM bandwidth_samples
+                    WHERE timestamp >= ?1 AND timestamp < ?2
+                )
+                SELECT
+                    COALESCE(SUM(download_bps * delta_secs), 0),
+                    COALESCE(SUM(upload_bps   * delta_secs), 0)
+                FROM time_deltas
+                "#,
+                )
+                .unwrap();
+            stmt.query_row([today_start, today_end], |r| Ok((r.get(0)?, r.get(1)?)))
+                .unwrap_or((0, 0))
         });
 
-    // ── Last 7 days: completed days from daily_usage + today's partial samples ─
+    // Week: completed days from daily_usage + today's partial (already accurate)
     let week_from_daily: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(SUM(total_download_bytes), 0),
                     COALESCE(SUM(total_upload_bytes),   0)
              FROM daily_usage
              WHERE day >= ?1 AND day < ?2",
-            params![week_start_date, today_str],
+            [&week_start_date, &today_str], // Borrow both
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0, 0));
 
-    let week_from_today: (i64, i64) = conn
-        .query_row(
-            "SELECT COALESCE(CAST(SUM(download_bps * 0.5) AS INTEGER), 0),
-                    COALESCE(CAST(SUM(upload_bps   * 0.5) AS INTEGER), 0)
-             FROM bandwidth_samples WHERE timestamp >= ?1",
-            params![today_start],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .unwrap_or((0, 0));
+    // Week total = completed days + today's partial
+    let week = (week_from_daily.0 + today.0, week_from_daily.1 + today.1);
 
-    let week = (
-        week_from_daily.0 + week_from_today.0,
-        week_from_daily.1 + week_from_today.1,
-    );
-
-    // ── This calendar month: sum daily_usage rows ─────────────────────────
+    // Month: sum daily_usage rows (already accurate because daily_usage is built from accurate hourly)
     let month: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(SUM(total_download_bytes), 0),
                     COALESCE(SUM(total_upload_bytes),   0)
              FROM daily_usage WHERE day LIKE ?1",
-            params![format!("{}%", month_str)],
+            [format!("{}%", month_str)],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0, 0));
 
-    // ── All-time peaks: max across hourly_usage ───────────────────────────
+    // All-time peaks: max across hourly_usage (now accurate)
     let peaks: (f64, f64) = conn
         .query_row(
             "SELECT COALESCE(MAX(peak_download_bps), 0.0),
