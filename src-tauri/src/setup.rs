@@ -40,12 +40,14 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     POSITION_STORE.load(&app_handle);
     VISIBILITY_STORE.load(&app_handle);
 
+    // Inside setup(), for each widget window:
     for label in ["pill", "compact", "hud"] {
         if let Some(window) = app.get_webview_window(label) {
             let label_str = label.to_string();
 
-            // Restore position
+            // PageLoadFinished: position and show without focus
             let positions = POSITION_STORE.read(|m| m.clone());
+
             if let Some(pos) = positions.get(&label_str) {
                 let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
                     x: pos.x,
@@ -53,9 +55,8 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
                 }));
             }
 
-            // Restore visibility
-            let visibility_map = VISIBILITY_STORE.read(|m| m.clone());
-            let visible = visibility_map
+            let visible = VISIBILITY_STORE
+                .read(|m| m.clone())
                 .get(&label_str)
                 .map(|v| v.visible)
                 .unwrap_or(true);
@@ -65,6 +66,28 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
             } else {
                 let _ = window.hide();
             }
+
+            // CloseRequested / Destroyed handlers (fix 4.8)
+            let window_clone2 = window.clone();
+            let app_handle_clone2 = app_handle.clone();
+            let label_str2 = label.to_string();
+            window.on_window_event(move |event| {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window_clone2.hide();
+                    crate::window_visibility::save_widget_visibility(
+                        &app_handle_clone2,
+                        &label_str2,
+                        false,
+                    );
+                } else if let WindowEvent::Destroyed = event {
+                    crate::window_visibility::save_widget_visibility(
+                        &app_handle_clone2,
+                        &label_str2,
+                        false,
+                    );
+                }
+            });
         }
     }
 

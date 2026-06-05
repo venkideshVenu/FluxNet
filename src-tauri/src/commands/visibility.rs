@@ -13,13 +13,11 @@ pub fn apply_widget_visibility(app: &AppHandle, label: &str, visible: bool) -> R
 
     if visible {
         window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?; // only when user explicitly shows
     } else {
         window.hide().map_err(|e| e.to_string())?;
     }
-
     save_widget_visibility(app, label, visible);
-
     Ok(())
 }
 
