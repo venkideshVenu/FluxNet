@@ -72,9 +72,6 @@ pub fn rollup_hourly(conn: &Connection) -> rusqlite::Result<()> {
     )
 }
 
-/// Roll up hourly rows for *yesterday* into `daily_usage`.
-///
-/// Called from `main.rs` once when the calendar day changes (midnight crossing).
 pub fn rollup_daily(conn: &Connection) -> rusqlite::Result<()> {
     let yesterday = Local::now() - chrono::Duration::days(1);
     let day_str = yesterday.format("%Y-%m-%d").to_string();
@@ -92,46 +89,49 @@ pub fn rollup_daily(conn: &Connection) -> rusqlite::Result<()> {
         .timestamp();
     let day_end = day_start + 86_400;
 
-    // Aggregate from hourly_usage rows that belong to yesterday.
-    let result: rusqlite::Result<(f64, f64, f64, f64, i64, i64, i64)> = conn.query_row(
-        "SELECT AVG(avg_download_bps),
-                AVG(avg_upload_bps),
-                MAX(peak_download_bps),
-                MAX(peak_upload_bps),
-                SUM(total_download_bytes),
-                SUM(total_upload_bytes),
-                COUNT(*)
-         FROM hourly_usage
-         WHERE hour_start >= ?1 AND hour_start < ?2",
-        rusqlite::params![day_start, day_end],
-        |r| {
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get(3)?,
-                r.get(4)?,
-                r.get(5)?,
-                r.get(6)?,
-            ))
-        },
-    );
+    // Weighted averages: SUM(avg * sample_count) / SUM(sample_count)
+    let mut stmt = conn.prepare(
+        r#"
+        SELECT
+            COALESCE(SUM(avg_download_bps * sample_count) / NULLIF(SUM(sample_count), 0), 0.0) AS weighted_avg_dl,
+            COALESCE(SUM(avg_upload_bps   * sample_count) / NULLIF(SUM(sample_count), 0), 0.0) AS weighted_avg_ul,
+            MAX(peak_download_bps),
+            MAX(peak_upload_bps),
+            SUM(total_download_bytes),
+            SUM(total_upload_bytes),
+            COUNT(*)
+        FROM hourly_usage
+        WHERE hour_start >= ?1 AND hour_start < ?2
+        "#,
+    )?;
 
-    if let Ok((avg_dl, avg_ul, peak_dl, peak_ul, total_dl, total_ul, count)) = result {
-        if count > 0 {
-            upsert_daily(
-                conn,
-                &DailyUsage {
-                    day: day_str,
-                    avg_download_bps: avg_dl,
-                    avg_upload_bps: avg_ul,
-                    peak_download_bps: peak_dl,
-                    peak_upload_bps: peak_ul,
-                    total_download_bytes: total_dl,
-                    total_upload_bytes: total_ul,
-                },
-            )?;
-        }
+    let row = stmt.query_row([day_start, day_end], |row| {
+        Ok((
+            row.get::<_, f64>(0)?, // avg_download_bps
+            row.get::<_, f64>(1)?, // avg_upload_bps
+            row.get::<_, f64>(2)?, // peak_download_bps
+            row.get::<_, f64>(3)?, // peak_upload_bps
+            row.get::<_, i64>(4)?, // total_download_bytes
+            row.get::<_, i64>(5)?, // total_upload_bytes
+            row.get::<_, i64>(6)?, // sample_count
+        ))
+    })?;
+
+    let (avg_dl, avg_ul, peak_dl, peak_ul, total_dl, total_ul, count) = row;
+
+    if count > 0 {
+        upsert_daily(
+            conn,
+            &DailyUsage {
+                day: day_str,
+                avg_download_bps: avg_dl,
+                avg_upload_bps: avg_ul,
+                peak_download_bps: peak_dl,
+                peak_upload_bps: peak_ul,
+                total_download_bytes: total_dl,
+                total_upload_bytes: total_ul,
+            },
+        )?;
     }
 
     Ok(())

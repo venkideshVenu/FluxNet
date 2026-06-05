@@ -1,5 +1,6 @@
 use crate::dto::ping::PingStats;
 use parking_lot::Mutex;
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 pub type SharedPingState = Arc<Mutex<PingState>>;
@@ -7,15 +8,15 @@ pub type SharedPingState = Arc<Mutex<PingState>>;
 #[derive(Default)]
 pub struct PingState {
     /// Rolling window of last 10 results – true = lost
-    pub loss_window: Vec<bool>,
+    pub loss_window: VecDeque<bool>,
     pub last_latency_ms: f64,
 }
 
 impl PingState {
     pub fn update(&mut self, latency_ms: Option<f64>, loss: bool) {
-        self.loss_window.push(loss);
+        self.loss_window.push_back(loss);
         if self.loss_window.len() > 10 {
-            self.loss_window.remove(0);
+            self.loss_window.pop_front();
         }
         if let Some(ms) = latency_ms {
             self.last_latency_ms = ms;
@@ -30,7 +31,7 @@ impl PingState {
             (loss_count as f64 / self.loss_window.len() as f64) * 100.0
         };
         PingStats {
-            latency_ms: if loss_count > 0 && self.loss_window.last() == Some(&true) {
+            latency_ms: if loss_count > 0 && self.loss_window.back() == Some(&true) {
                 -1.0
             } else {
                 self.last_latency_ms

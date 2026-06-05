@@ -22,11 +22,9 @@ pub fn start_sampler(
         let mut tick_counter = 0u32;
         let target: IpAddr = PING_TARGET.parse().expect("invalid ping target");
 
-        // Housekeeping timers
         let mut last_cleanup = tokio::time::Instant::now();
         let cleanup_interval = std::time::Duration::from_secs(60);
 
-        // Track hour/day changes to trigger rollups exactly once
         let mut last_hour: Option<u32> = None;
         let mut last_day: Option<u32> = None;
 
@@ -68,30 +66,32 @@ pub fn start_sampler(
                         last_cleanup = tokio::time::Instant::now();
                     }
 
-                    // ---- Hourly rollup – when the hour changes ----
+                    // ---- Rollups (hourly, daily, monthly) in a single transaction ----
                     let now_local = Local::now();
                     let current_hour = now_local.hour();
                     let current_day = now_local.day();
 
-                    if let Some(prev_hour) = last_hour {
-                        if prev_hour != current_hour {
-                            let conn = db.0.lock();
+                    let hour_changed = last_hour.map_or(false, |prev| prev != current_hour);
+                    let day_changed = last_day.map_or(false, |prev| prev != current_day);
+
+                    if hour_changed || day_changed {
+                        let conn = db.0.lock();
+                        // Start a transaction to ensure atomicity
+                        let _ = conn.execute("BEGIN IMMEDIATE", []);
+                        if hour_changed {
                             let _ = rollup_hourly(&conn);
                         }
-                    }
-                    last_hour = Some(current_hour);
-
-                    // ---- Daily rollup – when the day changes ----
-                    if let Some(prev_day) = last_day {
-                        if prev_day != current_day {
-                            let conn = db.0.lock();
+                        if day_changed {
                             let _ = rollup_daily(&conn);
                             // On the 1st of a new month, also roll up last month
                             if current_day == 1 {
                                 let _ = rollup_monthly(&conn);
                             }
                         }
+                        let _ = conn.execute("COMMIT", []);
                     }
+
+                    last_hour = Some(current_hour);
                     last_day = Some(current_day);
                 }
             }
