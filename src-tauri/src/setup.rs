@@ -1,6 +1,6 @@
 use crate::commands::ping::SharedPingState;
 use std::error::Error;
-use tauri::{App, Manager, WebviewEvent, WindowEvent};
+use tauri::{App, Manager, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -8,8 +8,8 @@ use crate::{
     commands::network::SharedMonitorState,
     storage::DbState,
     tray::build_tray,
-    window_positions::{spawn_position_writer, PositionMap, STORE as POSITION_STORE},
-    window_visibility::{VisibilityMap, STORE as VISIBILITY_STORE},
+    window_positions::{spawn_position_writer, STORE as POSITION_STORE},
+    window_visibility::STORE as VISIBILITY_STORE,
 };
 
 pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {

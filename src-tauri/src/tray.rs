@@ -1,16 +1,31 @@
-use tauri::{App, AppHandle, Manager, WebviewWindowBuilder};
+use crate::commands::visibility::apply_widget_visibility;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::{App, AppHandle, Manager, WebviewWindowBuilder};
 use tokio_util::sync::CancellationToken;
 
-use crate::commands::visibility::apply_widget_visibility;
+static LAST_TRAY_CLICK: AtomicU64 = AtomicU64::new(0);
 
 pub fn build_tray(app: &App, cancel_token: CancellationToken) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
     let show_pill = MenuItem::with_id(app, "show_pill", "Show widget", true, None::<&str>)?;
     let hide_pill = MenuItem::with_id(app, "hide_pill", "Hide widget", true, None::<&str>)?;
-    let show_compact = MenuItem::with_id(app, "show_compact", "Show compact widget", true, None::<&str>)?;
-    let hide_compact = MenuItem::with_id(app, "hide_compact", "Hide compact widget", true, None::<&str>)?;
+    let show_compact = MenuItem::with_id(
+        app,
+        "show_compact",
+        "Show compact widget",
+        true,
+        None::<&str>,
+    )?;
+    let hide_compact = MenuItem::with_id(
+        app,
+        "hide_compact",
+        "Hide compact widget",
+        true,
+        None::<&str>,
+    )?;
     let show_hud = MenuItem::with_id(app, "show_hud", "Show HUD", true, None::<&str>)?;
     let hide_hud = MenuItem::with_id(app, "hide_hud", "Hide HUD", true, None::<&str>)?;
     let dashboard = MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
@@ -67,7 +82,21 @@ pub fn build_tray(app: &App, cancel_token: CancellationToken) -> tauri::Result<(
             }
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                ..
+            } = event
+            {
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64;
+                let last = LAST_TRAY_CLICK.load(Ordering::Relaxed);
+                if now.saturating_sub(last) < 300 {
+                    return; // Ignore double-click within 300 ms
+                }
+                LAST_TRAY_CLICK.store(now, Ordering::Relaxed);
+
                 let app = tray.app_handle();
                 if let Some(w) = app.get_webview_window("pill") {
                     if w.is_visible().unwrap_or(false) {
@@ -86,14 +115,17 @@ pub fn open_dashboard(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.set_focus();
-        return;
+    } else {
+        // Should never happen because the window is defined in tauri.conf.json
+        // and we never destroy it (only hide on close). Log a warning and fallback.
+        tracing::warn!("Main window not found – this should not happen");
+        let _ = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+            .title("FluxNet")
+            .inner_size(900.0, 600.0)
+            .min_inner_size(720.0, 500.0)
+            .decorations(true)
+            .resizable(true)
+            .center()
+            .build();
     }
-    let _ = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-        .title("FluxNet")
-        .inner_size(900.0, 600.0)
-        .min_inner_size(720.0, 500.0)
-        .decorations(true)
-        .resizable(true)
-        .center()
-        .build();
 }
