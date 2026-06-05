@@ -1,7 +1,7 @@
 use crate::commands::ping::{PingState, SharedPingState};
 use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo};
 use crate::monitor::bandwidth::{
-    calculate_speed, list_interfaces, read_total_counters, NetworkStats,
+    calculate_speed, read_total_counters, NetworkStats,
 };
 
 use parking_lot::Mutex;
@@ -32,17 +32,16 @@ pub struct MonitorState {
     pub prev_rx: u64,
     pub last_sample: Option<Instant>,
     pub interface: String,
-    pub networks: Networks,
     pub peak_upload: f64,
     pub peak_download: f64,
-    pub history: VecDeque<HistoryPoint>, // ring buffer, max 120 points
+    pub history: VecDeque<HistoryPoint>,
     pub start_time: Instant,
     pub interfaces_cache: Vec<InterfaceInfo>,
     pub interfaces_cache_at: Option<SystemTime>,
-    // ── Cached result of the last background tick ─────────────────────────
-    // All Tauri commands read from here; only the background task writes here.
+    // Cached results
     pub last_upload: f64,
     pub last_download: f64,
+    // networks field removed – now passed in from outside
 }
 
 impl Default for MonitorState {
@@ -52,7 +51,6 @@ impl Default for MonitorState {
             prev_rx: 0,
             last_sample: None,
             interface: String::new(),
-            networks: Networks::new_with_refreshed_list(),
             peak_upload: 0.0,
             peak_download: 0.0,
             history: VecDeque::with_capacity(120),
@@ -65,6 +63,38 @@ impl Default for MonitorState {
     }
 }
 
+// --- Helper: auto-select interface using detailed Windows list ---
+fn auto_select_interface() -> String {
+    let detailed = read_interfaces_from_windows();
+    // Prefer Ethernet, then Wi-Fi, then any Up interface
+    for iface in &detailed {
+        if iface.status == "Up" {
+            let name_lower = iface.name.to_lowercase();
+            let desc_lower = iface.description.to_lowercase();
+            if name_lower.contains("ethernet") || desc_lower.contains("ethernet") {
+                return iface.name.clone();
+            }
+        }
+    }
+    for iface in &detailed {
+        if iface.status == "Up" {
+            let name_lower = iface.name.to_lowercase();
+            let desc_lower = iface.description.to_lowercase();
+            if name_lower.contains("wi-fi")
+                || name_lower.contains("wlan")
+                || desc_lower.contains("wireless")
+            {
+                return iface.name.clone();
+            }
+        }
+    }
+    if let Some(iface) = detailed.iter().find(|i| i.status == "Up") {
+        return iface.name.clone();
+    }
+    // Fallback: first non‑loopback from sysinfo (if called without Networks)
+    String::new()
+}
+
 // ── Single background sampler ─────────────────────────────────────────────────
 //
 // Called once every 500 ms from a dedicated tokio task spawned in main().
@@ -72,41 +102,25 @@ impl Default for MonitorState {
 // sampling happens inside any command handler, so multiple windows can
 // call commands concurrently without interfering with each other.
 
-pub fn tick_sample(s: &mut MonitorState) {
-    s.networks.refresh();
-
-    // Auto-select interface on first run or if it got cleared.
+pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks) {
+    // Auto-select on first run or if interface was cleared (e.g., disappeared)
     if s.interface.is_empty() {
-        let mut best_name = String::new();
-        let mut best_bytes = 0u64;
-
-        for (name, data) in &s.networks {
-            if name == "lo" || name == "Loopback Pseudo-Interface 1" {
-                continue;
-            }
-            let total = data.total_received() + data.total_transmitted();
-            if total > best_bytes {
-                best_bytes = total;
-                best_name = name.clone();
+        s.interface = auto_select_interface();
+        // If still empty (no detailed list), fallback to sysinfo names
+        if s.interface.is_empty() {
+            for (name, _) in networks {
+                if name != "lo" && name != "Loopback Pseudo-Interface 1" {
+                    s.interface = name.clone();
+                    break;
+                }
             }
         }
-
-        if best_name.is_empty() {
-            let ifaces = list_interfaces(&s.networks);
-            best_name = ifaces
-                .into_iter()
-                .find(|n| n != "lo" && n != "Loopback Pseudo-Interface 1")
-                .unwrap_or_default();
-        }
-
-        s.interface = best_name;
     }
 
     let now = Instant::now();
 
-    if let Some((tx, rx)) = read_total_counters(&s.networks, &s.interface) {
+    if let Some((tx, rx)) = read_total_counters(networks, &s.interface) {
         if s.last_sample.is_none() {
-            // Prime on first tick — no speed yet.
             s.prev_tx = tx;
             s.prev_rx = rx;
             s.last_sample = Some(now);
@@ -125,9 +139,8 @@ pub fn tick_sample(s: &mut MonitorState) {
         }
 
         let ts = now.duration_since(s.start_time).as_secs();
-        // Inside tick_sample:
         if s.history.len() >= 120 {
-            s.history.pop_front(); // O(1) instead of O(n)
+            s.history.pop_front();
         }
         s.history.push_back(HistoryPoint {
             upload,
@@ -139,12 +152,19 @@ pub fn tick_sample(s: &mut MonitorState) {
         s.prev_rx = rx;
         s.last_sample = Some(now);
 
-        // ── Write the cache ────────────────────────────────────────────────
         s.last_upload = upload;
         s.last_download = download;
+    } else {
+        // Interface disappeared – reset so auto‑select runs next tick
+        tracing::warn!("Interface '{}' no longer exists – resetting", s.interface);
+        s.interface.clear();
+        s.prev_tx = 0;
+        s.prev_rx = 0;
+        s.last_sample = None;
+        s.last_upload = 0.0;
+        s.last_download = 0.0;
     }
 }
-
 // ── Tauri commands — all read-only, never sample ─────────────────────────────
 
 /// Lightweight: returns only current up/down speeds.

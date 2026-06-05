@@ -16,6 +16,7 @@ use commands::network::{
     set_widget_always_on_top, set_widget_opacity,
 };
 use commands::ping::get_ping_stats;
+use commands::settings::{get_ping_target, set_ping_target};
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
@@ -23,7 +24,6 @@ use commands::storage::{
 use commands::visibility::set_widget_visibility;
 use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -52,6 +52,8 @@ fn main() {
             get_daily_summary,
             get_monthly_summary,
             set_widget_visibility,
+            get_ping_target,
+            set_ping_target,
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Moved(position) = event {

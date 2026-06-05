@@ -1,31 +1,32 @@
 use crate::background::sampler::start_sampler;
 use crate::commands::network::SharedMonitorState;
 use crate::commands::ping::SharedPingState;
+use crate::persistence::app_settings::SettingsStore;
+use crate::persistence::persistent_store::PersistentStore;
+use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{spawn_position_writer, PositionSender};
-use crate::persistence::widget_state::{WidgetState, StoredPosition, StoredVisibility};
-use crate::persistence::persistent_store::PersistentStore;
+use crate::window_positions::{spawn_position_writer};
 use std::error::Error;
-use std::sync::Arc;
 use std::fs;
+use std::sync::Arc;
 use tauri::{App, Listener, Manager, PhysicalPosition, Position, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
 type WidgetStore = PersistentStore<WidgetState>;
 
 /// Clamp a position so the widget stays within the monitor's work area.
-fn clamp_position(
-    window: &tauri::WebviewWindow,
-    x: i32,
-    y: i32,
-) -> (i32, i32) {
+fn clamp_position(window: &tauri::WebviewWindow, x: i32, y: i32) -> (i32, i32) {
     let monitor = match window.current_monitor() {
         Ok(Some(m)) => Some(m),
         _ => window.primary_monitor().ok().flatten(),
     };
-    let Some(monitor) = monitor else { return (x, y) };
-    let Ok(window_size) = window.outer_size() else { return (x, y) };
+    let Some(monitor) = monitor else {
+        return (x, y);
+    };
+    let Ok(window_size) = window.outer_size() else {
+        return (x, y);
+    };
     let work_area = monitor.work_area();
     let left = work_area.position.x;
     let right = work_area.position.x + work_area.size.width as i32;
@@ -40,7 +41,10 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     let monitor_state = app.state::<SharedMonitorState>().inner().clone();
     let ping_state = app.state::<SharedPingState>().inner().clone();
 
-    let app_data_dir = app.path().app_data_dir().expect("failed to resolve app data dir");
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .expect("failed to resolve app data dir");
 
     // Database connections
     let rw_db = DbState::open(&app_data_dir).expect("failed to open read‑write DB");
@@ -52,10 +56,19 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     let task_token = cancel_token.clone();
     app.manage(cancel_token.clone());
 
-    start_sampler(monitor_state, rw_db, ping_state, task_token);
-
     let app_handle = app.handle();
 
+    let settings_store = Arc::new(SettingsStore::new("app-settings.json"));
+    settings_store.load(&app_handle);
+    app.manage(settings_store.clone());
+    start_sampler(
+        monitor_state,
+        rw_db,
+        ping_state,
+        task_token,
+        settings_store,
+        app_handle.clone(),
+    );
     // --- Single merged widget state store ---
     let widget_store = Arc::new(WidgetStore::new("widget-state.json"));
     app.manage(widget_store.clone());
@@ -69,14 +82,20 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         let mut state = WidgetState::default();
         if old_pos_path.exists() {
             if let Ok(contents) = fs::read_to_string(&old_pos_path) {
-                if let Ok(positions) = serde_json::from_str::<std::collections::BTreeMap<String, StoredPosition>>(&contents) {
+                if let Ok(positions) = serde_json::from_str::<
+                    std::collections::BTreeMap<String, StoredPosition>,
+                >(&contents)
+                {
                     state.positions = positions;
                 }
             }
         }
         if old_vis_path.exists() {
             if let Ok(contents) = fs::read_to_string(&old_vis_path) {
-                if let Ok(visibility) = serde_json::from_str::<std::collections::BTreeMap<String, StoredVisibility>>(&contents) {
+                if let Ok(visibility) = serde_json::from_str::<
+                    std::collections::BTreeMap<String, StoredVisibility>,
+                >(&contents)
+                {
                     state.visibility = visibility;
                 }
             }
@@ -112,7 +131,11 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
                     }));
                 }
                 // Restore visibility
-                let visible = state.visibility.get(&label_str).map(|v| v.visible).unwrap_or(true);
+                let visible = state
+                    .visibility
+                    .get(&label_str)
+                    .map(|v| v.visible)
+                    .unwrap_or(true);
                 if visible {
                     let _ = window_clone.show();
                 } else {
