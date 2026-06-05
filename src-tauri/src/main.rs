@@ -9,7 +9,6 @@ mod setup;
 mod storage;
 mod tray;
 mod window_positions;
-mod window_visibility;
 
 use crate::window_positions::{enqueue_position, PositionSender};
 use commands::network::{

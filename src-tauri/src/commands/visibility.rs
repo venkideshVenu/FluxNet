@@ -1,10 +1,13 @@
-use tauri::{AppHandle, Manager};
-use crate::window_visibility::{save_widget_visibility, VisibilityStore};
+use crate::persistence::persistent_store::PersistentStore;
+use crate::persistence::widget_state::WidgetState;
 use std::sync::Arc;
+use tauri::{AppHandle, Manager};
+
+pub type WidgetStore = PersistentStore<WidgetState>;
 
 pub fn apply_widget_visibility(
     app: &AppHandle,
-    store: &VisibilityStore,
+    store: &WidgetStore,
     label: &str,
     visible: bool,
 ) -> Result<(), String> {
@@ -22,12 +25,12 @@ pub fn apply_widget_visibility(
     } else {
         window.hide().map_err(|e| e.to_string())?;
     }
-    save_widget_visibility(store, app, label, visible);
+    store.update(app, |state| state.set_visibility(label, visible));
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_widget_visibility(label: String, visible: bool, app: AppHandle) -> Result<(), String> {
-    let store = app.state::<Arc<VisibilityStore>>();
+    let store = app.state::<Arc<WidgetStore>>();
     apply_widget_visibility(&app, &store, &label, visible)
 }

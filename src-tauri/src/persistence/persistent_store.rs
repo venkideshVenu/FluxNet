@@ -1,11 +1,20 @@
 use parking_lot::Mutex;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fs,
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
 use tauri::{AppHandle, Manager};
+
+const CURRENT_VERSION: u32 = 1;
+
+#[derive(Serialize, Deserialize)]
+struct VersionedData<T> {
+    version: u32,
+    #[serde(flatten)]
+    data: T,
+}
 
 pub trait Persistent: Serialize + DeserializeOwned + Default + Clone + Send + 'static {}
 impl<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static> Persistent for T {}
@@ -69,10 +78,25 @@ impl<T: Persistent> PersistentStore<T> {
                 return T::default();
             }
         };
-        match serde_json::from_str(&contents) {
-            Ok(v) => v,
+        match serde_json::from_str::<VersionedData<T>>(&contents) {
+            Ok(versioned) if versioned.version == CURRENT_VERSION => versioned.data,
+            Ok(versioned) => {
+                // Version mismatch – attempt migration (just log and use defaults for now)
+                tracing::warn!(
+                    "Settings file {} has version {} (current {}). Using defaults.",
+                    path.display(),
+                    versioned.version,
+                    CURRENT_VERSION
+                );
+                // Optional: implement migration logic here if needed
+                T::default()
+            }
             Err(e) => {
-                tracing::warn!("Failed to parse {}: {e}. Using defaults.", path.display());
+                tracing::warn!(
+                    "Failed to parse {}: {}. Creating backup and using defaults.",
+                    path.display(),
+                    e
+                );
                 let _ = fs::copy(&path, path.with_extension("json.bak"));
                 T::default()
             }
@@ -89,7 +113,11 @@ impl<T: Persistent> PersistentStore<T> {
                 return;
             }
         }
-        let serialized = match serde_json::to_string_pretty(data) {
+        let versioned = VersionedData {
+            version: CURRENT_VERSION,
+            data,
+        };
+        let serialized = match serde_json::to_string_pretty(&versioned) {
             Ok(s) => s,
             Err(e) => {
                 tracing::error!("Serialization error: {e}");

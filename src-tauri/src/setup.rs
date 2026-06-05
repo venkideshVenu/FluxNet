@@ -3,15 +3,18 @@ use crate::commands::network::SharedMonitorState;
 use crate::commands::ping::SharedPingState;
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{spawn_position_writer, PositionStore};
-use crate::window_visibility::VisibilityStore;
+use crate::window_positions::{spawn_position_writer, PositionSender};
+use crate::persistence::widget_state::{WidgetState, StoredPosition, StoredVisibility};
+use crate::persistence::persistent_store::PersistentStore;
 use std::error::Error;
 use std::sync::Arc;
+use std::fs;
 use tauri::{App, Listener, Manager, PhysicalPosition, Position, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
+type WidgetStore = PersistentStore<WidgetState>;
+
 /// Clamp a position so the widget stays within the monitor's work area.
-/// If no monitor or size can be determined, returns original coordinates.
 fn clamp_position(
     window: &tauri::WebviewWindow,
     x: i32,
@@ -21,12 +24,8 @@ fn clamp_position(
         Ok(Some(m)) => Some(m),
         _ => window.primary_monitor().ok().flatten(),
     };
-    let Some(monitor) = monitor else {
-        return (x, y);
-    };
-    let Ok(window_size) = window.outer_size() else {
-        return (x, y);
-    };
+    let Some(monitor) = monitor else { return (x, y) };
+    let Ok(window_size) = window.outer_size() else { return (x, y) };
     let work_area = monitor.work_area();
     let left = work_area.position.x;
     let right = work_area.position.x + work_area.size.width as i32;
@@ -41,14 +40,10 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     let monitor_state = app.state::<SharedMonitorState>().inner().clone();
     let ping_state = app.state::<SharedPingState>().inner().clone();
 
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .expect("failed to resolve app data dir");
+    let app_data_dir = app.path().app_data_dir().expect("failed to resolve app data dir");
 
-    // Single read‑write connection for background sampler
+    // Database connections
     let rw_db = DbState::open(&app_data_dir).expect("failed to open read‑write DB");
-    // Read‑only connection for command handlers
     let ro_db = ReadOnlyDb::open(&app_data_dir).expect("failed to open read‑only DB");
     app.manage(rw_db.clone());
     app.manage(ro_db);
@@ -57,23 +52,46 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     let task_token = cancel_token.clone();
     app.manage(cancel_token.clone());
 
-    // Start background sampler with read‑write connection
     start_sampler(monitor_state, rw_db, ping_state, task_token);
 
     let app_handle = app.handle();
 
-    // --- Position and visibility stores (managed by Tauri) ---
-    let pos_store = Arc::new(PositionStore::new("widget-positions.json"));
-    let vis_store = Arc::new(VisibilityStore::new("widget-visibility.json"));
-    app.manage(pos_store.clone());
-    app.manage(vis_store.clone());
+    // --- Single merged widget state store ---
+    let widget_store = Arc::new(WidgetStore::new("widget-state.json"));
+    app.manage(widget_store.clone());
 
-    // Load existing visibility data from disk
-    vis_store.load(&app_handle);
+    // --- Migrate from old separate files if they exist ---
+    let old_pos_path = app_data_dir.join("widget-positions.json");
+    let old_vis_path = app_data_dir.join("widget-visibility.json");
+    let new_path = app_data_dir.join("widget-state.json");
+    if !new_path.exists() && (old_pos_path.exists() || old_vis_path.exists()) {
+        tracing::info!("Migrating old widget settings to new merged file");
+        let mut state = WidgetState::default();
+        if old_pos_path.exists() {
+            if let Ok(contents) = fs::read_to_string(&old_pos_path) {
+                if let Ok(positions) = serde_json::from_str::<std::collections::BTreeMap<String, StoredPosition>>(&contents) {
+                    state.positions = positions;
+                }
+            }
+        }
+        if old_vis_path.exists() {
+            if let Ok(contents) = fs::read_to_string(&old_vis_path) {
+                if let Ok(visibility) = serde_json::from_str::<std::collections::BTreeMap<String, StoredVisibility>>(&contents) {
+                    state.visibility = visibility;
+                }
+            }
+        }
+        widget_store.update(&app_handle, |s| *s = state);
+        // Optionally delete old files
+        let _ = fs::remove_file(old_pos_path);
+        let _ = fs::remove_file(old_vis_path);
+    }
 
-    // Spawn debounced position writer (it also loads existing positions)
-    // Clone the Arc so we keep the original for later use
-    let pos_sender = spawn_position_writer(app_handle.clone(), pos_store.clone());
+    // Load the store from disk (or newly migrated)
+    widget_store.load(&app_handle);
+
+    // Spawn debounced position writer
+    let pos_sender = spawn_position_writer(app_handle.clone(), widget_store.clone());
     app.manage(pos_sender);
 
     // --- Widget windows: position & visibility after page load ---
@@ -81,15 +99,12 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         if let Some(window) = app.get_webview_window(label) {
             let window_clone = window.clone();
             let label_str = label.to_string();
-            let app_handle = app_handle.clone();
-            let pos_store = pos_store.clone(); // clone the Arc for this iteration
-            let vis_store_for_position = vis_store.clone(); // for the page-load closure
-            let vis_store_for_close = vis_store.clone(); // for the close/destroy closure
+            let store = widget_store.clone();
 
             window.listen("tauri://page-load", move |_| {
-                // Restore position (clamped to screen)
-                let positions = pos_store.read(|m| m.clone());
-                if let Some(pos) = positions.get(&label_str) {
+                let state = store.read(|s| s.clone());
+                // Restore position
+                if let Some(pos) = state.positions.get(&label_str) {
                     let (clamped_x, clamped_y) = clamp_position(&window_clone, pos.x, pos.y);
                     let _ = window_clone.set_position(Position::Physical(PhysicalPosition {
                         x: clamped_x,
@@ -97,39 +112,26 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
                     }));
                 }
                 // Restore visibility
-                let visible = vis_store_for_position
-                    .read(|m| m.clone())
-                    .get(&label_str)
-                    .map(|v| v.visible)
-                    .unwrap_or(true);
+                let visible = state.visibility.get(&label_str).map(|v| v.visible).unwrap_or(true);
                 if visible {
-                    let _ = window_clone.show(); // no focus steal
+                    let _ = window_clone.show();
                 } else {
                     let _ = window_clone.hide();
                 }
             });
 
-            // Handle close/destroy -> hide and save visibility state
+            // Handle close/destroy -> hide and save visibility
             let window_clone2 = window.clone();
             let app_handle_clone2 = app_handle.clone();
             let label_str2 = label.to_string();
+            let store2 = widget_store.clone();
             window.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = window_clone2.hide();
-                    crate::window_visibility::save_widget_visibility(
-                        &vis_store_for_close,
-                        &app_handle_clone2,
-                        &label_str2,
-                        false,
-                    );
+                    store2.update(&app_handle_clone2, |s| s.set_visibility(&label_str2, false));
                 } else if let WindowEvent::Destroyed = event {
-                    crate::window_visibility::save_widget_visibility(
-                        &vis_store_for_close,
-                        &app_handle_clone2,
-                        &label_str2,
-                        false,
-                    );
+                    store2.update(&app_handle_clone2, |s| s.set_visibility(&label_str2, false));
                 }
             });
         }
@@ -146,7 +148,6 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         });
     }
 
-    // Pass an owned AppHandle to build_tray
     build_tray(app.handle().clone(), cancel_token)?;
     Ok(())
 }
