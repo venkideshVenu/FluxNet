@@ -3,9 +3,10 @@ use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo
 use crate::monitor::bandwidth::{
     calculate_speed, list_interfaces, read_total_counters, NetworkStats,
 };
-use parking_lot::Mutex;
+
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use parking_lot::Mutex;
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
 use windows::core::PWSTR;
@@ -386,21 +387,19 @@ pub fn reset_peaks(state: State<SharedMonitorState>) {
     s.peak_download = 0.0;
 }
 
-// ── Window settings commands ──────────────────────────────────────────────────
+// ── Window settings helpers (deduplicated) ───────────────────────────────────
 
-#[tauri::command]
-pub fn set_pill_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
+fn set_window_always_on_top(label: &str, value: bool, app: &AppHandle) -> Result<(), String> {
     let window = app
-        .get_webview_window("pill")
-        .ok_or_else(|| "pill window not found".to_string())?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("{label} window not found"))?;
     window.set_always_on_top(value).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
+fn set_window_opacity(label: &str, value: f64, app: &AppHandle) -> Result<(), String> {
     let window = app
-        .get_webview_window("pill")
-        .ok_or_else(|| "pill window not found".to_string())?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("{label} window not found"))?;
     let clamped = value.clamp(0.1, 1.0);
     window
         .eval(&format!(
@@ -410,46 +409,23 @@ pub fn set_pill_opacity(value: f64, app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+// ── Single command for all widget opacity ────────────────────────────────────
 #[tauri::command]
-pub fn set_compact_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("compact")
-        .ok_or_else(|| "compact window not found".to_string())?;
-    window.set_always_on_top(value).map_err(|e| e.to_string())
+pub fn set_widget_opacity(label: String, value: f64, app: AppHandle) -> Result<(), String> {
+    if !matches!(label.as_str(), "pill" | "compact" | "hud") {
+        return Err(format!("unknown window label: {label}"));
+    }
+    set_window_opacity(&label, value, &app)
 }
 
+// ── Single command for all widget always‑on‑top ─────────────────────────────
 #[tauri::command]
-pub fn set_compact_opacity(value: f64, app: AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("compact")
-        .ok_or_else(|| "compact window not found".to_string())?;
-    let clamped = value.clamp(0.1, 1.0);
-    window
-        .eval(&format!(
-            "document.documentElement.style.opacity = '{0}'; document.body.style.opacity = '{0}';",
-            clamped
-        ))
-        .map_err(|e| e.to_string())
+pub fn set_widget_always_on_top(label: String, value: bool, app: AppHandle) -> Result<(), String> {
+    if !matches!(label.as_str(), "pill" | "compact" | "hud") {
+        return Err(format!("unknown window label: {label}"));
+    }
+    set_window_always_on_top(&label, value, &app)
 }
 
-#[tauri::command]
-pub fn set_hud_always_on_top(value: bool, app: AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("hud")
-        .ok_or_else(|| "hud window not found".to_string())?;
-    window.set_always_on_top(value).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn set_hud_opacity(value: f64, app: AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("hud")
-        .ok_or_else(|| "hud window not found".to_string())?;
-    let clamped = value.clamp(0.1, 1.0);
-    window
-        .eval(&format!(
-            "document.documentElement.style.opacity = '{0}'; document.body.style.opacity = '{0}';",
-            clamped
-        ))
-        .map_err(|e| e.to_string())
-}
+// Remove the six individual functions: set_pill_opacity, set_compact_opacity,
+// set_hud_opacity, and the three always‑on‑top variants.

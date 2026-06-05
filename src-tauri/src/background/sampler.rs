@@ -12,18 +12,18 @@ const PING_TARGET: &str = "1.1.1.1";
 const PING_INTERVAL_TICKS: u32 = 10; // 10 * 500 ms = 5 seconds
 
 pub fn start_sampler(
-    monitor_state: SharedMonitorState,
+    monitor_state: SharedMonitorState, // Arc<Mutex<MonitorState>>
     db: DbState,
-    ping_state: SharedPingState,
+    ping_state: SharedPingState, // Arc<Mutex<PingState>>
     cancel_token: CancellationToken,
 ) {
     tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+        let mut sample_interval = tokio::time::interval(std::time::Duration::from_millis(500));
+        let mut cleanup_interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         let mut tick_counter = 0u32;
         let target: IpAddr = PING_TARGET.parse().expect("invalid ping target");
-
-        let mut last_cleanup = tokio::time::Instant::now();
-        let cleanup_interval = std::time::Duration::from_secs(60);
 
         let mut last_hour: Option<u32> = None;
         let mut last_day: Option<u32> = None;
@@ -36,7 +36,7 @@ pub fn start_sampler(
                     let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
                     break;
                 }
-                _ = interval.tick() => {
+                _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
                     // ---- Network sampling (every 500 ms) ----
@@ -58,14 +58,6 @@ pub fn start_sampler(
                         ps.update(result.latency_ms, result.loss);
                     }
 
-                    // ---- Cleanup old raw samples (every 60 s) ----
-                    if last_cleanup.elapsed() >= cleanup_interval {
-                        let cutoff = Local::now().timestamp() - 7 * 86_400;
-                        let conn = db.0.lock();
-                        let _ = cleanup_old_samples(&conn, cutoff);
-                        last_cleanup = tokio::time::Instant::now();
-                    }
-
                     // ---- Rollups (hourly, daily, monthly) in a single transaction ----
                     let now_local = Local::now();
                     let current_hour = now_local.hour();
@@ -76,14 +68,12 @@ pub fn start_sampler(
 
                     if hour_changed || day_changed {
                         let conn = db.0.lock();
-                        // Start a transaction to ensure atomicity
                         let _ = conn.execute("BEGIN IMMEDIATE", []);
                         if hour_changed {
                             let _ = rollup_hourly(&conn);
                         }
                         if day_changed {
                             let _ = rollup_daily(&conn);
-                            // On the 1st of a new month, also roll up last month
                             if current_day == 1 {
                                 let _ = rollup_monthly(&conn);
                             }
@@ -93,6 +83,13 @@ pub fn start_sampler(
 
                     last_hour = Some(current_hour);
                     last_day = Some(current_day);
+                }
+                _ = cleanup_interval.tick() => {
+                    let cutoff = Local::now().timestamp() - 7 * 86_400;
+                    let conn = db.0.lock();
+                    if let Err(e) = cleanup_old_samples(&conn, cutoff) {
+                        tracing::warn!("Cleanup failed: {e}");
+                    }
                 }
             }
         }

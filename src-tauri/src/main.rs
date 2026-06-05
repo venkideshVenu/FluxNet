@@ -11,20 +11,19 @@ mod tray;
 mod window_positions;
 mod window_visibility;
 
+use crate::window_positions::{enqueue_position, PositionSender};
 use commands::network::{
-    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks,
-    set_compact_always_on_top, set_compact_opacity, set_hud_always_on_top, set_hud_opacity,
-    set_interface, set_pill_always_on_top, set_pill_opacity,
+    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
+    set_widget_always_on_top, set_widget_opacity,
 };
-use commands::ping::{get_ping_stats};
+use commands::ping::get_ping_stats;
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
 };
 use commands::visibility::set_widget_visibility;
+use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
-use crate::window_positions::{enqueue_position, PositionSender};
-use std::sync::Arc;  // Added
 
 fn main() {
     tauri::Builder::default()
@@ -32,11 +31,10 @@ fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
-        // Manage Arc<Mutex<MonitorState>> – matches SharedMonitorState
+        // Store Arc<Mutex<MonitorState>> so that background task can clone the Arc
         .manage(Arc::new(parking_lot::Mutex::new(
             commands::network::MonitorState::default(),
         )))
-        // Manage Arc<Mutex<PingState>> – matches SharedPingState
         .manage(Arc::new(parking_lot::Mutex::new(
             commands::ping::PingState::default(),
         )))
@@ -46,12 +44,8 @@ fn main() {
             get_interfaces,
             set_interface,
             reset_peaks,
-            set_compact_always_on_top,
-            set_compact_opacity,
-            set_hud_always_on_top,
-            set_hud_opacity,
-            set_pill_always_on_top,
-            set_pill_opacity,
+            set_widget_opacity,
+            set_widget_always_on_top,
             get_ping_stats,
             get_usage_stats_cmd,
             get_history_range,
