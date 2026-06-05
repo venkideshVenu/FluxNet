@@ -18,7 +18,7 @@ impl Default for StoredVisibility {
 }
 
 pub type VisibilityMap = BTreeMap<String, StoredVisibility>;
-static STORE: PersistentStore<VisibilityMap> = PersistentStore::new("widget-visibility.json");
+pub static STORE: PersistentStore<VisibilityMap> = PersistentStore::new("widget-visibility.json");
 
 pub fn load_widget_visibility(app: &AppHandle) {
     STORE.load(app);

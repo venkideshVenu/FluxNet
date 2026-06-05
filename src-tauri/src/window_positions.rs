@@ -14,7 +14,7 @@ pub struct StoredPosition {
     pub y: i32,
 }
 pub type PositionMap = BTreeMap<String, StoredPosition>;
-static STORE: PersistentStore<PositionMap> = PersistentStore::new("widget-positions.json");
+pub static STORE: PersistentStore<PositionMap> = PersistentStore::new("widget-positions.json");
 
 pub struct PositionSender(pub mpsc::Sender<(String, PhysicalPosition<i32>)>);
 
@@ -24,10 +24,12 @@ pub fn spawn_position_writer(app: AppHandle) -> PositionSender {
     tauri::async_runtime::spawn(async move {
         let mut pending: HashMap<String, PhysicalPosition<i32>> = HashMap::new();
         loop {
-            let Some((label, pos)) = rx.recv().await else { break };
+            let Some((label, pos)) = rx.recv().await else {
+                break;
+            };
             pending.insert(label, pos);
-            let deadline = tokio::time::Instant::now()
-                + tokio::time::Duration::from_millis(DEBOUNCE_MS);
+            let deadline =
+                tokio::time::Instant::now() + tokio::time::Duration::from_millis(DEBOUNCE_MS);
             loop {
                 match tokio::time::timeout_at(deadline, rx.recv()).await {
                     Ok(Some((l, p))) => pending.insert(l, p),
@@ -56,13 +58,15 @@ pub fn enqueue_position(
     let _ = sender.try_send((label.to_string(), position));
 }
 
+// This function is kept for reference but no longer called from setup.
+// It is safe to leave it; it is not used anywhere now.
 pub fn restore_widget_positions(app: &AppHandle) {
     let positions = STORE.read(|m| m.clone());
     for label in ["pill", "compact", "hud"] {
-        let Some(window) = app.get_webview_window(label) else { continue };
+        let Some(window) = app.get_webview_window(label) else {
+            continue;
+        };
         let saved = positions.get(label).copied();
-
-        // Restore position immediately (no event needed)
         if let Some(pos) = saved {
             let (safe_x, safe_y) = clamp_to_screen(&window, pos.x, pos.y);
             let _ = window.set_position(Position::Physical(PhysicalPosition {
@@ -71,7 +75,6 @@ pub fn restore_widget_positions(app: &AppHandle) {
             }));
         }
     }
-    // Apply visibility after all positions are restored
     apply_widget_visibility(app);
 }
 
