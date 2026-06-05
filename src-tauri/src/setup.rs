@@ -1,6 +1,6 @@
 use crate::commands::ping::SharedPingState;
 use std::error::Error;
-use tauri::{App, Manager, WindowEvent};
+use tauri::{App, Listener, Manager, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -40,34 +40,33 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     POSITION_STORE.load(&app_handle);
     VISIBILITY_STORE.load(&app_handle);
 
-    // Inside setup(), for each widget window:
+    // --- Widget windows: position & visibility after page load ---
     for label in ["pill", "compact", "hud"] {
         if let Some(window) = app.get_webview_window(label) {
+            let window_clone = window.clone();
             let label_str = label.to_string();
 
-            // PageLoadFinished: position and show without focus
-            let positions = POSITION_STORE.read(|m| m.clone());
+            // Wait for page to finish loading before positioning/showing
+            window.listen("tauri://page-load", move |_| {
+                let positions = POSITION_STORE.read(|m| m.clone());
+                if let Some(pos) = positions.get(&label_str) {
+                    let _ = window_clone.set_position(tauri::Position::Physical(
+                        tauri::PhysicalPosition { x: pos.x, y: pos.y },
+                    ));
+                }
+                let visible = VISIBILITY_STORE
+                    .read(|m| m.clone())
+                    .get(&label_str)
+                    .map(|v| v.visible)
+                    .unwrap_or(true);
+                if visible {
+                    let _ = window_clone.show(); // no focus steal
+                } else {
+                    let _ = window_clone.hide();
+                }
+            });
 
-            if let Some(pos) = positions.get(&label_str) {
-                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                    x: pos.x,
-                    y: pos.y,
-                }));
-            }
-
-            let visible = VISIBILITY_STORE
-                .read(|m| m.clone())
-                .get(&label_str)
-                .map(|v| v.visible)
-                .unwrap_or(true);
-
-            if visible {
-                let _ = window.show();
-            } else {
-                let _ = window.hide();
-            }
-
-            // CloseRequested / Destroyed handlers (fix 4.8)
+            // Handle close/destroy events to save visibility state
             let window_clone2 = window.clone();
             let app_handle_clone2 = app_handle.clone();
             let label_str2 = label.to_string();
@@ -91,6 +90,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         }
     }
 
+    // --- Main window: hide instead of destroy on close ---
     if let Some(main_window) = app.get_webview_window("main") {
         let main_window_clone = main_window.clone();
         main_window.on_window_event(move |event| {
