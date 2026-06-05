@@ -7,7 +7,7 @@ use crate::monitor::bandwidth::{
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
 use windows::core::PWSTR;
@@ -38,8 +38,7 @@ pub struct MonitorState {
     pub history: VecDeque<HistoryPoint>, // ring buffer, max 120 points
     pub start_time: Instant,
     pub interfaces_cache: Vec<InterfaceInfo>,
-    pub interfaces_cache_at: Option<Instant>,
-
+    pub interfaces_cache_at: Option<SystemTime>,
     // ── Cached result of the last background tick ─────────────────────────
     // All Tauri commands read from here; only the background task writes here.
     pub last_upload: f64,
@@ -189,7 +188,7 @@ pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
     {
         let s = state.lock();
         if let Some(at) = s.interfaces_cache_at {
-            if at.elapsed() < Duration::from_secs(10) {
+            if at.elapsed().unwrap_or(Duration::MAX) < Duration::from_secs(10) {
                 return s.interfaces_cache.clone();
             }
         }
@@ -201,14 +200,13 @@ pub fn get_interfaces(state: State<SharedMonitorState>) -> Vec<InterfaceInfo> {
     // Second check (write lock) – prevent duplicate work
     let mut s = state.lock();
     if let Some(at) = s.interfaces_cache_at {
-        if at.elapsed() < Duration::from_secs(10) {
-            // Another thread already refreshed the cache while we were doing the call
+        if at.elapsed().unwrap_or(Duration::MAX) < Duration::from_secs(10) {
             return s.interfaces_cache.clone();
         }
     }
     // Still stale – update cache
     s.interfaces_cache = interfaces.clone();
-    s.interfaces_cache_at = Some(Instant::now());
+    s.interfaces_cache_at = Some(SystemTime::now());
     interfaces
 }
 

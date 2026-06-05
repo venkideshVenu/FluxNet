@@ -3,7 +3,6 @@ use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
 use crate::storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
 use crate::storage::repository::{cleanup_old_samples, insert_sample};
-use crate::storage::DbState;
 use chrono::{Datelike, Local, Timelike};
 use std::net::IpAddr;
 use tokio_util::sync::CancellationToken;
@@ -13,7 +12,7 @@ const PING_INTERVAL_TICKS: u32 = 10; // 10 * 500 ms = 5 seconds
 
 pub fn start_sampler(
     monitor_state: SharedMonitorState, // Arc<Mutex<MonitorState>>
-    db: DbState,
+    db: crate::storage::DbState,
     ping_state: SharedPingState, // Arc<Mutex<PingState>>
     cancel_token: CancellationToken,
 ) {

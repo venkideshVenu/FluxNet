@@ -1,8 +1,13 @@
 use tauri::{AppHandle, Manager};
+use crate::window_visibility::{save_widget_visibility, VisibilityStore};
+use std::sync::Arc;
 
-use crate::window_visibility::save_widget_visibility;
-
-pub fn apply_widget_visibility(app: &AppHandle, label: &str, visible: bool) -> Result<(), String> {
+pub fn apply_widget_visibility(
+    app: &AppHandle,
+    store: &VisibilityStore,
+    label: &str,
+    visible: bool,
+) -> Result<(), String> {
     if !matches!(label, "pill" | "compact" | "hud") {
         return Ok(());
     }
@@ -13,15 +18,16 @@ pub fn apply_widget_visibility(app: &AppHandle, label: &str, visible: bool) -> R
 
     if visible {
         window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?; // only when user explicitly shows
+        window.set_focus().map_err(|e| e.to_string())?;
     } else {
         window.hide().map_err(|e| e.to_string())?;
     }
-    save_widget_visibility(app, label, visible);
+    save_widget_visibility(store, app, label, visible);
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_widget_visibility(label: String, visible: bool, app: AppHandle) -> Result<(), String> {
-    apply_widget_visibility(&app, &label, visible)
+    let store = app.state::<Arc<VisibilityStore>>();
+    apply_widget_visibility(&app, &store, &label, visible)
 }
