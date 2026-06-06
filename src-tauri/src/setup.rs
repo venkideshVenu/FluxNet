@@ -1,12 +1,12 @@
 use crate::background::sampler::start_sampler;
-use crate::commands::network::{SharedInterfacesCache, SharedMonitorState, InterfacesCache};
+use crate::commands::network::{InterfacesCache, SharedInterfacesCache, SharedMonitorState};
 use crate::commands::ping::SharedPingState;
 use crate::persistence::app_settings::SettingsStore;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{ spawn_position_writer, PositionSender};
+use crate::window_positions::{spawn_position_writer, PositionSender};
 use parking_lot::Mutex;
 use std::error::Error;
 use std::fs;
@@ -83,11 +83,7 @@ fn migrate_legacy_widget_files(
 
 // ── Widget window wiring ──────────────────────────────────────────────────────
 
-fn wire_widget_windows(
-    app: &App,
-    widget_store: Arc<WidgetStore>,
-    app_handle: tauri::AppHandle,
-) {
+fn wire_widget_windows(app: &App, widget_store: Arc<WidgetStore>, app_handle: tauri::AppHandle) {
     let pos_sender = app.state::<PositionSender>();
 
     for label in ["pill", "compact", "hud"] {
@@ -107,10 +103,8 @@ fn wire_widget_windows(
                 // Restore position
                 if let Some(pos) = state.positions.get(&label_str) {
                     let (cx, cy) = clamp_position(&window_cl, pos.x, pos.y);
-                    let _ = window_cl.set_position(Position::Physical(PhysicalPosition {
-                        x: cx,
-                        y: cy,
-                    }));
+                    let _ = window_cl
+                        .set_position(Position::Physical(PhysicalPosition { x: cx, y: cy }));
                 }
 
                 let cfg = state.get_config(&label_str);
@@ -140,10 +134,9 @@ fn wire_widget_windows(
                         api.prevent_close();
                         let _ = window_cl.hide();
 
-                        // FIX W5: capture the position right now before the
-                        // 500 ms debounce might have been missed.
                         if let Ok(pos) = window_cl.outer_position() {
-                            let _ = sender.try_send((label_str.clone(), pos));
+                            // push() is last-write-wins and infallible — replaces try_send
+                            sender.push(label_str.clone(), pos);
                         }
 
                         store.update(&app_h, |s| s.set_visibility(&label_str, false));
@@ -190,8 +183,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     app.manage(ro_db);
 
     // ── Interfaces cache (FIX R2: separate from MonitorState) ─────────────────
-    let iface_cache: SharedInterfacesCache =
-        Arc::new(Mutex::new(InterfacesCache::default()));
+    let iface_cache: SharedInterfacesCache = Arc::new(Mutex::new(InterfacesCache::default()));
     app.manage(iface_cache);
 
     // ── Cancellation token ────────────────────────────────────────────────────
@@ -230,7 +222,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     widget_store.update(&app_handle, |s| s.migrate_legacy());
 
     // ── Position debouncer ────────────────────────────────────────────────────
-     let pos_sender = spawn_position_writer(app_handle.clone(), widget_store.clone());
+    let pos_sender = spawn_position_writer(app_handle.clone(), widget_store.clone());
     app.manage(pos_sender);
 
     // ── Wire windows ──────────────────────────────────────────────────────────
