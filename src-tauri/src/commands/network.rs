@@ -362,6 +362,9 @@ pub fn set_interface(
     s.last_download = 0.0;
     s.history.clear();
 
+    s.interfaces_cache.clear();
+    s.interfaces_cache_at = None;
+
     let mut ps = ping_state.lock();
     *ps = PingState::default();
 }

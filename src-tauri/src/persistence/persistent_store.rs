@@ -7,7 +7,7 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
-const CURRENT_VERSION: u32 = 1;
+pub const CURRENT_VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize)]
 struct VersionedData<T> {
@@ -57,12 +57,14 @@ impl<T: Persistent> PersistentStore<T> {
     }
 
     pub fn update<F: FnOnce(&mut T)>(&self, app: &AppHandle, f: F) {
-        {
+        // Mutate and snapshot under a single lock hold.
+        let snapshot = {
             let arc = self.get_arc();
             let mut guard = arc.lock();
             f(&mut *guard);
-        }
-        let snapshot = self.get_arc().lock().clone();
+            guard.clone() // snapshot before the lock is released
+        };
+        // Flush to disk outside the lock — I/O must not block other readers.
         self.flush_to_disk(app, &snapshot);
     }
 
@@ -81,16 +83,18 @@ impl<T: Persistent> PersistentStore<T> {
         match serde_json::from_str::<VersionedData<T>>(&contents) {
             Ok(versioned) if versioned.version == CURRENT_VERSION => versioned.data,
             Ok(versioned) => {
-                // Version mismatch – attempt migration (just log and use defaults for now)
-                tracing::warn!(
-                    "Settings file {} has version {} (current {}). Using defaults.",
+                tracing::error!(
+                    "Settings file {} has version {} (current {}).  \
+                     Backing up to .bak and resetting to defaults.",
                     path.display(),
                     versioned.version,
                     CURRENT_VERSION
                 );
-                // Optional: implement migration logic here if needed
+                let bak = path.with_extension("json.bak");
+                let _ = fs::copy(&path, &bak);
                 T::default()
             }
+
             Err(e) => {
                 tracing::warn!(
                     "Failed to parse {}: {}. Creating backup and using defaults.",
@@ -117,7 +121,7 @@ impl<T: Persistent> PersistentStore<T> {
             version: CURRENT_VERSION,
             data,
         };
-        let serialized = match serde_json::to_string_pretty(&versioned) {
+        let serialized = match serde_json::to_string(&versioned) {
             Ok(s) => s,
             Err(e) => {
                 tracing::error!("Serialization error: {e}");
