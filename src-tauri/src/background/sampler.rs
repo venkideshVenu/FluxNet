@@ -5,7 +5,7 @@ use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
 use crate::persistence::app_settings::SettingsStore;
 use crate::storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
-use crate::storage::repository::{cleanup_old_samples, get_monthly_all, insert_sample};
+use crate::storage::repository::{cleanup_old_samples, insert_sample};
 use crate::storage::DbState;
 use chrono::{Datelike, Duration as ChronoDuration, Local, Timelike};
 use parking_lot::Mutex;
@@ -13,13 +13,12 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::Networks;
+use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500 ms = 5 s
 
-/// Handle returned to setup.rs so tray.rs can await graceful shutdown (FIX M2).
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
 // ── Startup catch-up: fill missing monthly rows (FIX R6) ─────────────────────
@@ -100,7 +99,6 @@ pub fn start_sampler(
     backfill_missing_months(&db);
 
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
-        // FIX N4: watch channel so interval changes are picked up without restart
         let initial_ms = settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
         let mut current_interval_ms = initial_ms;
         let mut sample_interval = tokio::time::interval(Duration::from_millis(current_interval_ms));
@@ -118,20 +116,17 @@ pub fn start_sampler(
             tokio::select! {
                 _ = cancel_token.cancelled() => {
                     tracing::info!("Sampler shutting down – performing final WAL checkpoint");
-                    // FIX R3: checkpoint on blocking thread, not the async executor
-                    let db_clone = db.clone();
-                    let _ = tokio::task::spawn_blocking(move || {
+                  let db_clone = db.clone();
+                    std::thread::spawn(move || {
                         let conn = db_clone.0.lock();
                         let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
-                    })
-                    .await;
+                    });
                     break;
                 }
 
                 _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
-                    // FIX N4: check if the user changed the refresh interval
                     let desired_ms =
                         settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
                     if desired_ms != current_interval_ms {
@@ -149,7 +144,6 @@ pub fn start_sampler(
                     // Refresh network counters — outside any lock
                     networks.refresh();
 
-                    // FIX N2: auto-select interface OUTSIDE the MonitorState lock
                     let needs_selection = {
                         let s = monitor_state.lock();
                         s.interface.is_empty()
@@ -179,7 +173,6 @@ pub fn start_sampler(
                             let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
                         }
 
-                        // PERF-1: only emit if at least one window is visible
                         if any_window_visible(&app_handle) {
                             let _ = app_handle.emit(
                                 "network-stats",
@@ -204,7 +197,6 @@ pub fn start_sampler(
                             ps.update(result.latency_ms, result.loss);
                             ps.current_stats()
                         };
-                        // PERF-1: skip if no window is watching
                         if any_window_visible(&app_handle) {
                             let _ = app_handle.emit("ping-stats", &stats);
                         }
@@ -225,11 +217,9 @@ pub fn start_sampler(
                         }
 
                         if day_changed {
-                            // completed day, not today's incomplete data.
-                            let yesterday = now_local - ChronoDuration::days(1);
+                         let yesterday = now_local - ChronoDuration::days(1);
                             let _ = rollup_daily(&conn, yesterday);
 
-                            // and only on the first day of a new month.
                             if current_day == 1 {
                                 let _ = rollup_monthly(&conn, now_local);
                             }

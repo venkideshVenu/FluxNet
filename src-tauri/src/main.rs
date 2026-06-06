@@ -15,7 +15,9 @@ use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
 };
 use commands::ping::get_ping_stats;
-use commands::settings::{get_ping_target, get_refresh_interval, set_ping_target, set_refresh_interval};
+use commands::settings::{
+    get_ping_target, get_refresh_interval, set_ping_target, set_refresh_interval,
+};
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
@@ -24,37 +26,52 @@ use commands::visibility::{set_widget_always_on_top, set_widget_opacity, set_wid
 use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
 
-fn main() {
+fn init_logging() {
+    use tracing_subscriber::{fmt, EnvFilter};
+
     #[cfg(debug_assertions)]
     {
-        tracing_subscriber::fmt()
-            .with_env_filter("fluxnet=debug,warn")
+        fmt()
+            .with_env_filter(
+                EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| EnvFilter::new("fluxnet=debug,warn")),
+            )
             .with_target(false)
             .init();
     }
+
     #[cfg(not(debug_assertions))]
     {
         use tracing_subscriber::prelude::*;
-        // File-based rolling appender — satisfies LOG-1 / LOG-2 / LOG-3
-        let log_dir = dirs::data_local_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("fluxnet")
-            .join("logs");
+
+        // Derive the log directory without pulling in the `dirs` crate:
+        // %APPDATA%\fluxnet\logs  (Windows) or  ~/.local/share/fluxnet/logs  (future macOS)
+        let log_dir = {
+            let base = std::env::var("APPDATA")
+                .map(std::path::PathBuf::from)
+                .or_else(|_| {
+                    std::env::var("HOME")
+                        .map(|h| std::path::PathBuf::from(h).join(".local").join("share"))
+                })
+                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+            base.join("fluxnet").join("logs")
+        };
         std::fs::create_dir_all(&log_dir).ok();
+
         let file_appender = tracing_appender::rolling::daily(&log_dir, "fluxnet.log");
-        let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-        // Keep _guard alive for the lifetime of main() so the logger is flushed on exit
-        // (store in a Box::leak for simplicity — it lives until process exit)
-        Box::leak(Box::new(_guard));
+        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+        // Leak the guard so it lives until process exit and the final log flush completes.
+        Box::leak(Box::new(guard));
+
         tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .with_writer(non_blocking)
-                    .with_ansi(false),
-            )
-            .with(tracing_subscriber::EnvFilter::new("fluxnet=info,warn"))
+            .with(fmt::layer().with_writer(non_blocking).with_ansi(false))
+            .with(EnvFilter::new("fluxnet=info,warn"))
             .init();
     }
+}
+
+fn main() {
+    init_logging();
     // ─────────────────────────────────────────────────────────────────────────
 
     tauri::Builder::default()

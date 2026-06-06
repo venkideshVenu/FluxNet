@@ -6,7 +6,7 @@ use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{enqueue_position, spawn_position_writer, PositionSender};
+use crate::window_positions::{ spawn_position_writer, PositionSender};
 use parking_lot::Mutex;
 use std::error::Error;
 use std::fs;

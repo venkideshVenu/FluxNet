@@ -1,26 +1,3 @@
-// tray.rs
-//
-// FIXES APPLIED
-// ─────────────────────────────────────────────────────────────────────────────
-// W6   LAST_TRAY_CLICK used SystemTime (wall clock) for elapsed-time comparison.
-//      SystemTime can go backwards (NTP adjustment, DST, VM migration), making
-//      the double-click guard fire spuriously.
-//      Fix: use a monotonic Instant stored as nanoseconds-since-program-start in
-//      an AtomicU64, with a fixed epoch set on first use via OnceLock.
-//
-// W4   The open_dashboard() fallback WebviewWindowBuilder omitted .visible(true)
-//      and logged the event at warn level instead of error.
-//      Tauri 2 builder-created windows start hidden; added .visible(true).
-//
-// M2   The quit handler used std::thread::sleep(100 ms) as a crude grace period,
-//      which blocked the tray event thread and gave no guarantee the sampler had
-//      finished its WAL checkpoint.
-//      Fix: retrieve the SamplerHandle (Arc<Mutex<Option<JoinHandle<()>>>>) from
-//      Tauri state, take the JoinHandle, and spawn an async task that awaits it
-//      with a 1.5 s timeout before calling app_handle.exit(0).
-// ─────────────────────────────────────────────────────────────────────────────
-
-use crate::background::sampler::SamplerHandle;
 use crate::commands::visibility::apply_widget_visibility;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::WidgetState;
@@ -33,8 +10,6 @@ use tauri::{AppHandle, Manager, WebviewWindowBuilder};
 use tokio_util::sync::CancellationToken;
 
 type WidgetStore = PersistentStore<WidgetState>;
-
-// ── FIX W6: monotonic tray-click debounce ─────────────────────────────────────
 
 /// Program-start epoch for converting Instant to u64 nanoseconds.
 static EPOCH: OnceLock<Instant> = OnceLock::new();
@@ -85,22 +60,11 @@ pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tau
                 "quit" => {
                     token.cancel();
 
-                    // FIX M2: await the sampler's WAL checkpoint before exiting.
-                    // We take the JoinHandle out of the Mutex so it can only be
-                    // awaited once even if quit fires multiple times.
-                    let sampler_handle = app_handle
-                        .try_state::<SamplerHandle>()
-                        .and_then(|h| h.lock().take());
-
                     let app_h = app_handle.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(handle) = sampler_handle {
-                            let _ = tokio::time::timeout(
-                                Duration::from_millis(1_500),
-                                handle,
-                            )
-                            .await;
-                        }
+                    std::thread::spawn(move || {
+                        // 1.5 s is enough for the checkpoint std::thread to complete
+                        // (started inside the sampler cancel arm).
+                        std::thread::sleep(Duration::from_millis(1_500));
                         app_h.exit(0);
                     });
                 }
