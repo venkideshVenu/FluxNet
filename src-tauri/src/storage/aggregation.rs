@@ -6,17 +6,13 @@ use crate::storage::repository::{
 };
 
 pub fn rollup_hourly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result<()> {
-    let now = now;
-
-    // Start of the hour that just completed (one hour before the current one)
+    // "The hour that just completed" = the hour immediately before `now`.
     let current_hour_start = Local
         .with_ymd_and_hms(now.year(), now.month(), now.day(), now.hour(), 0, 0)
         .unwrap()
         .timestamp();
     let hour_start = current_hour_start - 3600;
     let hour_end = current_hour_start;
-
-    // Single query: compute all needed aggregates using LAG to get real elapsed seconds
     let mut stmt = conn.prepare(
         r#"
         WITH time_deltas AS (
@@ -28,13 +24,21 @@ pub fn rollup_hourly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Resul
             WHERE timestamp >= ?1 AND timestamp < ?2
         )
         SELECT
-            COALESCE(SUM(download_bps * delta_secs), 0) AS total_download_bytes,
-            COALESCE(SUM(upload_bps   * delta_secs), 0) AS total_upload_bytes,
-            COUNT(*) AS sample_count,
-            COALESCE(AVG(download_bps), 0.0) AS avg_download_bps,
-            COALESCE(AVG(upload_bps),   0.0) AS avg_upload_bps,
-            COALESCE(MAX(download_bps), 0.0) AS peak_download_bps,
-            COALESCE(MAX(upload_bps),   0.0) AS peak_upload_bps
+            -- total bytes (correct: integrates bps × time)
+            COALESCE(SUM(download_bps * delta_secs), 0)                            AS total_download_bytes,
+            COALESCE(SUM(upload_bps   * delta_secs), 0)                            AS total_upload_bytes,
+            COUNT(*)                                                                AS sample_count,
+            -- FIX N3: time-weighted average instead of simple AVG()
+            COALESCE(
+                SUM(download_bps * delta_secs) / NULLIF(SUM(delta_secs), 0),
+                0.0
+            )                                                                       AS avg_download_bps,
+            COALESCE(
+                SUM(upload_bps * delta_secs)   / NULLIF(SUM(delta_secs), 0),
+                0.0
+            )                                                                       AS avg_upload_bps,
+            COALESCE(MAX(download_bps), 0.0)                                       AS peak_download_bps,
+            COALESCE(MAX(upload_bps),   0.0)                                       AS peak_upload_bps
         FROM time_deltas
         "#,
     )?;
@@ -44,8 +48,8 @@ pub fn rollup_hourly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Resul
             row.get::<_, i64>(0)?, // total_download_bytes
             row.get::<_, i64>(1)?, // total_upload_bytes
             row.get::<_, i64>(2)?, // sample_count
-            row.get::<_, f64>(3)?, // avg_download_bps
-            row.get::<_, f64>(4)?, // avg_upload_bps
+            row.get::<_, f64>(3)?, // avg_download_bps  (time-weighted)
+            row.get::<_, f64>(4)?, // avg_upload_bps    (time-weighted)
             row.get::<_, f64>(5)?, // peak_download_bps
             row.get::<_, f64>(6)?, // peak_upload_bps
         ))
@@ -72,33 +76,31 @@ pub fn rollup_hourly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Resul
     )
 }
 
-pub fn rollup_daily(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result<()> {
-    let yesterday = now;
-    let day_str = yesterday.format("%Y-%m-%d").to_string();
+pub fn rollup_daily(conn: &Connection, day: DateTime<Local>) -> rusqlite::Result<()> {
+    let day_str = day.format("%Y-%m-%d").to_string();
 
     let day_start = Local
-        .with_ymd_and_hms(
-            yesterday.year(),
-            yesterday.month(),
-            yesterday.day(),
-            0,
-            0,
-            0,
-        )
+        .with_ymd_and_hms(day.year(), day.month(), day.day(), 0, 0, 0)
         .unwrap()
         .timestamp();
     let day_end = day_start + 86_400;
 
-    // Weighted averages: SUM(avg * sample_count) / SUM(sample_count)
+    // Weighted averages across hourly rows (already time-weighted per hour).
     let mut stmt = conn.prepare(
         r#"
         SELECT
-            COALESCE(SUM(avg_download_bps * sample_count) / NULLIF(SUM(sample_count), 0), 0.0) AS weighted_avg_dl,
-            COALESCE(SUM(avg_upload_bps   * sample_count) / NULLIF(SUM(sample_count), 0), 0.0) AS weighted_avg_ul,
-            MAX(peak_download_bps),
-            MAX(peak_upload_bps),
-            SUM(total_download_bytes),
-            SUM(total_upload_bytes),
+            COALESCE(
+                SUM(avg_download_bps * sample_count) / NULLIF(SUM(sample_count), 0),
+                0.0
+            ) AS weighted_avg_dl,
+            COALESCE(
+                SUM(avg_upload_bps   * sample_count) / NULLIF(SUM(sample_count), 0),
+                0.0
+            ) AS weighted_avg_ul,
+            COALESCE(MAX(peak_download_bps), 0.0),
+            COALESCE(MAX(peak_upload_bps),   0.0),
+            COALESCE(SUM(total_download_bytes), 0),
+            COALESCE(SUM(total_upload_bytes),   0),
             COUNT(*)
         FROM hourly_usage
         WHERE hour_start >= ?1 AND hour_start < ?2
@@ -113,7 +115,7 @@ pub fn rollup_daily(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result
             row.get::<_, f64>(3)?, // peak_upload_bps
             row.get::<_, i64>(4)?, // total_download_bytes
             row.get::<_, i64>(5)?, // total_upload_bytes
-            row.get::<_, i64>(6)?, // sample_count
+            row.get::<_, i64>(6)?, // hourly_row_count
         ))
     })?;
 
@@ -137,12 +139,10 @@ pub fn rollup_daily(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result
     Ok(())
 }
 
-/// Roll up daily rows for *last month* into `monthly_usage`.
-///
-/// Called from `main.rs` on the first day of a new month.
+/// Roll up daily rows for *last* month into `monthly_usage`.
+/// Called on the first day of a new month, and also from the startup back-fill
+/// in sampler.rs for any months missed while the app was offline (FIX R6).
 pub fn rollup_monthly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Result<()> {
-    // Go to the first day of this month, then step back one day into last month.
-    let now = now;
     let first_of_this_month = Local
         .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
         .unwrap();
@@ -151,11 +151,12 @@ pub fn rollup_monthly(conn: &Connection, now: DateTime<Local>) -> rusqlite::Resu
     let like_prefix = format!("{}%", month_str);
 
     let result: rusqlite::Result<(i64, i64, f64, f64, i64)> = conn.query_row(
-        "SELECT SUM(total_download_bytes),
-                SUM(total_upload_bytes),
-                MAX(peak_download_bps),
-                MAX(peak_upload_bps),
-                COUNT(*)
+        "SELECT
+             COALESCE(SUM(total_download_bytes), 0),
+             COALESCE(SUM(total_upload_bytes),   0),
+             COALESCE(MAX(peak_download_bps),    0.0),
+             COALESCE(MAX(peak_upload_bps),      0.0),
+             COUNT(*)
          FROM daily_usage
          WHERE day LIKE ?1",
         rusqlite::params![like_prefix],
