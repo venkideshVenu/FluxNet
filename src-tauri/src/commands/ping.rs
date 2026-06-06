@@ -1,59 +1,74 @@
-use crate::monitor::ping::measure_ping;
-use serde::Serialize;
-use std::net::IpAddr;
-use std::sync::Mutex;
-use tauri::State;
+use crate::dto::ping::PingStats;
+use parking_lot::Mutex;
+use std::collections::VecDeque;
+use std::sync::Arc;
 
-#[derive(Serialize, Clone)]
-pub struct PingStats {
-    pub latency_ms: f64,   // -1.0 means timeout
-    pub loss_percent: f64, // rolling 10-sample loss %
-}
+pub type SharedPingState = Arc<Mutex<PingState>>;
+
+/// Rolling window size for packet-loss percentage.
+const WINDOW: usize = 10;
+/// Number of consecutive lost packets before latency is reported as -1.0.
+const N_CONSECUTIVE_LOSS: usize = 3;
 
 pub struct PingState {
-    /// Rolling window of last 10 results — true = lost
-    pub loss_window: Vec<bool>,
+    /// Rolling window of last WINDOW results — true = lost packet.
+    pub loss_window: VecDeque<bool>,
+    /// Most recent successfully measured latency.
     pub last_latency_ms: f64,
 }
 
 impl Default for PingState {
     fn default() -> Self {
         Self {
-            loss_window: Vec::with_capacity(10),
+            loss_window: VecDeque::with_capacity(WINDOW),
             last_latency_ms: 0.0,
         }
     }
 }
 
-pub type SharedPingState = Mutex<PingState>;
+impl PingState {
+    pub fn update(&mut self, latency_ms: Option<f64>, loss: bool) {
+        self.loss_window.push_back(loss);
+        if self.loss_window.len() > WINDOW {
+            self.loss_window.pop_front();
+        }
+        if let Some(ms) = latency_ms {
+            self.last_latency_ms = ms;
+        }
+    }
 
-// Default target: Cloudflare 1.1.1.1 — fast, reliable, globally reachable
-const PING_TARGET: &str = "1.1.1.1";
+    pub fn current_stats(&self) -> PingStats {
+        let total = self.loss_window.len();
+        let loss_count = self.loss_window.iter().filter(|&&lost| lost).count();
+        let loss_percent = if total == 0 {
+            0.0
+        } else {
+            (loss_count as f64 / total as f64) * 100.0
+        };
+
+        let consecutive_losses = self
+            .loss_window
+            .iter()
+            .rev()
+            .take(N_CONSECUTIVE_LOSS)
+            .filter(|&&lost| lost)
+            .count();
+
+        let latency_ms = if consecutive_losses >= N_CONSECUTIVE_LOSS {
+            -1.0 // sustained outage — signal the UI to show "timeout"
+        } else {
+            self.last_latency_ms
+        };
+
+        PingStats {
+            latency_ms,
+            loss_percent,
+        }
+    }
+}
 
 #[tauri::command]
-pub async fn get_ping_stats(state: State<'_, SharedPingState>) -> Result<PingStats, String> {
-    let target: IpAddr = PING_TARGET
-        .parse()
-        .map_err(|e: std::net::AddrParseError| e.to_string())?;
-    let result = measure_ping(target).await;
-
-    let mut s = state.lock().map_err(|e| e.to_string())?;
-
-    // Update rolling loss window (max 10 samples)
-    s.loss_window.push(result.loss);
-    if s.loss_window.len() > 10 {
-        s.loss_window.remove(0);
-    }
-
-    let loss_count = s.loss_window.iter().filter(|&&lost| lost).count();
-    let loss_percent = (loss_count as f64 / s.loss_window.len() as f64) * 100.0;
-
-    if let Some(ms) = result.latency_ms {
-        s.last_latency_ms = ms;
-    }
-
-    Ok(PingStats {
-        latency_ms: if result.loss { -1.0 } else { s.last_latency_ms },
-        loss_percent,
-    })
+pub fn get_ping_stats(state: tauri::State<SharedPingState>) -> Result<PingStats, String> {
+    let s = state.lock();
+    Ok(s.current_stats())
 }

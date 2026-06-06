@@ -9,19 +9,12 @@ build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "fluxnet_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
-tauri-plugin-opener = "2"
+# tauri-plugin-opener removed (A5 — was declared but never used)
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
@@ -32,6 +25,11 @@ surge-ping = "0.8"
 rusqlite = { version = "0.31", features = ["bundled"] }
 rusqlite_migration = "1.2"
 chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12.5"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+tokio-util = { version = "0.7", features = ["rt"] }
 
 [dev-dependencies]
 # For unit testing Rust code

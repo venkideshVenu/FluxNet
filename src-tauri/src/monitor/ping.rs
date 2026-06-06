@@ -1,15 +1,20 @@
 use std::net::IpAddr;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
-use surge_ping::{Client, Config, PingIdentifier, PingSequence, ICMP};
+use surge_ping::{Client, Config, PingIdentifier, PingSequence};
 use tokio::time::timeout;
 
-pub struct PingResult {
-    pub latency_ms: Option<f64>, // None = timeout / unreachable
-    pub loss: bool,              // true = this packet was lost
+static PING_ID_COUNTER: AtomicU16 = AtomicU16::new(1);
+
+fn next_ping_id() -> u16 {
+    PING_ID_COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-/// Sends a single ICMP echo to the target and returns the RTT.
-/// Times out after 2 seconds — treated as packet loss.
+pub struct PingResult {
+    pub latency_ms: Option<f64>,
+    pub loss: bool,
+}
+
 pub async fn measure_ping(target: IpAddr) -> PingResult {
     let config = Config::builder().build();
     let client = match Client::new(&config) {
@@ -18,12 +23,12 @@ pub async fn measure_ping(target: IpAddr) -> PingResult {
             return PingResult {
                 latency_ms: None,
                 loss: true,
-            }
+            };
         }
     };
 
     let payload = [0u8; 8];
-    let mut pinger = client.pinger(target, PingIdentifier(rand_id())).await;
+    let mut pinger = client.pinger(target, PingIdentifier(next_ping_id())).await;
     pinger.timeout(Duration::from_secs(2));
 
     match timeout(
@@ -43,26 +48,14 @@ pub async fn measure_ping(target: IpAddr) -> PingResult {
     }
 }
 
-fn rand_id() -> u16 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    (SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos()
-        & 0xFFFF) as u16
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[tokio::test]
     async fn test_ping_returns_result() {
-        // Loopback should always respond
         let target: IpAddr = "127.0.0.1".parse().unwrap();
         let result = measure_ping(target).await;
-        // Loopback may or may not work depending on OS ICMP config,
-        // but the function must not panic either way
         let _ = result.latency_ms;
     }
 }

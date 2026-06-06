@@ -1,40 +1,47 @@
-use rusqlite::Connection;
-use std::path::PathBuf;
-use std::sync::Mutex;
-
 use crate::storage::migrations::get_migrations;
+use parking_lot::Mutex;
+use rusqlite::{Connection, OpenFlags};
+use std::path::PathBuf;
+use std::sync::Arc;
 
-/// Tauri-managed state wrapping a single SQLite connection.
-///
-/// Command handlers lock this for reads (get_usage_stats, etc.).
-/// The background sampler task opens its own separate connection via
-/// `DbState::open()` so writes never block command handlers. Migrations are
-/// idempotent, so a second open is safe even though it repeats the check.
-/// Both connections use WAL mode and can run concurrently safely.
-pub struct DbState(pub Mutex<Connection>);
+/// A shared database connection (read‑write, used by background sampler).
+#[derive(Clone)]
+pub struct DbState(pub Arc<Mutex<Connection>>);
+
+/// Read‑only connection for command handlers.
+#[derive(Clone)]
+pub struct ReadOnlyDb(pub Arc<Mutex<Connection>>);
 
 impl DbState {
-    /// Open (or create) the database at `{app_data_dir}/fluxnet.db`
-    /// and run all pending schema migrations.
+    /// Open a read‑write connection, create DB if missing, run migrations.
     pub fn open(app_data_dir: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         std::fs::create_dir_all(app_data_dir)?;
         let db_path = app_data_dir.join("fluxnet.db");
 
         let mut conn = Connection::open(&db_path)?;
 
-        // WAL mode: concurrent readers + one writer, no blocking between them.
-        // NORMAL synchronous: safe on power loss after a commit, much faster than FULL.
         conn.execute_batch(
             "PRAGMA journal_mode = WAL;
              PRAGMA synchronous   = NORMAL;
              PRAGMA foreign_keys  = ON;
-             PRAGMA cache_size    = -8000;", // 8 MB page cache
+             PRAGMA cache_size    = -8000;",
         )?;
 
-        // Apply any missing migrations in order.
         let migrations = get_migrations();
         migrations.to_latest(&mut conn)?;
 
-        Ok(Self(Mutex::new(conn)))
+        Ok(Self(Arc::new(Mutex::new(conn))))
+    }
+}
+
+impl ReadOnlyDb {
+    /// Open a read‑only connection (no migrations, no writes).
+    pub fn open(app_data_dir: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+        std::fs::create_dir_all(app_data_dir)?;
+        let db_path = app_data_dir.join("fluxnet.db");
+
+        let conn = Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+
+        Ok(Self(Arc::new(Mutex::new(conn))))
     }
 }

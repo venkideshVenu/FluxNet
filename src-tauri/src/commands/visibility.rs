@@ -1,34 +1,72 @@
+use crate::commands::network::is_widget_label;
+use crate::persistence::persistent_store::PersistentStore;
+use crate::persistence::widget_state::WidgetState;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
-use crate::window_visibility::save_widget_visibility;
+pub type WidgetStore = PersistentStore<WidgetState>;
 
-/// Show or hide a widget window by label and persist the new state to disk.
-///
-/// Called from the frontend (React) whenever the user toggles a widget
-/// from the Settings or Dashboard page.
-///
-/// Accepted labels: "pill" | "compact" | "hud"
-/// Any other label is silently ignored.
-#[tauri::command]
-pub fn set_widget_visibility(label: String, visible: bool, app: AppHandle) -> Result<(), String> {
-    if !matches!(label.as_str(), "pill" | "compact" | "hud") {
-        // Silently succeed for unknown labels — callers don't need to handle this.
+// ── Internal helper ───────────────────────────────────────────────────────────
+
+pub fn apply_widget_visibility(
+    app: &AppHandle,
+    store: &WidgetStore,
+    label: &str,
+    visible: bool,
+) -> Result<(), String> {
+    if !is_widget_label(label) {
         return Ok(());
     }
-
     let window = app
-        .get_webview_window(&label)
+        .get_webview_window(label)
         .ok_or_else(|| format!("{label} window not found"))?;
-
     if visible {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     } else {
         window.hide().map_err(|e| e.to_string())?;
     }
-
-    // Persist immediately so the next launch restores the correct state.
-    save_widget_visibility(&app, &label, visible);
-
+    store.update(app, |state| state.set_visibility(label, visible));
     Ok(())
+}
+
+// ── Tauri commands ────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn set_widget_visibility(label: String, visible: bool, app: AppHandle) -> Result<(), String> {
+    let store = app.state::<Arc<WidgetStore>>();
+    apply_widget_visibility(&app, &store, &label, visible)
+}
+
+#[tauri::command]
+pub fn set_widget_always_on_top(label: String, value: bool, app: AppHandle) -> Result<(), String> {
+    if !is_widget_label(&label) {
+        return Err(format!("unknown window label: {label}"));
+    }
+    let window = app
+        .get_webview_window(&label)
+        .ok_or_else(|| format!("{label} window not found"))?;
+    window.set_always_on_top(value).map_err(|e| e.to_string())?;
+
+    // FIX W7: persist so setup.rs can restore on next launch
+    let store = app.state::<Arc<WidgetStore>>();
+    store.update(&app, |state| state.set_always_on_top(&label, value));
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_widget_opacity(label: String, value: f64, app: AppHandle) -> Result<(), String> {
+    if !is_widget_label(&label) {
+        return Err(format!("unknown window label: {label}"));
+    }
+    let window = app
+        .get_webview_window(&label)
+        .ok_or_else(|| format!("{label} window not found"))?;
+    let clamped = value.clamp(0.1, 1.0);
+    window
+        .eval(&format!(
+            "document.documentElement.style.opacity='{0}';document.body.style.opacity='{0}';",
+            clamped
+        ))
+        .map_err(|e| e.to_string())
 }
