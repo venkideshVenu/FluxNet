@@ -1,19 +1,94 @@
-use crate::commands::network::{tick_sample_with_networks, SharedMonitorState};
+use crate::commands::network::{
+    select_interface_outside_lock, tick_sample_with_networks, SharedMonitorState,
+};
 use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
 use crate::persistence::app_settings::SettingsStore;
 use crate::storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
-use crate::storage::repository::{cleanup_old_samples, insert_sample};
+use crate::storage::repository::{cleanup_old_samples, get_monthly_all, insert_sample};
 use crate::storage::DbState;
-use chrono::{Datelike, Local, Timelike};
+use chrono::{Datelike, Duration as ChronoDuration, Local, Timelike};
+use parking_lot::Mutex;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use sysinfo::Networks;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-const PING_INTERVAL_TICKS: u32 = 10; // 10 * 500 ms = 5 seconds
+const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500 ms = 5 s
 
+/// Handle returned to setup.rs so tray.rs can await graceful shutdown (FIX M2).
+pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
+
+// ── Startup catch-up: fill missing monthly rows (FIX R6) ─────────────────────
+
+fn backfill_missing_months(db: &DbState) {
+    let conn = db.0.lock();
+    let now = Local::now();
+    let current_month_str = now.format("%Y-%m").to_string();
+
+    // Find the most-recent month already in monthly_usage
+    let last_stored: Option<String> = conn
+        .query_row(
+            "SELECT month FROM monthly_usage ORDER BY month DESC LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+
+    let Some(last_str) = last_stored else {
+        return; // no rows at all — nothing to back-fill
+    };
+    if last_str >= current_month_str {
+        return; // up to date
+    }
+
+    tracing::info!("Back-filling monthly rollups from {last_str} to {current_month_str}");
+
+    // Iterate from (last_stored + 1 month) up to (but not including) the current month
+    let mut cursor: chrono::NaiveDate = {
+        let parts: Vec<&str> = last_str.splitn(2, '-').collect();
+        let y: i32 = parts[0].parse().unwrap_or(now.year());
+        let m: u32 = parts[1].parse().unwrap_or(now.month());
+        // step forward one month
+        let next_m = if m == 12 { 1 } else { m + 1 };
+        let next_y = if m == 12 { y + 1 } else { y };
+        chrono::NaiveDate::from_ymd_opt(next_y, next_m, 1).unwrap_or_default()
+    };
+
+    while cursor.format("%Y-%m").to_string() < current_month_str {
+        let dt = cursor
+            .and_hms_opt(0, 0, 0)
+            .and_then(|dt| dt.and_local_timezone(Local).single())
+            .unwrap_or_else(Local::now);
+        let _ = rollup_monthly(&conn, dt);
+
+        // Advance one month
+        let m = cursor.month();
+        let y = cursor.year();
+        let next_m = if m == 12 { 1 } else { m + 1 };
+        let next_y = if m == 12 { y + 1 } else { y };
+        if let Some(nd) = chrono::NaiveDate::from_ymd_opt(next_y, next_m, 1) {
+            cursor = nd;
+        } else {
+            break;
+        }
+    }
+}
+
+// ── Any visible window? (PERF-1) ─────────────────────────────────────────────
+
+fn any_window_visible(app: &AppHandle) -> bool {
+    app.webview_windows()
+        .values()
+        .any(|w| w.is_visible().unwrap_or(false))
+}
+
+// ── Sampler entry point ───────────────────────────────────────────────────────
+
+/// Starts the background sampling loop and returns a handle for graceful shutdown.
 pub fn start_sampler(
     monitor_state: SharedMonitorState,
     db: DbState,
@@ -21,10 +96,16 @@ pub fn start_sampler(
     cancel_token: CancellationToken,
     settings_store: Arc<SettingsStore>,
     app_handle: AppHandle,
-) {
-    tauri::async_runtime::spawn(async move {
-        let mut sample_interval = tokio::time::interval(std::time::Duration::from_millis(500));
-        let mut cleanup_interval = tokio::time::interval(std::time::Duration::from_secs(60));
+) -> SamplerHandle {
+    backfill_missing_months(&db);
+
+    let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
+        // FIX N4: watch channel so interval changes are picked up without restart
+        let initial_ms = settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
+        let mut current_interval_ms = initial_ms;
+        let mut sample_interval = tokio::time::interval(Duration::from_millis(current_interval_ms));
+
+        let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
         cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut tick_counter = 0u32;
@@ -36,78 +117,132 @@ pub fn start_sampler(
         loop {
             tokio::select! {
                 _ = cancel_token.cancelled() => {
-                    tracing::info!("Sampler shutting down – performing final checkpoint");
-                    let conn = db.0.lock();
-                    let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
+                    tracing::info!("Sampler shutting down – performing final WAL checkpoint");
+                    // FIX R3: checkpoint on blocking thread, not the async executor
+                    let db_clone = db.clone();
+                    let _ = tokio::task::spawn_blocking(move || {
+                        let conn = db_clone.0.lock();
+                        let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
+                    })
+                    .await;
                     break;
                 }
+
                 _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
-                    // ---- ONE call to Local::now() per tick ----
+                    // FIX N4: check if the user changed the refresh interval
+                    let desired_ms =
+                        settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
+                    if desired_ms != current_interval_ms {
+                        current_interval_ms = desired_ms;
+                        sample_interval =
+                            tokio::time::interval(Duration::from_millis(current_interval_ms));
+                        tracing::info!("Refresh interval changed to {desired_ms} ms");
+                    }
+
                     let now_local = Local::now();
                     let now_ts = now_local.timestamp();
                     let current_hour = now_local.hour();
                     let current_day = now_local.day();
 
-                    // ---- Refresh network counters outside the lock ----
+                    // Refresh network counters — outside any lock
                     networks.refresh();
 
-                    // ---- Network sampling (every 500 ms) ----
-                    let (dl, ul, iface, is_priming) = {
-                        let mut s = monitor_state.lock();
-                        let was_priming = s.last_sample.is_none();
-                        tick_sample_with_networks(&mut s, &networks, now_ts);
-                        (s.last_download, s.last_upload, s.interface.clone(), was_priming)
+                    // FIX N2: auto-select interface OUTSIDE the MonitorState lock
+                    let needs_selection = {
+                        let s = monitor_state.lock();
+                        s.interface.is_empty()
                     };
-                    if !iface.is_empty() && !is_priming {
-                        let conn = db.0.lock();
-                        let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
-                        // EMIT network event
-                        let _ = app_handle.emit("network-stats", &crate::dto::network::NetworkStatsEvent {
-                            upload_bps: ul,
-                            download_bps: dl,
-                            interface_name: iface,
-                        });
+                    if needs_selection {
+                        let selected = select_interface_outside_lock(&networks);
+                        if !selected.is_empty() {
+                            let mut s = monitor_state.lock();
+                            if s.interface.is_empty() {
+                                s.interface = selected;
+                            }
+                        }
                     }
 
-                    // ---- Periodic ping (every 5 seconds) ----
+                    // Sample — lock held only for the fast arithmetic, no I/O
+                    let (dl, ul, iface, was_uninitialized) = {
+                        let mut s = monitor_state.lock();
+                        let uninit = s.last_sample.is_none();
+                        tick_sample_with_networks(&mut s, &networks, now_ts);
+                        (s.last_download, s.last_upload, s.interface.clone(), uninit)
+                    };
+
+                    if !iface.is_empty() && !was_uninitialized {
+                        // Persist sample
+                        {
+                            let conn = db.0.lock();
+                            let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
+                        }
+
+                        // PERF-1: only emit if at least one window is visible
+                        if any_window_visible(&app_handle) {
+                            let _ = app_handle.emit(
+                                "network-stats",
+                                &crate::dto::network::NetworkStatsEvent {
+                                    upload_bps: ul,
+                                    download_bps: dl,
+                                    interface_name: iface,
+                                },
+                            );
+                        }
+                    }
+
+                    // Periodic ping (every ~5 s)
                     if tick_counter % PING_INTERVAL_TICKS == 0 {
                         let target_str = settings_store.read(|s| s.ping_target.clone());
-                        let target: IpAddr = target_str.parse().unwrap_or_else(|_| "1.1.1.1".parse().unwrap());
+                        let target: IpAddr = target_str
+                            .parse()
+                            .unwrap_or_else(|_| "1.1.1.1".parse().unwrap());
                         let result = measure_ping(target).await;
-                        let mut ps = ping_state.lock();
-                        // Emit before updating? Better to emit after update so new data is fresh.
-                        // But either way works. Let's emit after update.
-                        ps.update(result.latency_ms, result.loss);
-                        let stats = ps.current_stats();
-                        let _ = app_handle.emit("ping-stats", &stats);
+                        let stats = {
+                            let mut ps = ping_state.lock();
+                            ps.update(result.latency_ms, result.loss);
+                            ps.current_stats()
+                        };
+                        // PERF-1: skip if no window is watching
+                        if any_window_visible(&app_handle) {
+                            let _ = app_handle.emit("ping-stats", &stats);
+                        }
                     }
 
-                    // ---- Rollups (using now_local) ----
-                    let hour_changed = last_hour.map_or(false, |prev| prev != current_hour);
-                    let day_changed = last_day.map_or(false, |prev| prev != current_day);
+                    // Rollups
+                    let hour_changed =
+                        last_hour.map_or(false, |prev| prev != current_hour);
+                    let day_changed =
+                        last_day.map_or(false, |prev| prev != current_day);
 
                     if hour_changed || day_changed {
                         let conn = db.0.lock();
                         let _ = conn.execute("BEGIN IMMEDIATE", []);
+
                         if hour_changed {
                             let _ = rollup_hourly(&conn, now_local);
                         }
+
                         if day_changed {
-                            let _ = rollup_daily(&conn, now_local);
+                            // completed day, not today's incomplete data.
+                            let yesterday = now_local - ChronoDuration::days(1);
+                            let _ = rollup_daily(&conn, yesterday);
+
+                            // and only on the first day of a new month.
                             if current_day == 1 {
                                 let _ = rollup_monthly(&conn, now_local);
                             }
                         }
+
                         let _ = conn.execute("COMMIT", []);
                     }
 
                     last_hour = Some(current_hour);
                     last_day = Some(current_day);
                 }
+
                 _ = cleanup_interval.tick() => {
-                    // Use a fresh timestamp for cleanup
                     let cutoff = Local::now().timestamp() - 7 * 86_400;
                     let conn = db.0.lock();
                     if let Err(e) = cleanup_old_samples(&conn, cutoff) {
@@ -117,4 +252,6 @@ pub fn start_sampler(
             }
         }
     });
+
+    Arc::new(Mutex::new(Some(handle)))
 }
