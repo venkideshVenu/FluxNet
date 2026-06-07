@@ -1,8 +1,7 @@
+import { usePingPoller } from "@/hooks";
+import { useNetworkStore, usePingStore } from "@/store";
+import { formatSpeed } from "@/utils/formatSpeed";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useNetworkStore } from "../store/networkStore";
-import { usePingStore } from "../store/pingStore";
-import { usePingPoller } from "../hooks/usePingPoller";
-import { formatSpeed } from "../utils/formatSpeed";
 import { HudPresentation } from "./HudPresentation";
 
 export function GamingHud() {

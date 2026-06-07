@@ -8,7 +8,7 @@ import {
   LS_PILL_MODE,
   LS_COMPACT_MODE,
   LS_HUD_MODE,
-} from "../utils/theme";
+} from "@/utils/theme";
 import {
   getStoredPillAlwaysOnTop,
   getStoredCompactAlwaysOnTop,
@@ -16,7 +16,7 @@ import {
   LS_PILL_ALWAYS_ON_TOP,
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
-} from "../utils/windowPrefs";
+} from "@/utils/windowPrefs";
 
 type WidgetLabel = "pill" | "compact" | "hud";
 
@@ -44,7 +44,10 @@ const getStoredMode: Record<WidgetLabel, () => "light" | "dark"> = {
   hud: () => getStoredHudMode(),
 };
 
-const getStoredAlwaysOnTop: Record<WidgetLabel, (fallback?: boolean) => boolean> = {
+const getStoredAlwaysOnTop: Record<
+  WidgetLabel,
+  (fallback?: boolean) => boolean
+> = {
   pill: (f) => getStoredPillAlwaysOnTop(f),
   compact: (f) => getStoredCompactAlwaysOnTop(f),
   hud: (f) => getStoredHudAlwaysOnTop(f),
@@ -69,7 +72,9 @@ export function useWidgetSettings(label: WidgetLabel) {
 
     // Apply initial opacity
     const opacity = getStoredOpacity(opacityKey[label]) / 100;
-    invoke("set_widget_opacity", { label, value: opacity }).catch(console.error);
+    invoke("set_widget_opacity", { label, value: opacity }).catch(
+      console.error,
+    );
 
     // Listen for storage changes from other windows (e.g., WidgetSettingsPage)
     const handleStorage = (event: StorageEvent) => {
@@ -81,7 +86,9 @@ export function useWidgetSettings(label: WidgetLabel) {
       } else if (event.key === opacityKey[label] && event.newValue !== null) {
         const next = Number(event.newValue) / 100;
         if (Number.isFinite(next)) {
-          invoke("set_widget_opacity", { label, value: next }).catch(console.error);
+          invoke("set_widget_opacity", { label, value: next }).catch(
+            console.error,
+          );
         }
       } else if (event.key === modeKey[label] && event.newValue !== null) {
         if (event.newValue === "light" || event.newValue === "dark") {

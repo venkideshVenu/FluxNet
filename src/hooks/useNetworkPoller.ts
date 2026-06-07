@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useNetworkStore } from "../store/networkStore";
+import { useNetworkStore } from "@/store/networkStore";
 import {
   getStoredCompactIntervalMs,
   getStoredHudIntervalMs,
@@ -9,7 +9,7 @@ import {
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
-} from "../utils/polling";
+} from "@/utils/polling";
 
 // Dashboard and Compact use the full snapshot.
 // Pill and HUD use the lighter live-stats path because they only need the

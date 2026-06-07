@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useNetworkPoller } from "./hooks/useNetworkPoller";
-import { Sidebar } from "./components/dashboard/Sidebar";
+import { Sidebar } from "./components/Sidebar";
 import { DashboardPage } from "./pages/DashboardPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { InterfacesPage } from "./pages/InterfacesPage";

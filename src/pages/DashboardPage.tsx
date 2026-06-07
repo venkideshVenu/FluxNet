@@ -7,8 +7,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
+import { useNetworkStore } from "@/store/networkStore";
+import { formatSpeed } from "@/utils/formatSpeed";
 
 export function DashboardPage() {
   const { data, isConnected, peakDownload, history } = useNetworkStore();

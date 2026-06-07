@@ -1,12 +1,17 @@
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
+import { useNetworkStore } from "@/store/networkStore";
+import { formatSpeed } from "@/utils/formatSpeed";
 import { useMemo } from "react";
 
 export function AlertsPage() {
   const { peakUpload, peakDownload, isConnected, history } = useNetworkStore();
 
   const alerts = useMemo(() => {
-    const list: { type: "warn" | "error" | "info"; title: string; body: string; time: string }[] = [];
+    const list: {
+      type: "warn" | "error" | "info";
+      title: string;
+      body: string;
+      time: string;
+    }[] = [];
 
     if (!isConnected) {
       list.push({
@@ -48,7 +53,9 @@ export function AlertsPage() {
       <div className="page-header">
         <div>
           <div className="page-title">Alerts</div>
-          <div className="page-subtitle">Session notifications and anomalies</div>
+          <div className="page-subtitle">
+            Session notifications and anomalies
+          </div>
         </div>
       </div>
 

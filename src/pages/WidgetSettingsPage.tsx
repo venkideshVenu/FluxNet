@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { ColorMode } from "../utils/theme";
+import { ColorMode } from "@/utils/theme";
 import {
   getStoredPillMode,
   getStoredCompactMode,
@@ -9,7 +9,7 @@ import {
   LS_PILL_MODE,
   LS_COMPACT_MODE,
   LS_HUD_MODE,
-} from "../utils/theme";
+} from "@/utils/theme";
 import {
   getStoredPillAlwaysOnTop,
   getStoredCompactAlwaysOnTop,
@@ -17,7 +17,7 @@ import {
   LS_PILL_ALWAYS_ON_TOP,
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
-} from "../utils/windowPrefs";
+} from "@/utils/windowPrefs";
 import {
   LS_PILL_INTERVAL,
   LS_COMPACT_INTERVAL,
@@ -25,10 +25,10 @@ import {
   getStoredPillIntervalMs,
   getStoredCompactIntervalMs,
   getStoredHudIntervalMs,
-} from "../utils/polling";
-import { PillPresentation } from "../components/PillPresentation";
-import { CompactPresentation } from "../components/CompactPresentation";
-import { HudPresentation } from "../components/HudPresentation";
+} from "@/utils/polling";
+import { PillPresentation } from "@/components/PillPresentation";
+import { CompactPresentation } from "@/components/CompactPresentation";
+import { HudPresentation } from "@/components/HudPresentation";
 
 type WidgetLabel = "pill" | "compact" | "hud";
 

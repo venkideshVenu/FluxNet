@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNetworkStore, DisplayUnits } from "../store/networkStore";
+import { useNetworkStore, DisplayUnits } from "@/store/networkStore";
 import {
   THEMES,
   LS_THEME,
@@ -10,7 +10,7 @@ import {
   getStoredAccentIndex,
   getStoredColorMode,
   ColorMode,
-} from "../utils/theme";
+} from "@/utils/theme";
 
 export function SettingsPage() {
   const pollIntervalMs = useNetworkStore((s) => s.pollIntervalMs);

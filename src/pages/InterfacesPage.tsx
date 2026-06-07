@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNetworkStore } from "../store/networkStore";
+import { useNetworkStore } from "@/store/networkStore";
 
 type InterfaceInfo = {
   name: string;

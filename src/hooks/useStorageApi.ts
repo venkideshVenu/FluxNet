@@ -5,7 +5,7 @@ import {
   HourlyUsage,
   MonthlyUsage,
   UsageStats,
-} from "../types/persistence";
+} from "@/types/persistence";
 
 export async function fetchUsageStats(): Promise<UsageStats> {
   return invoke<UsageStats>("get_usage_stats_cmd");

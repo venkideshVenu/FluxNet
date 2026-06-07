@@ -1,6 +1,6 @@
+import { useNetworkStore } from "@/store";
+import { formatSpeed } from "@/utils/formatSpeed";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {

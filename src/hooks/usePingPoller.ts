@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { usePingStore } from "../store/pingStore";
+import { usePingStore } from "@/store/pingStore";
 
 type RawPingStats = {
   latency_ms: number;
