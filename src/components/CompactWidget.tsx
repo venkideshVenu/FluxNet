@@ -4,7 +4,7 @@ import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
 import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useDragToMove } from "@/hooks/useDragToMove";
 
 export function CompactWidget() {
   const { data, isConnected, todayDownloadBytes, todayUploadBytes } =
@@ -50,12 +50,7 @@ export function CompactWidget() {
     };
   }, []);
 
-  const handleDrag = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      await getCurrentWindow().startDragging();
-    } catch {}
-  };
+  const handleDrag = useDragToMove();
 
   return (
     <div onMouseDown={handleDrag} role="status">

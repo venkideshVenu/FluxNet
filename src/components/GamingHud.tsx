@@ -1,8 +1,8 @@
 import { usePingPoller } from "@/hooks";
 import { useNetworkStore, usePingStore } from "@/store";
 import { formatSpeed } from "@/utils/formatSpeed";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { HudPresentation } from "./HudPresentation";
+import { useDragToMove } from "@/hooks/useDragToMove";
 
 export function GamingHud() {
   usePingPoller(2000);
@@ -11,12 +11,7 @@ export function GamingHud() {
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
 
-  const handleDrag = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      await getCurrentWindow().startDragging();
-    } catch {}
-  };
+  const handleDrag = useDragToMove();
 
   return (
     <div onMouseDown={handleDrag}>

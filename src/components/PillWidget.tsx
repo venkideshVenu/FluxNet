@@ -1,23 +1,17 @@
-import { useNetworkStore } from "@/store";
+import { useNetworkStore } from "@/store/networkStore";
 import { formatSpeed } from "@/utils/formatSpeed";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useDragToMove } from "@/hooks/useDragToMove";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {
   const { data, isConnected } = useNetworkStore();
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
-
-  const handleDragStart = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      await getCurrentWindow().startDragging();
-    } catch {}
-  };
+  const handleDrag = useDragToMove();
 
   return (
     <div
-      onMouseDown={handleDragStart}
+      onMouseDown={handleDrag}
       role="status"
       title="Drag to move"
       aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}`}
