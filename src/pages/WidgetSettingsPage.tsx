@@ -918,7 +918,7 @@ export function WidgetSettingsPage() {
     setPillAlwaysOnTop(value);
     localStorage.setItem(LS_PILL_ALWAYS_ON_TOP, String(value));
     try {
-      await invoke("set_pill_always_on_top", { value });
+      await invoke("set_widget_always_on_top", { label: "pill", value });
     } catch {
       /* noop */
     }
@@ -928,7 +928,7 @@ export function WidgetSettingsPage() {
     setCompactAlwaysOnTop(value);
     localStorage.setItem(LS_COMPACT_ALWAYS_ON_TOP, String(value));
     try {
-      await invoke("set_compact_always_on_top", { value });
+      await invoke("set_widget_always_on_top", { label: "compact", value });
     } catch {
       /* noop */
     }
@@ -938,7 +938,7 @@ export function WidgetSettingsPage() {
     setHudAlwaysOnTop(value);
     localStorage.setItem(LS_HUD_ALWAYS_ON_TOP, String(value));
     try {
-      await invoke("set_hud_always_on_top", { value });
+      await invoke("set_widget_always_on_top", { label: "hud", value });
     } catch {
       /* noop */
     }
@@ -947,7 +947,7 @@ export function WidgetSettingsPage() {
   const handlePillOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_OPACITY, String(value));
     try {
-      await invoke("set_pill_opacity", { value: value / 100 });
+      await invoke("set_widget_opacity", { label: "pill", value: value / 100 });
     } catch {
       /* noop */
     }
@@ -956,7 +956,10 @@ export function WidgetSettingsPage() {
   const handleCompactOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_COMPACT_OPACITY, String(value));
     try {
-      await invoke("set_compact_opacity", { value: value / 100 });
+      await invoke("set_widget_opacity", {
+        label: "compact",
+        value: value / 100,
+      });
     } catch {
       /* noop */
     }
@@ -965,7 +968,7 @@ export function WidgetSettingsPage() {
   const handleHudOpacityCommit = async (value: number) => {
     localStorage.setItem(LS_HUD_OPACITY, String(value));
     try {
-      await invoke("set_hud_opacity", { value: value / 100 });
+      await invoke("set_widget_opacity", { label: "hud", value: value / 100 });
     } catch {
       /* noop */
     }
@@ -1044,7 +1047,15 @@ export function WidgetSettingsPage() {
               </div>
               <Toggle
                 checked={pillAlwaysOnTop}
-                onChange={() => handlePillAlwaysOnTop(!pillAlwaysOnTop)}
+                onChange={() => {
+                  const newVal = !pillAlwaysOnTop;
+                  setPillAlwaysOnTop(newVal);
+                  localStorage.setItem(LS_PILL_ALWAYS_ON_TOP, String(newVal));
+                  invoke("set_widget_always_on_top", {
+                    label: "pill",
+                    value: newVal,
+                  }).catch(console.error);
+                }}
               />
             </SettingsRow>
 
@@ -1092,21 +1103,16 @@ export function WidgetSettingsPage() {
               </div>
               <input
                 type="range"
-                className="fn-slider"
-                min={40}
-                max={100}
                 value={pillOpacity}
                 onChange={(e) => setPillOpacity(Number(e.target.value))}
-                onMouseUp={(e) =>
-                  handlePillOpacityCommit(
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
-                onTouchEnd={(e) =>
-                  handlePillOpacityCommit(
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
+                onMouseUp={(e) => {
+                  const val = Number((e.target as HTMLInputElement).value);
+                  localStorage.setItem(LS_OPACITY, String(val));
+                  invoke("set_widget_opacity", {
+                    label: "pill",
+                    value: val / 100,
+                  }).catch(console.error);
+                }}
               />
             </SettingsRow>
           </>
@@ -1119,7 +1125,9 @@ export function WidgetSettingsPage() {
         accentColor="#7c6ff7"
         previewBg="linear-gradient(135deg, #0c0b18 0%, #16142a 100%)"
         isVisible={hudVisible}
-        onToggleVisible={toggleHud}
+        onToggleVisible={() => {
+          void toggleHud();
+        }}
         preview={<HudPreview colorMode={hudColorMode} opacity={hudOpacity} />}
         settings={
           <>
@@ -1178,21 +1186,16 @@ export function WidgetSettingsPage() {
               </div>
               <input
                 type="range"
-                className="fn-slider"
-                min={40}
-                max={100}
-                value={hudOpacity}
-                onChange={(e) => setHudOpacity(Number(e.target.value))}
-                onMouseUp={(e) =>
-                  handleHudOpacityCommit(
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
-                onTouchEnd={(e) =>
-                  handleHudOpacityCommit(
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
+                value={pillOpacity}
+                onChange={(e) => setPillOpacity(Number(e.target.value))}
+                onMouseUp={(e) => {
+                  const val = Number((e.target as HTMLInputElement).value);
+                  localStorage.setItem(LS_OPACITY, String(val));
+                  invoke("set_widget_opacity", {
+                    label: "pill",
+                    value: val / 100,
+                  }).catch(console.error);
+                }}
               />
             </SettingsRow>
           </>
