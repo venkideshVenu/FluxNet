@@ -18,43 +18,54 @@ export function SettingsPage() {
   const setPollInterval = useNetworkStore((s) => s.setPollInterval);
   const setDisplayUnits = useNetworkStore((s) => s.setDisplayUnits);
 
-  const intervalSelectValue = String(pollIntervalMs / 1000);
-
   const [startWithOS, setStartWithOS] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState(() =>
-    getStoredAccentIndex(),
-  );
-  const [colorMode, setColorMode] = useState<ColorMode>(() =>
-    getStoredColorMode(),
-  );
+  const [selectedTheme, setSelectedTheme] = useState(getStoredAccentIndex);
+  const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
+  const [pingTarget, setPingTarget] = useState("1.1.1.1");
 
+  // Load backend settings on mount
   useEffect(() => {
-    const swatch = THEMES[selectedTheme] ?? THEMES[0];
-    applyAccent(swatch.color);
-  }, [selectedTheme]);
+    invoke<number>("get_refresh_interval")
+      .then((ms) => setPollInterval(ms))
+      .catch(console.warn);
+    invoke<string>("get_ping_target")
+      .then((target) => setPingTarget(target))
+      .catch(console.warn);
+    invoke<boolean>("autostart:is-enabled")
+      .then((enabled) => setStartWithOS(enabled))
+      .catch(() => setStartWithOS(false));
+  }, []);
 
+  // Theme & color mode effects
+  useEffect(() => {
+    applyAccent(THEMES[selectedTheme]?.color ?? THEMES[0].color);
+  }, [selectedTheme]);
   useEffect(() => {
     applyColorMode(colorMode);
   }, [colorMode]);
 
-  const handleInterval = (raw: string) => {
+  const handleInterval = async (raw: string) => {
     const secs = parseFloat(raw);
-    setPollInterval(secs * 1000);
+    const ms = secs * 1000;
+    setPollInterval(ms);
+    await invoke("set_refresh_interval", { intervalMs: ms });
   };
 
-  const handleUnits = (raw: string) => {
-    setDisplayUnits(raw as DisplayUnits);
-  };
+  const handleUnits = (raw: string) => setDisplayUnits(raw as DisplayUnits);
 
   const handleStartWithOS = async (value: boolean) => {
     setStartWithOS(value);
     try {
-      if (value) await invoke("enable_autostart");
-      else await invoke("disable_autostart");
+      if (value) await invoke("autostart:enable");
+      else await invoke("autostart:disable");
     } catch (err) {
-      // tauri-plugin-autostart may not be configured
       console.warn("autostart not available:", err);
     }
+  };
+
+  const handlePingTarget = async (target: string) => {
+    setPingTarget(target);
+    await invoke("set_ping_target", { target }).catch(console.warn);
   };
 
   const handleTheme = (index: number) => {
@@ -88,7 +99,7 @@ export function SettingsPage() {
             </div>
             <select
               className="fn-select"
-              value={intervalSelectValue}
+              value={String(pollIntervalMs / 1000)}
               onChange={(e) => handleInterval(e.target.value)}
             >
               <option value="0.5">0.5 seconds</option>
@@ -113,6 +124,22 @@ export function SettingsPage() {
               <option value="KB/s">KB/s</option>
               <option value="Mbps">Mbps</option>
             </select>
+          </div>
+
+          <div className="settings-row">
+            <div>
+              <div className="settings-label">Ping target</div>
+              <div className="settings-sub">
+                IP or hostname to ping for latency
+              </div>
+            </div>
+            <input
+              type="text"
+              className="fn-input"
+              value={pingTarget}
+              onChange={(e) => handlePingTarget(e.target.value)}
+              style={{ width: 160, fontFamily: "monospace" }}
+            />
           </div>
 
           <div className="settings-row">
