@@ -7,22 +7,51 @@ import {
   getStoredCompactIntervalMs,
   LS_COMPACT_INTERVAL,
 } from "../utils/polling";
+import { CompactPresentation } from "./CompactPresentation";
 
 export function CompactWidget() {
   const { data, isConnected, todayDownloadBytes, todayUploadBytes } =
     useNetworkStore();
-  const [intervalMs, setIntervalMs] = useState(() =>
-    getStoredCompactIntervalMs(),
+  const [intervalMs, setIntervalMs] = useState(getStoredCompactIntervalMs);
+  const [dbStats, setDbStats] = useState<{ dl: number; ul: number } | null>(
+    null,
   );
-  const [dbStats, setDbStats] = useState<{
-    dl: number;
-    ul: number;
-  } | null>(null);
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
   const upToday = formatBytes(dbStats?.ul ?? todayUploadBytes);
   const dnToday = formatBytes(dbStats?.dl ?? todayDownloadBytes);
+  const intervalLabel = `${intervalMs / 1000}s`;
+
+  useEffect(() => {
+    const sync = () => setIntervalMs(getStoredCompactIntervalMs());
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === LS_COMPACT_INTERVAL) sync();
+    };
+    sync();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const syncTodayTotals = async () => {
+      try {
+        const stats = await fetchUsageStats();
+        if (alive)
+          setDbStats({
+            dl: stats.todayDownloadBytes,
+            ul: stats.todayUploadBytes,
+          });
+      } catch {}
+    };
+    syncTodayTotals();
+    const id = setInterval(syncTodayTotals, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const handleDrag = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -31,126 +60,21 @@ export function CompactWidget() {
     } catch {}
   };
 
-  const handleHeaderMouseDown = async (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (!target.closest(".cw-drag-handle")) return;
-    handleDrag(e);
-  };
-
-  useEffect(() => {
-    const sync = () => setIntervalMs(getStoredCompactIntervalMs());
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === LS_COMPACT_INTERVAL) sync();
-    };
-
-    sync();
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-
-    const syncTodayTotals = async () => {
-      try {
-        const stats = await fetchUsageStats();
-        if (alive) {
-          setDbStats({
-            dl: stats.todayDownloadBytes,
-            ul: stats.todayUploadBytes,
-          });
-        }
-      } catch {
-        // Keep the in-memory estimate until the DB-backed totals are available.
-      }
-    };
-
-    void syncTodayTotals();
-    const id = setInterval(() => {
-      void syncTodayTotals();
-    }, 30_000);
-
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, []);
-
-  const intervalLabel = `${intervalMs / 1000}s`;
-
   return (
-    <div className="cw-root" role="status">
-      {/* ── Header ── */}
-      <div className="cw-header" onMouseDown={handleHeaderMouseDown}>
-        <span className="cw-brand">FluxNet</span>
-        <div
-          className="cw-drag-handle"
-          title="Drag to move"
-          aria-hidden="true"
-        />
-      </div>
-
-      {/* ── Status row ── */}
-      <div className="cw-status-row">
-        <div className="cw-iface">
-          <span className="cw-iface-name">{data.interfaceName || "—"}</span>
-          <span className="cw-iface-sub">
-            {isConnected ? "Connected" : "No signal"}
-          </span>
-        </div>
-        <div className="cw-status-right">
-          <span className="cw-status-pill">
-            <span className={`cw-live-dot ${isConnected ? "live" : "dead"}`} />
-            {isConnected ? "Live" : "Offline"}
-          </span>
-          <span className="cw-interval">{intervalLabel}</span>
-        </div>
-      </div>
-
-      <div className="cw-divider" aria-hidden="true" />
-
-      {/* ── Speed rows ── */}
-      <div className="cw-speeds">
-        <div className="cw-speed-row">
-          <span className="cw-speed-label">
-            <span className="cw-dir dn" aria-hidden="true" />
-            Download
-          </span>
-          <span className="cw-speed-value">
-            <span className="cw-num">{dn.value}</span>
-            <span className="cw-unit">{dn.unit}</span>
-          </span>
-        </div>
-        <div className="cw-speed-row">
-          <span className="cw-speed-label">
-            <span className="cw-dir up" aria-hidden="true" />
-            Upload
-          </span>
-          <span className="cw-speed-value">
-            <span className="cw-num">{up.value}</span>
-            <span className="cw-unit">{up.unit}</span>
-          </span>
-        </div>
-      </div>
-
-      <div className="cw-divider" aria-hidden="true" />
-
-      {/* ── Today totals ── */}
-      <div className="cw-today-row">
-        <span className="cw-today-label">Today</span>
-        <span className="cw-today-values">
-          <span className="cw-today-item">
-            <span className="cw-dir dn" aria-hidden="true" />
-            <span className="cw-today-num">{dnToday.value}</span>
-            <span className="cw-today-unit">{dnToday.unit}</span>
-          </span>
-          <span className="cw-today-item">
-            <span className="cw-dir up" aria-hidden="true" />
-            <span className="cw-today-num">{upToday.value}</span>
-            <span className="cw-today-unit">{upToday.unit}</span>
-          </span>
-        </span>
-      </div>
+    <div onMouseDown={handleDrag} role="status">
+      <CompactPresentation
+        interfaceName={data.interfaceName}
+        isConnected={isConnected}
+        intervalLabel={intervalLabel}
+        downloadValue={dn.value}
+        downloadUnit={dn.unit}
+        uploadValue={up.value}
+        uploadUnit={up.unit}
+        todayDownloadValue={dnToday.value}
+        todayDownloadUnit={dnToday.unit}
+        todayUploadValue={upToday.value}
+        todayUploadUnit={upToday.unit}
+      />
     </div>
   );
 }
