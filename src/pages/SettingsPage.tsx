@@ -3,14 +3,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNetworkStore, DisplayUnits } from "@/store/networkStore";
 import {
   THEMES,
-  LS_THEME,
-  LS_MODE,
   applyAccent,
   applyColorMode,
   getStoredAccentIndex,
   getStoredColorMode,
   ColorMode,
 } from "@/utils/theme";
+import { setStorageItem } from "@/utils";
 
 export function SettingsPage() {
   const pollIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
@@ -70,14 +69,13 @@ export function SettingsPage() {
 
   const handleTheme = (index: number) => {
     setSelectedTheme(index);
-    localStorage.setItem(LS_THEME, String(index));
+    setStorageItem("fluxnet_accent_index", index);
   };
 
   const handleColorMode = (mode: ColorMode) => {
     setColorMode(mode);
-    localStorage.setItem(LS_MODE, mode);
+    setStorageItem("fluxnet_color_mode", mode);
   };
-
   return (
     <div className="page">
       <div className="page-header">
