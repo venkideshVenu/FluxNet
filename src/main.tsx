@@ -1,16 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import PillApp from "@/PillApp";
-import CompactApp from "@/CompactApp";
-import HudApp from "@/HudApp";
-import DashboardApp from "@/DashboardApp";
-import { AppProviders } from "@/AppProviders";
-import "@/index.css";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import PillApp from "./PillApp";
+import CompactApp from "./CompactApp";
+import HudApp from "./HudApp";
+import DashboardApp from "./DashboardApp";
+import "./index.css";
 
 async function boot() {
-  const rootElement = document.getElementById("root");
-  if (!rootElement) throw new Error("Root element #root not found");
   const label = getCurrentWindow().label;
   const Root =
     label === "pill"
@@ -23,11 +21,14 @@ async function boot() {
 
   document.documentElement.setAttribute("data-app", label);
 
-  ReactDOM.createRoot(rootElement).render(
+  const root = document.getElementById("root");
+  if (!root) throw new Error("Root element #root not found in DOM");
+
+  ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      <AppProviders>
+      <ErrorBoundary>
         <Root />
-      </AppProviders>
+      </ErrorBoundary>
     </React.StrictMode>,
   );
 }
