@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNetworkStore, DisplayUnits } from "@/store";
+import { useSettingsStore, DisplayUnits } from "@/store";
 import {
   THEMES,
   applyAccent,
@@ -8,21 +8,22 @@ import {
   getStoredAccentIndex,
   getStoredColorMode,
   ColorMode,
+  setStorageItem,
 } from "@/utils";
-import { setStorageItem } from "@/utils";
 
 export function SettingsPage() {
-  const pollIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
-  const displayUnits = useNetworkStore((s) => s.displayUnits);
-  const setPollInterval = useNetworkStore((s) => s.setPollInterval);
-  const setDisplayUnits = useNetworkStore((s) => s.setDisplayUnits);
+  const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
+  const pingTarget = useSettingsStore((s) => s.pingTarget);
+  const setPollInterval = useSettingsStore((s) => s.setPollInterval);
+  const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
+  const setPingTarget = useSettingsStore((s) => s.setPingTarget);
 
   const [startWithOS, setStartWithOS] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(getStoredAccentIndex);
   const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
-  const [pingTarget, setPingTarget] = useState("1.1.1.1");
 
-  // Load backend settings on mount
+  // Load backend-only settings on mount
   useEffect(() => {
     invoke<number>("get_refresh_interval")
       .then((ms) => setPollInterval(ms))
@@ -33,7 +34,7 @@ export function SettingsPage() {
     invoke<boolean>("autostart:is-enabled")
       .then((enabled) => setStartWithOS(enabled))
       .catch(() => setStartWithOS(false));
-  }, []);
+  }, [setPollInterval, setPingTarget]);
 
   // Theme & color mode effects
   useEffect(() => {
@@ -76,6 +77,7 @@ export function SettingsPage() {
     setColorMode(mode);
     setStorageItem("fluxnet_color_mode", mode);
   };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -150,6 +152,13 @@ export function SettingsPage() {
               onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  handleStartWithOS(!startWithOS);
+                }
+              }}
             >
               <div className="toggle-thumb" />
             </div>
@@ -172,6 +181,13 @@ export function SettingsPage() {
               }
               role="switch"
               aria-checked={colorMode === "dark"}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  handleColorMode(colorMode === "dark" ? "light" : "dark");
+                }
+              }}
             >
               <div className="toggle-thumb" />
             </div>
@@ -188,11 +204,14 @@ export function SettingsPage() {
             <div className="settings-label">Accent colour</div>
             <div className="theme-chips">
               {THEMES.map((t, i) => (
-                <div
+                <button
                   key={i}
+                  type="button"
                   className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
                   style={{ background: t.color }}
                   title={t.label}
+                  aria-label={`${t.label} theme${selectedTheme === i ? " (active)" : ""}`}
+                  aria-pressed={selectedTheme === i}
                   onClick={() => handleTheme(i)}
                 />
               ))}
@@ -212,17 +231,9 @@ export function SettingsPage() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => invoke("reset_peaks")}
-              style={{
-                background: "#FFF0F0",
-                color: "#DC2626",
-                border: "1px solid #FECACA",
-                borderRadius: 7,
-                padding: "5px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
+              className="btn-danger"
             >
               Reset peaks
             </button>

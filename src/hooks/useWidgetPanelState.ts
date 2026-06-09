@@ -14,7 +14,6 @@ export function useWidgetPanelState(config: WidgetRegistryEntry) {
   const [colorMode, setColorMode] = useState<ColorMode>(config.getStoredMode());
   const [intervalMs, setIntervalMs] = useState(config.getStoredInterval());
 
-  // Check widget visibility on mount
   useEffect(() => {
     WebviewWindow.getByLabel(config.label).then((win) => {
       if (win) {

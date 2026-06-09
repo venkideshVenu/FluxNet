@@ -1,5 +1,8 @@
 export { CompactPresentation } from "./CompactPresentation";
-export type { CompactPresentationProps, SpeedStat } from "./CompactPresentation";
+export type {
+  CompactPresentationProps,
+  SpeedStat,
+} from "./CompactPresentation";
 export { CompactWidget } from "./CompactWidget";
 export { GamingHud } from "./GamingHud";
 export { HudPresentation } from "./HudPresentation";

@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 export interface HudPresentationProps {
   downloadValue: string;
   downloadUnit: string;
@@ -7,7 +9,8 @@ export interface HudPresentationProps {
   lossPercent: number;
 }
 
-export function HudPresentation({
+// All props are primitives (strings, numbers), default shallow comparison works.
+export const HudPresentation = memo(function HudPresentation({
   downloadValue,
   downloadUnit,
   uploadValue,
@@ -75,4 +78,4 @@ export function HudPresentation({
       </div>
     </div>
   );
-}
+});

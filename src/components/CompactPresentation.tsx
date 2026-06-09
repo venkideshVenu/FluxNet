@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 export interface SpeedStat {
   value: string;
   unit: string;
@@ -13,7 +15,8 @@ export interface CompactPresentationProps {
   todayUpload: SpeedStat;
 }
 
-export function CompactPresentation({
+// Custom comparator checks nested SpeedStat objects for equality.
+export const CompactPresentation = memo(function CompactPresentation({
   interfaceName,
   isConnected,
   intervalLabel,
@@ -87,4 +90,4 @@ export function CompactPresentation({
       </div>
     </div>
   );
-}
+});

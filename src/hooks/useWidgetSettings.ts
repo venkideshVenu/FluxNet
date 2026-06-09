@@ -1,15 +1,12 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { WIDGET_REGISTRY, WidgetLabel } from "@/config/widgetRegistry";
-import { applyColorMode } from "@/utils/theme";
-import { getStorageItem } from "@/utils/storage";
+import { WIDGET_REGISTRY, WidgetLabel } from "@/config";
+import { applyColorMode } from "@/utils";
+import { getStorageItem } from "@/utils";
 
 /**
  * Applies initial widget settings (color mode, opacity, always-on-top)
  * and listens for live changes via storage events from the Dashboard window.
- *
- * FIX: Issue 2.4 — Now reads from WIDGET_REGISTRY instead of 5 manual lookup tables
- * FIX: Issue 2.3 — Uses typed getStorageItem instead of raw localStorage
  */
 export function useWidgetSettings(label: WidgetLabel) {
   useEffect(() => {

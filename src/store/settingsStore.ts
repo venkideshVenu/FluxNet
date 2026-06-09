@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// FIX: Issue 4.1, 7.1, 10.2 — Settings separated from telemetry with persistence
+// All user preferences persist to localStorage automatically via Zustand persist middleware.
+
 export type DisplayUnits = "auto" | "MB/s" | "KB/s" | "Mbps";
 
 type SettingsStore = {

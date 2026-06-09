@@ -12,23 +12,17 @@ export type HistoryPoint = {
   t: number;
 };
 
-export type DisplayUnits = "auto" | "MB/s" | "KB/s" | "Mbps";
+// Settings now live exclusively in settingsStore with persist middleware.
 
 type NetworkStore = {
   data: NetworkData;
   isConnected: boolean;
+  isInitialized: boolean;
   peakUpload: number;
   peakDownload: number;
   history: HistoryPoint[];
   todayUploadBytes: number;
   todayDownloadBytes: number;
-
-  // ── Settings ──────────────────────────────────────────────
-  pollIntervalMs: number; // 500 | 1000 | 2000 | 5000
-  displayUnits: DisplayUnits;
-  setPollInterval: (ms: number) => void;
-  setDisplayUnits: (u: DisplayUnits) => void;
-  // ──────────────────────────────────────────────────────────
 
   setData: (data: NetworkData) => void;
   setConnected: (v: boolean) => void;
@@ -39,26 +33,26 @@ type NetworkStore = {
     peakDownload: number;
     interfaceName: string;
     history: HistoryPoint[];
+    isConnected?: boolean;
   }) => void;
   addTodayUsage: (uploadBytes: number, downloadBytes: number) => void;
   resetTodayUsage: () => void;
+  resetPeaks: () => void;
 };
+
+const MAX_HISTORY_POINTS = 300;
 
 export const useNetworkStore = create<NetworkStore>((set) => ({
   data: { uploadBytesPerSec: 0, downloadBytesPerSec: 0, interfaceName: "" },
   isConnected: false,
+  isInitialized: false,
   peakUpload: 0,
   peakDownload: 0,
   history: [],
   todayUploadBytes: 0,
   todayDownloadBytes: 0,
 
-  pollIntervalMs: 1000,
-  displayUnits: "auto",
-  setPollInterval: (ms) => set({ pollIntervalMs: ms }),
-  setDisplayUnits: (u) => set({ displayUnits: u }),
-
-  setData: (data) => set({ data, isConnected: true }),
+  setData: (data) => set({ data, isConnected: true, isInitialized: true }),
   setConnected: (isConnected) => set({ isConnected }),
 
   setSnapshot: (snap) =>
@@ -68,15 +62,19 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
         downloadBytesPerSec: snap.currentDownload,
         interfaceName: snap.interfaceName,
       },
-      isConnected: true,
+      isConnected: snap.isConnected ?? true,
+      isInitialized: true,
       peakUpload: snap.peakUpload,
       peakDownload: snap.peakDownload,
-      history: snap.history,
+      history: snap.history.slice(-MAX_HISTORY_POINTS),
     }),
+
   addTodayUsage: (uploadBytes, downloadBytes) =>
     set((state) => ({
       todayUploadBytes: state.todayUploadBytes + Math.max(0, uploadBytes),
       todayDownloadBytes: state.todayDownloadBytes + Math.max(0, downloadBytes),
     })),
+
   resetTodayUsage: () => set({ todayUploadBytes: 0, todayDownloadBytes: 0 }),
+  resetPeaks: () => set({ peakUpload: 0, peakDownload: 0 }),
 }));

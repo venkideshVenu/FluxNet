@@ -9,11 +9,14 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useNetworkStore } from "@/store";
+import { useSettingsStore } from "@/store";
 import { formatSpeed, computeChartScale } from "@/utils";
 
 export function DashboardPage() {
-  const { data, isConnected, peakDownload, history, pollIntervalMs } =
+  const { data, isConnected, isInitialized, peakDownload, history } =
     useNetworkStore();
+
+  const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
@@ -38,13 +41,45 @@ export function DashboardPage() {
     [chartData],
   );
 
-  const { step, yMax, precision } = useMemo(
+  const { yMax, precision } = useMemo(
     () => computeChartScale(maxValue),
     [maxValue],
   );
 
-  // Derive interval label from store instead of hardcoding
   const intervalLabel = `${pollIntervalMs / 1000}s`;
+
+  if (!isInitialized) {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <div className="page-title">Dashboard</div>
+            <div className="page-subtitle">Connecting to network monitor…</div>
+          </div>
+        </div>
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-label">Download</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Upload</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Peak today</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -140,7 +175,7 @@ export function DashboardPage() {
                 tickLine={false}
                 width={32}
                 domain={[0, yMax]}
-                tickCount={Math.min(5, Math.floor(yMax / step) + 1)}
+                tickCount={5}
                 tickFormatter={(v) => Number(v).toFixed(precision)}
               />
               <Tooltip

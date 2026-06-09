@@ -3,6 +3,9 @@ import { Toggle } from "@/components";
 import { PillPresentation } from "@/components";
 import { CompactPresentation } from "@/components";
 import { HudPresentation } from "@/components";
+import type { PillPresentationProps } from "@/components/PillPresentation";
+import type { CompactPresentationProps } from "@/components/CompactPresentation";
+import type { HudPresentationProps } from "@/components/HudPresentation";
 import {
   WIDGET_REGISTRY,
   WIDGET_LABELS,
@@ -10,11 +13,7 @@ import {
   WidgetRegistryEntry,
 } from "@/config";
 import { useWidgetPanelState } from "@/hooks/useWidgetPanelState";
-import type { PillPresentationProps } from "@/components/PillPresentation";
-import type { CompactPresentationProps } from "@/components/CompactPresentation";
-import type { HudPresentationProps } from "@/components/HudPresentation";
 
-// FIX: Issue 15.1 — Typed preview component properly instead of React.ComponentType<any>
 type PreviewProps =
   | PillPresentationProps
   | CompactPresentationProps
@@ -76,9 +75,6 @@ const INTERVAL_OPTIONS = [
   { value: "5", label: "5 seconds" },
 ];
 
-// FIX: Issue 3.1 — Split WidgetConfigPanel into smaller focused sub-components
-
-/** Widget behavior settings (always-on-top, dark mode, interval) */
 function WidgetBehaviorSettings({
   alwaysOnTop,
   colorMode,
@@ -141,7 +137,6 @@ function WidgetBehaviorSettings({
   );
 }
 
-/** Widget appearance settings (opacity slider) */
 function WidgetAppearanceSettings({
   opacity,
   onOpacityChange,
@@ -175,7 +170,6 @@ function WidgetAppearanceSettings({
   );
 }
 
-/** Live preview panel for a widget */
 function WidgetPreview({
   previewBg,
   previewComponent: Preview,
@@ -194,11 +188,9 @@ function WidgetPreview({
   );
 }
 
-/** Full config panel for a single widget — now a thin coordinator */
 function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const view = WIDGET_VIEWS[widgetLabel];
   const config = view.entry;
-
   const state = useWidgetPanelState(config);
 
   const previewProps = view.getPreviewProps(

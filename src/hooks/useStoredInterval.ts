@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+const WINDOW_LABEL = getCurrentWindow().label;
+
 /**
  * Syncs a polling interval from localStorage for a specific window label.
  * Only activates if the current window matches the target label.
@@ -19,8 +21,7 @@ export function useStoredInterval(
   const [intervalMs, setIntervalMs] = useState(getStored);
 
   useEffect(() => {
-    const windowLabel = getCurrentWindow().label;
-    if (windowLabel !== targetLabel) return;
+    if (WINDOW_LABEL !== targetLabel) return;
 
     const sync = () => setIntervalMs(getStored());
     const handleStorage = (e: StorageEvent) => {

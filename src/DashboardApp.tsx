@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useNetworkPoller } from "@/hooks";
+import { useNetworkPoller, useThemeSync } from "@/hooks";
 import { Sidebar } from "@/components";
 import { DashboardPage } from "@/pages";
 import { HistoryPage } from "@/pages";
@@ -8,26 +7,13 @@ import { InterfacesPage } from "@/pages";
 import { AlertsPage } from "@/pages";
 import { SettingsPage } from "@/pages";
 import { WidgetSettingsPage } from "@/pages";
-import {
-  THEMES,
-  applyAccent,
-  applyColorMode,
-  getStoredAccentIndex,
-  getStoredColorMode,
-} from "@/utils";
+
 import "./dashboard.css";
 import { AppProviders } from "./AppProviders";
 
 export default function DashboardApp() {
-  // No argument needed — the poller reads its interval from the store
   useNetworkPoller();
-
-  useEffect(() => {
-    const index = getStoredAccentIndex();
-    const swatch = THEMES[index] ?? THEMES[0];
-    applyAccent(swatch.color);
-    applyColorMode(getStoredColorMode());
-  }, []);
+  useThemeSync();
 
   return (
     <AppProviders>

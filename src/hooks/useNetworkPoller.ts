@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "@/store";
+import { useSettingsStore } from "@/store";
 import {
   getStoredCompactIntervalMs,
   getStoredHudIntervalMs,
@@ -10,7 +11,10 @@ import {
   LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
 } from "@/utils/polling";
-import { useStoredInterval } from "@/hooks";
+import { useStoredInterval } from "@/hooks/useStoredInterval";
+
+// Reading it once at module level avoids calling getCurrentWindow() on every render.
+const WINDOW_LABEL = getCurrentWindow().label;
 
 // Dashboard and Compact use the full snapshot.
 // Pill and HUD use the lighter live-stats path because they only need the
@@ -21,6 +25,7 @@ type RawSnapshot = {
   peak_upload: number;
   peak_download: number;
   interface_name: string;
+  is_connected?: boolean;
   history: { upload: number; download: number; t: number }[];
 };
 
@@ -31,8 +36,9 @@ export function useNetworkPoller() {
   const addTodayUsage = useNetworkStore((s) => s.addTodayUsage);
   const resetTodayUsage = useNetworkStore((s) => s.resetTodayUsage);
 
-  // Per-window poll intervals — FIX Issue 2.1: consolidated via useStoredInterval
-  const dashboardIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
+  const dashboardIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+
+  // Per-window poll intervals via useStoredInterval (consolidated in Section 2 fixes)
   const pillIntervalMs = useStoredInterval(
     "pill",
     LS_PILL_INTERVAL,
@@ -52,7 +58,6 @@ export function useNetworkPoller() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSampleAtRef = useRef<number | null>(null);
   const lastDayKeyRef = useRef<string>("");
-  const windowLabel = getCurrentWindow().label;
 
   const getDayKey = () => {
     const now = new Date();
@@ -78,7 +83,7 @@ export function useNetworkPoller() {
           lastSampleAtRef.current = now;
         }
 
-        if (windowLabel === "pill" || windowLabel === "hud") {
+        if (WINDOW_LABEL === "pill" || WINDOW_LABEL === "hud") {
           const stats = await invoke<{
             upload_bytes_per_sec: number;
             download_bytes_per_sec: number;
@@ -105,6 +110,7 @@ export function useNetworkPoller() {
             peakUpload: snap.peak_upload,
             peakDownload: snap.peak_download,
             interfaceName: snap.interface_name,
+            isConnected: snap.is_connected,
             history: snap.history,
           });
         }
@@ -129,11 +135,11 @@ export function useNetworkPoller() {
     poll();
 
     const intervalMs =
-      windowLabel === "pill"
+      WINDOW_LABEL === "pill"
         ? pillIntervalMs
-        : windowLabel === "hud"
+        : WINDOW_LABEL === "hud"
           ? hudIntervalMs
-          : windowLabel === "compact"
+          : WINDOW_LABEL === "compact"
             ? compactIntervalMs
             : dashboardIntervalMs;
 
@@ -146,7 +152,6 @@ export function useNetworkPoller() {
     compactIntervalMs,
     hudIntervalMs,
     pillIntervalMs,
-    windowLabel,
     setData,
     addTodayUsage,
     resetTodayUsage,
