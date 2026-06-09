@@ -24,6 +24,22 @@ import {
   ColorMode,
 } from "@/utils";
 
+/**
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ WIDGET REGISTRY — Single Source of Truth                                 │
+ * │                                                                          │
+ * │ To add a new widget (e.g., "mini"):                                      │
+ * │ 1. Add entry here in WIDGET_REGISTRY                                     │
+ * │ 2. Create MiniApp.tsx entry point                                        │
+ * │ 3. Create mini.css stylesheet                                            │
+ * │ 4. Add to main.tsx label→component map                                   │
+ * │ 5. Add window definition in tauri.conf.json                              │
+ * │                                                                          │
+ * │ All other systems (useWidgetSettings, WidgetSettingsPage,                │
+ * │ useStoredInterval, etc.) read from this registry dynamically.            │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ */
+
 export type WidgetLabel = "pill" | "compact" | "hud";
 
 export interface WidgetRegistryEntry {

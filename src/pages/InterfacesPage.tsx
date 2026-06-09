@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useNetworkStore } from "@/store";
-import { formatLinkSpeed } from "@/utils";
+import { formatLinkSpeed, invokeWithTimeout } from "@/utils";
 
 type InterfaceInfo = {
   name: string;
@@ -20,7 +19,7 @@ export function InterfacesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<InterfaceInfo[]>("get_interfaces")
+    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
       .then(setInterfaces)
       .catch((err) => {
         console.error("Failed to load interfaces:", err);
@@ -31,7 +30,7 @@ export function InterfacesPage() {
   const select = async (name: string) => {
     setSelecting(name);
     try {
-      await invoke("set_interface", { name });
+      await invokeWithTimeout("set_interface", { name });
     } catch (e) {
       console.error(e);
     } finally {
@@ -46,9 +45,7 @@ export function InterfacesPage() {
   const downCount = totalCount - upCount;
 
   const visibleInterfaces = interfaces.filter((iface) => {
-    if (filter === "all") {
-      return true;
-    }
+    if (filter === "all") return true;
     const isUp = iface.status.toLowerCase() === "up";
     return filter === "up" ? isUp : !isUp;
   });
@@ -109,6 +106,20 @@ export function InterfacesPage() {
             <div className="empty-state-text">
               Failed to load interfaces: {error}
             </div>
+            <button
+              type="button"
+              className="btn-retry"
+              onClick={() => {
+                setError(null);
+                invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
+                  .then(setInterfaces)
+                  .catch((err) => {
+                    setError(err instanceof Error ? err.message : String(err));
+                  });
+              }}
+            >
+              Retry
+            </button>
           </div>
         ) : visibleInterfaces.length === 0 ? (
           <div className="empty-state">

@@ -1,10 +1,10 @@
 import { fetchUsageStats } from "@/api/storageApi";
 import { useNetworkStore } from "@/store";
 import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
-import { formatBytes, formatSpeed } from "@/utils";
+import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { useDragToMove } from "@/hooks";
+import { useDragToMove } from "@/hooks/useDragToMove";
 
 export function CompactWidget() {
   const { data, isConnected } = useNetworkStore();
@@ -16,8 +16,6 @@ export function CompactWidget() {
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
 
-  // Show "—" until DB responds rather than showing a speculative in-memory estimate
-  // that diverges from the authoritative value and causes visible jumps.
   const upToday = dbStats ? formatBytes(dbStats.ul) : { value: "—", unit: "" };
   const dnToday = dbStats ? formatBytes(dbStats.dl) : { value: "—", unit: "" };
   const intervalLabel = `${intervalMs / 1000}s`;
@@ -32,8 +30,6 @@ export function CompactWidget() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // Poll DB every 10s (more frequent than before) to reduce staleness without
-  // needing a separate in-memory counter.
   useEffect(() => {
     let alive = true;
     const syncTodayTotals = async () => {

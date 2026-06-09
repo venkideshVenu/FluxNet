@@ -12,8 +12,6 @@ export type HistoryPoint = {
   t: number;
 };
 
-// Settings now live exclusively in settingsStore with persist middleware.
-
 type NetworkStore = {
   data: NetworkData;
   isConnected: boolean;
@@ -32,14 +30,13 @@ type NetworkStore = {
     peakUpload: number;
     peakDownload: number;
     interfaceName: string;
-    history: HistoryPoint[];
     isConnected?: boolean;
+    history: HistoryPoint[];
   }) => void;
   addTodayUsage: (uploadBytes: number, downloadBytes: number) => void;
   resetTodayUsage: () => void;
   resetPeaks: () => void;
 };
-
 const MAX_HISTORY_POINTS = 300;
 
 export const useNetworkStore = create<NetworkStore>((set) => ({

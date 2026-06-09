@@ -12,6 +12,7 @@ export {
 } from "./polling";
 export { getStorageItem, setStorageItem } from "./storage";
 export type { StorageSchema } from "./storage";
+export { setStorageWithNotify, removeStorageWithNotify } from "./storageEvents";
 export {
   THEMES,
   applyAccent,

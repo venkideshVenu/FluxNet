@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ColorMode } from "@/utils";
 import { WidgetRegistryEntry } from "@/config";
+import { setStorageWithNotify } from "@/utils/storageEvents";
 
 export function useWidgetPanelState(config: WidgetRegistryEntry) {
   const [visible, setVisible] = useState<boolean | null>(null);
@@ -35,13 +36,7 @@ export function useWidgetPanelState(config: WidgetRegistryEntry) {
 
   const handleAlwaysOnTop = async (value: boolean) => {
     setAlwaysOnTop(value);
-    localStorage.setItem(config.alwaysOnTopKey, String(value));
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.alwaysOnTopKey,
-        newValue: String(value),
-      }),
-    );
+    setStorageWithNotify(config.alwaysOnTopKey, String(value));
     await invoke("set_widget_always_on_top", { label: config.label, value });
   };
 
@@ -50,13 +45,7 @@ export function useWidgetPanelState(config: WidgetRegistryEntry) {
   };
 
   const handleOpacityCommit = async (value: number) => {
-    localStorage.setItem(config.opacityKey, String(value));
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.opacityKey,
-        newValue: String(value),
-      }),
-    );
+    setStorageWithNotify(config.opacityKey, String(value));
     await invoke("set_widget_opacity", {
       label: config.label,
       value: value / 100,
@@ -65,25 +54,13 @@ export function useWidgetPanelState(config: WidgetRegistryEntry) {
 
   const handleColorMode = (mode: ColorMode) => {
     setColorMode(mode);
-    localStorage.setItem(config.modeKey, mode);
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.modeKey,
-        newValue: mode,
-      }),
-    );
+    setStorageWithNotify(config.modeKey, mode);
   };
 
   const handleInterval = (raw: string) => {
     const ms = parseFloat(raw) * 1000;
     setIntervalMs(ms);
-    localStorage.setItem(config.intervalKey, String(ms));
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.intervalKey,
-        newValue: String(ms),
-      }),
-    );
+    setStorageWithNotify(config.intervalKey, String(ms));
   };
 
   return {

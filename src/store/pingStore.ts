@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
 type PingStats = {
-  latencyMs: number; // -1 means timeout
+  /** Ping latency in milliseconds. -1 indicates timeout/no response. */
+  latencyMs: number;
   lossPercent: number;
 };
 

@@ -4,10 +4,6 @@ import { WIDGET_REGISTRY, WidgetLabel } from "@/config";
 import { applyColorMode } from "@/utils";
 import { getStorageItem } from "@/utils";
 
-/**
- * Applies initial widget settings (color mode, opacity, always-on-top)
- * and listens for live changes via storage events from the Dashboard window.
- */
 export function useWidgetSettings(label: WidgetLabel) {
   useEffect(() => {
     const config = WIDGET_REGISTRY[label];
@@ -34,7 +30,7 @@ export function useWidgetSettings(label: WidgetLabel) {
       console.error,
     );
 
-    // Listen for storage changes from other windows (e.g., WidgetSettingsPage)
+    // Listen for storage changes from other windows (native cross-window StorageEvent)
     const handleStorage = (event: StorageEvent) => {
       if (event.key === config.alwaysOnTopKey && event.newValue !== null) {
         invoke("set_widget_always_on_top", {

@@ -1,24 +1,24 @@
 import { useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { usePingStore } from "@/store";
+import { fetchPingStats } from "@/api";
 
-type RawPingStats = {
-  latency_ms: number;
-  loss_percent: number;
-};
+const WINDOW_LABEL = getCurrentWindow().label;
 
-/**
- * Polls get_ping_stats every intervalMs.
- * Only mount this in the HUD window — ping costs a real network round-trip.
- */
 export function usePingPoller(intervalMs = 2000) {
   const setStats = usePingStore((s) => s.setStats);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    // FIX: Issue 8.3 — Internal guard: only run in HUD window
+    if (WINDOW_LABEL !== "hud") {
+      return;
+    }
+
     const poll = async () => {
       try {
-        const raw = await invoke<RawPingStats>("get_ping_stats");
+        // FIX: Issue 6.3 — Uses fetchPingStats (has timeout via invokeWithTimeout)
+        const raw = await fetchPingStats();
         setStats({
           latencyMs: raw.latency_ms,
           lossPercent: raw.loss_percent,

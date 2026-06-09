@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, DisplayUnits } from "@/store";
+import { useNetworkStore } from "@/store";
 import {
   THEMES,
   applyAccent,
@@ -12,6 +13,7 @@ import {
 } from "@/utils";
 
 export function SettingsPage() {
+  // Settings from persisted store
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const pingTarget = useSettingsStore((s) => s.pingTarget);
@@ -19,9 +21,18 @@ export function SettingsPage() {
   const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
   const setPingTarget = useSettingsStore((s) => s.setPingTarget);
 
+  // Reset peaks action from network store
+  const resetPeaks = useNetworkStore((s) => s.resetPeaks);
+
   const [startWithOS, setStartWithOS] = useState(false);
+  const [autostartAvailable, setAutostartAvailable] = useState(true);
+  const [autostartError, setAutostartError] = useState<string | null>(null);
+
   const [selectedTheme, setSelectedTheme] = useState(getStoredAccentIndex);
   const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
+  const [localPingTarget, setLocalPingTarget] = useState(pingTarget);
+
+  const pingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load backend-only settings on mount
   useEffect(() => {
@@ -29,12 +40,29 @@ export function SettingsPage() {
       .then((ms) => setPollInterval(ms))
       .catch(console.warn);
     invoke<string>("get_ping_target")
-      .then((target) => setPingTarget(target))
+      .then((target) => {
+        setPingTarget(target);
+        setLocalPingTarget(target);
+      })
       .catch(console.warn);
+
     invoke<boolean>("autostart:is-enabled")
-      .then((enabled) => setStartWithOS(enabled))
-      .catch(() => setStartWithOS(false));
+      .then((enabled) => {
+        setStartWithOS(enabled);
+        setAutostartAvailable(true);
+      })
+      .catch((err) => {
+        setStartWithOS(false);
+        setAutostartAvailable(false);
+        setAutostartError("Autostart plugin not available. Feature disabled.");
+        console.warn("autostart not available:", err);
+      });
   }, [setPollInterval, setPingTarget]);
+
+  // Sync local ping target when store changes externally
+  useEffect(() => {
+    setLocalPingTarget(pingTarget);
+  }, [pingTarget]);
 
   // Theme & color mode effects
   useEffect(() => {
@@ -48,25 +76,56 @@ export function SettingsPage() {
     const secs = parseFloat(raw);
     const ms = secs * 1000;
     setPollInterval(ms);
-    await invoke("set_refresh_interval", { intervalMs: ms });
+    await invoke("set_refresh_interval", { intervalMs: ms }).catch(
+      console.warn,
+    );
   };
 
   const handleUnits = (raw: string) => setDisplayUnits(raw as DisplayUnits);
 
   const handleStartWithOS = async (value: boolean) => {
+    if (!autostartAvailable) return;
     setStartWithOS(value);
+    setAutostartError(null);
     try {
       if (value) await invoke("autostart:enable");
       else await invoke("autostart:disable");
     } catch (err) {
-      console.warn("autostart not available:", err);
+      setAutostartError(
+        "Failed to change autostart setting. Please try again.",
+      );
+      setStartWithOS(!value); // Revert
+      console.warn("autostart error:", err);
     }
   };
 
-  const handlePingTarget = async (target: string) => {
-    setPingTarget(target);
-    await invoke("set_ping_target", { target }).catch(console.warn);
-  };
+  const handlePingTarget = useCallback(
+    (target: string) => {
+      setLocalPingTarget(target);
+
+      // Clear previous debounce
+      if (pingDebounceRef.current) {
+        clearTimeout(pingDebounceRef.current);
+      }
+
+      const isValid = /^[a-zA-Z0-9.\-:]+$/.test(target) && target.length > 0;
+
+      if (isValid) {
+        pingDebounceRef.current = setTimeout(() => {
+          setPingTarget(target);
+          invoke("set_ping_target", { target }).catch(console.warn);
+        }, 500);
+      }
+    },
+    [setPingTarget],
+  );
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (pingDebounceRef.current) clearTimeout(pingDebounceRef.current);
+    };
+  }, []);
 
   const handleTheme = (index: number) => {
     setSelectedTheme(index);
@@ -76,6 +135,11 @@ export function SettingsPage() {
   const handleColorMode = (mode: ColorMode) => {
     setColorMode(mode);
     setStorageItem("fluxnet_color_mode", mode);
+  };
+
+  const handleResetPeaks = () => {
+    resetPeaks();
+    invoke("reset_peaks").catch(console.warn);
   };
 
   return (
@@ -136,8 +200,10 @@ export function SettingsPage() {
             <input
               type="text"
               className="fn-input"
-              value={pingTarget}
+              value={localPingTarget}
               onChange={(e) => handlePingTarget(e.target.value)}
+              placeholder="e.g. 1.1.1.1"
+              pattern="[a-zA-Z0-9.\-:]+"
               style={{ width: 160, fontFamily: "monospace" }}
             />
           </div>
@@ -145,16 +211,34 @@ export function SettingsPage() {
           <div className="settings-row">
             <div>
               <div className="settings-label">Start with Windows</div>
-              <div className="settings-sub">Launch FluxNet at login</div>
+              <div className="settings-sub">
+                Launch FluxNet at login
+                {autostartError && (
+                  <span
+                    style={{
+                      display: "block",
+                      color: "var(--danger, #c33)",
+                      fontSize: 11,
+                      marginTop: 4,
+                    }}
+                  >
+                    {autostartError}
+                  </span>
+                )}
+              </div>
             </div>
             <div
-              className={`toggle ${startWithOS ? "on" : "off"}`}
+              className={`toggle ${startWithOS ? "on" : "off"} ${!autostartAvailable ? "disabled" : ""}`}
               onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
-              tabIndex={0}
+              aria-disabled={!autostartAvailable}
+              tabIndex={autostartAvailable ? 0 : -1}
               onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
+                if (
+                  autostartAvailable &&
+                  (e.key === " " || e.key === "Enter")
+                ) {
                   e.preventDefault();
                   handleStartWithOS(!startWithOS);
                 }
@@ -202,7 +286,11 @@ export function SettingsPage() {
             }}
           >
             <div className="settings-label">Accent colour</div>
-            <div className="theme-chips">
+            <div
+              className="theme-chips"
+              role="radiogroup"
+              aria-label="Accent colour"
+            >
               {THEMES.map((t, i) => (
                 <button
                   key={i}
@@ -210,7 +298,7 @@ export function SettingsPage() {
                   className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
                   style={{ background: t.color }}
                   title={t.label}
-                  aria-label={`${t.label} theme${selectedTheme === i ? " (active)" : ""}`}
+                  aria-label={`${t.label} theme`}
                   aria-pressed={selectedTheme === i}
                   onClick={() => handleTheme(i)}
                 />
@@ -232,7 +320,7 @@ export function SettingsPage() {
             </div>
             <button
               type="button"
-              onClick={() => invoke("reset_peaks")}
+              onClick={handleResetPeaks}
               className="btn-danger"
             >
               Reset peaks

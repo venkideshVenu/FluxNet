@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// All user preferences persist to localStorage automatically via Zustand persist middleware.
-
 export type DisplayUnits = "auto" | "MB/s" | "KB/s" | "Mbps";
 
 type SettingsStore = {
