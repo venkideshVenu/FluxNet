@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNetworkStore } from "@/store";
-import { formatLinkSpeed, invokeWithTimeout } from "@/utils";
+import {
+  formatLinkSpeed,
+  invokeWithTimeout,
+  getStorageItem,
+  setStorageItem,
+} from "@/utils";
 
 type InterfaceInfo = {
   name: string;
@@ -18,6 +23,8 @@ export function InterfacesPage() {
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [error, setError] = useState<string | null>(null);
 
+  const isFirstRun = !getStorageItem("fluxnet_configured", "");
+
   useEffect(() => {
     invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
       .then(setInterfaces)
@@ -31,6 +38,7 @@ export function InterfacesPage() {
     setSelecting(name);
     try {
       await invokeWithTimeout("set_interface", { name });
+      setStorageItem("fluxnet_configured", "true");
     } catch (e) {
       console.error(e);
     } finally {
@@ -60,6 +68,17 @@ export function InterfacesPage() {
           </div>
         </div>
       </div>
+
+      {isFirstRun && (
+        <div className="first-run-banner">
+          <span className="first-run-banner-icon">🎯</span>
+          <div className="first-run-banner-text">
+            <strong>Select your network interface to begin monitoring</strong>
+            Choose an active (Up) interface from the list below. FluxNet will
+            start tracking bandwidth immediately.
+          </div>
+        </div>
+      )}
 
       <div className="iface-hero">
         <div className="iface-hero-card">

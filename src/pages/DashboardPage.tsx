@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
   Area,
@@ -10,13 +11,21 @@ import {
 } from "recharts";
 import { useNetworkStore } from "@/store";
 import { useSettingsStore } from "@/store";
-import { formatSpeed, computeChartScale } from "@/utils";
+import { formatSpeed, computeChartScale, getStorageItem } from "@/utils";
 
 export function DashboardPage() {
-  const { data, isConnected, isInitialized, peakDownload, history } =
-    useNetworkStore();
+  const {
+    data,
+    isConnected,
+    isInitialized,
+    lastError,
+    peakDownload,
+    history,
+    dismissError,
+  } = useNetworkStore();
 
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+  const navigate = useNavigate();
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
@@ -47,6 +56,9 @@ export function DashboardPage() {
   );
 
   const intervalLabel = `${pollIntervalMs / 1000}s`;
+
+  const isFirstRun = !getStorageItem("fluxnet_configured", "");
+  const hasNoInterface = !data.interfaceName;
 
   if (!isInitialized) {
     return (
@@ -95,6 +107,39 @@ export function DashboardPage() {
           {isConnected ? "Live" : "No signal"}
         </span>
       </div>
+
+      {lastError && (
+        <div className="error-banner" role="alert">
+          <span className="error-banner-text">
+            ⚠️ Monitoring error: {lastError}
+          </span>
+          <button
+            type="button"
+            className="error-banner-dismiss"
+            onClick={dismissError}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {isFirstRun && hasNoInterface && (
+        <div className="first-run-banner">
+          <span className="first-run-banner-icon">👋</span>
+          <div className="first-run-banner-text">
+            <strong>Welcome to FluxNet!</strong>
+            Select a network interface to begin monitoring your bandwidth.
+          </div>
+          <button
+            type="button"
+            className="first-run-banner-action"
+            onClick={() => navigate("/interfaces")}
+          >
+            Select Interface
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="stat-grid">

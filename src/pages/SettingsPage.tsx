@@ -13,7 +13,6 @@ import {
 } from "@/utils";
 
 export function SettingsPage() {
-  // Settings from persisted store
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const pingTarget = useSettingsStore((s) => s.pingTarget);
@@ -21,7 +20,6 @@ export function SettingsPage() {
   const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
   const setPingTarget = useSettingsStore((s) => s.setPingTarget);
 
-  // Reset peaks action from network store
   const resetPeaks = useNetworkStore((s) => s.resetPeaks);
 
   const [startWithOS, setStartWithOS] = useState(false);
@@ -34,7 +32,6 @@ export function SettingsPage() {
 
   const pingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load backend-only settings on mount
   useEffect(() => {
     invoke<number>("get_refresh_interval")
       .then((ms) => setPollInterval(ms))
@@ -45,7 +42,6 @@ export function SettingsPage() {
         setLocalPingTarget(target);
       })
       .catch(console.warn);
-
     invoke<boolean>("autostart:is-enabled")
       .then((enabled) => {
         setStartWithOS(enabled);
@@ -59,12 +55,10 @@ export function SettingsPage() {
       });
   }, [setPollInterval, setPingTarget]);
 
-  // Sync local ping target when store changes externally
   useEffect(() => {
     setLocalPingTarget(pingTarget);
   }, [pingTarget]);
 
-  // Theme & color mode effects
   useEffect(() => {
     applyAccent(THEMES[selectedTheme]?.color ?? THEMES[0].color);
   }, [selectedTheme]);
@@ -94,7 +88,7 @@ export function SettingsPage() {
       setAutostartError(
         "Failed to change autostart setting. Please try again.",
       );
-      setStartWithOS(!value); // Revert
+      setStartWithOS(!value);
       console.warn("autostart error:", err);
     }
   };
@@ -102,14 +96,10 @@ export function SettingsPage() {
   const handlePingTarget = useCallback(
     (target: string) => {
       setLocalPingTarget(target);
-
-      // Clear previous debounce
       if (pingDebounceRef.current) {
         clearTimeout(pingDebounceRef.current);
       }
-
       const isValid = /^[a-zA-Z0-9.\-:]+$/.test(target) && target.length > 0;
-
       if (isValid) {
         pingDebounceRef.current = setTimeout(() => {
           setPingTarget(target);
@@ -120,7 +110,6 @@ export function SettingsPage() {
     [setPingTarget],
   );
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
       if (pingDebounceRef.current) clearTimeout(pingDebounceRef.current);

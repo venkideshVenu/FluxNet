@@ -18,20 +18,17 @@ const WINDOW_LABEL = getCurrentWindow().label;
 
 /**
  * Core polling hook — thin coordinator.
- *
- * IPC branching logic → src/api/networkApi.ts (pollNetworkData)
- * Daily byte accumulation → useDailyUsageAccumulator hook
- * Interval management → useStoredInterval hook
+ * 1. Determine correct poll interval for this window
+ * 2. Run the poll loop on a timer
+ * 3. Dispatch results to the correct store actions
  */
 export function useNetworkPoller() {
   const setData = useNetworkStore((s) => s.setData);
   const setSnapshot = useNetworkStore((s) => s.setSnapshot);
-  const setConnected = useNetworkStore((s) => s.setConnected);
+  const setError = useNetworkStore((s) => s.setError);
 
-  // Daily usage accumulation (handles day boundaries internally)
   const accumulate = useDailyUsageAccumulator();
 
-  // Per-window poll intervals
   const dashboardIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const pillIntervalMs = useStoredInterval(
     "pill",
@@ -54,10 +51,8 @@ export function useNetworkPoller() {
   useEffect(() => {
     const poll = async () => {
       try {
-        // FIX: Issue 8.1 — IPC branching extracted to networkApi
         const result = await pollNetworkData(WINDOW_LABEL);
 
-        // Dispatch to appropriate store action
         if (result.liveData) {
           setData(result.liveData);
         }
@@ -73,11 +68,12 @@ export function useNetworkPoller() {
           });
         }
 
-        // Accumulate today's usage estimate
         accumulate(result.currentUpload, result.currentDownload);
       } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to poll network data";
         console.error("FluxNet poll error:", err);
-        setConnected(false);
+        setError(message);
       }
     };
 
@@ -103,7 +99,7 @@ export function useNetworkPoller() {
     pillIntervalMs,
     setData,
     setSnapshot,
-    setConnected,
+    setError,
     accumulate,
   ]);
 }

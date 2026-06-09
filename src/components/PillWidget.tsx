@@ -1,6 +1,6 @@
 import { useNetworkStore } from "@/store";
 import { formatSpeed } from "@/utils";
-import { useDragToMove } from "@/hooks";
+import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {
@@ -8,13 +8,16 @@ export function PillWidget() {
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
   const handleDrag = useDragToMove();
+  const handleKeyNudge = useKeyboardNudge();
 
   return (
     <div
       onMouseDown={handleDrag}
+      onKeyDown={handleKeyNudge}
       role="status"
-      title="Drag to move"
-      aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}`}
+      tabIndex={0}
+      title="Drag to move · Arrow keys to nudge"
+      aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}. Use arrow keys to reposition.`}
     >
       <PillPresentation
         downloadValue={dn.value}

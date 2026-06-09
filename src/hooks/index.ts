@@ -1,4 +1,4 @@
-export { useDragToMove } from "./useDragToMove";
+export { useDragToMove, useKeyboardNudge } from "./useDragToMove";
 export { useNetworkPoller } from "./useNetworkPoller";
 export { usePingPoller } from "./usePingPoller";
 export { useThemeSync } from "./useThemeSync";
