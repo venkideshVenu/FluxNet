@@ -10,10 +10,10 @@ import {
 type InterfaceInfo = {
   name: string;
   description: string;
-  ifIndex: number;
+  if_index: number;
   status: string;
   mac: string;
-  linkSpeedBps: number;
+  link_speed_bps: number;
 };
 
 export function InterfacesPage() {
@@ -170,7 +170,7 @@ export function InterfacesPage() {
                   : isUp
                     ? "connected"
                     : "disconnected";
-              const linkSpeedLabel = formatLinkSpeed(iface.linkSpeedBps);
+              const linkSpeedLabel = formatLinkSpeed(iface.link_speed_bps);
               const macLabel = iface.mac || "—";
 
               return (
@@ -198,7 +198,7 @@ export function InterfacesPage() {
                       {iface.description || "—"}
                     </div>
                     <div className="iface-meta">
-                      IF {iface.ifIndex} · {macLabel}
+                      IF {iface.if_index} · {macLabel}
                     </div>
                   </div>
                   <div className="iface-details">

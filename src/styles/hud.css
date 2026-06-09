@@ -7,7 +7,6 @@
   --hud-label: rgba(214, 211, 255, 0.85);
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
-  /* FIX: Issue 3.3 — Added --hud-good for excellent ping < 50ms */
   --hud-good: #22c55e;
   --hud-amber: #f59e0b;
   --hud-danger: #ef4444;
@@ -27,7 +26,6 @@ html[data-app="hud"][data-theme="light"] {
   --hud-label: #51607f;
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
-  /* FIX: Issue 3.3 — Green for good ping in light mode */
   --hud-good: #16a34a;
   --hud-amber: #c97d00;
   --hud-danger: #dc2626;
@@ -140,7 +138,6 @@ html[data-app="hud"][data-theme="light"] .hud-card {
   opacity: 1;
 }
 
-/* FIX: Issue 12.5 — Visible focus ring on drag handle */
 .hud-drag-handle:focus-visible {
   outline: 2px solid var(--hud-amber);
   outline-offset: 2px;

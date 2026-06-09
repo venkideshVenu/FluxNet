@@ -6,7 +6,6 @@ import { setStorageWithNotify } from "@/utils/storageEvents";
 
 /**
  * Manages all local state and side effects for a single widget config panel.
- * FIX: Issue 16.2 — Uses api/tauri.ts for all Tauri API access.
  */
 export function useWidgetPanelState(config: WidgetRegistryEntry) {
   const [visible, setVisible] = useState<boolean | null>(null);

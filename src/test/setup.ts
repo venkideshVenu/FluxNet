@@ -3,7 +3,6 @@ import { vi } from "vitest";
 /**
  * Global test setup.
  *
- * FIX: Issue 16.2 — Provides default mocks for the Tauri API abstraction layer.
  * Tests can override these per-file using vi.mock() with custom implementations.
  */
 

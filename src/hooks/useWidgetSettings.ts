@@ -6,7 +6,6 @@ import { getStorageItem } from "@/utils/storage";
 
 /**
  * Applies initial widget settings and listens for live changes.
- * FIX: Issue 16.2 — Uses api/tauri.ts for invoke.
  */
 export function useWidgetSettings(label: WidgetLabel) {
   useEffect(() => {

@@ -1,7 +1,6 @@
 /**
  * Tauri API abstraction layer.
  *
- * FIX: Issue 16.2 — All Tauri API access goes through this module.
  * This provides:
  * 1. A single mock target for tests (mock `@/api/tauri` instead of 3+ packages)
  * 2. A future abstraction point for macOS differences

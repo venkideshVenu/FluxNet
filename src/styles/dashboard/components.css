@@ -212,6 +212,7 @@
 
 .fn-slider {
   -webkit-appearance: none;
+  appearance: none;
   width: 120px;
   height: 4px;
   border-radius: 2px;

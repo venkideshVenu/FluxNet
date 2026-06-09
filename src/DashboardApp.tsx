@@ -22,7 +22,6 @@ import "./styles/dashboard/pages.css";
 import { AppProviders } from "./AppProviders";
 
 /**
- * FIX: Issue 13.3 — First-run redirect component.
  * Detects if this is the user's first launch and redirects to Interfaces page.
  */
 function FirstRunRedirect() {
@@ -48,7 +47,6 @@ function DashboardContent() {
 
   return (
     <div className="app-shell">
-      {/* FIX: Issue 12.6 — Skip navigation for keyboard users */}
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>

@@ -16,8 +16,6 @@ import { useDailyUsageAccumulator } from "@/hooks/useDailyUsageAccumulator";
 
 /**
  * Core polling hook — thin coordinator.
- * FIX: Issue 8.1 — 3 responsibilities only.
- * FIX: Issue 16.2 — Uses api/tauri.ts for window label.
  */
 export function useNetworkPoller() {
   const setData = useNetworkStore((s) => s.setData);

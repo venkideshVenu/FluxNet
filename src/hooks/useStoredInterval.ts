@@ -3,7 +3,6 @@ import { WINDOW_LABEL } from "@/api/tauri";
 
 /**
  * Syncs a polling interval from localStorage for a specific window label.
- * FIX: Issue 16.2 — Uses api/tauri.ts for window label (testable).
  */
 export function useStoredInterval(
   targetLabel: string,

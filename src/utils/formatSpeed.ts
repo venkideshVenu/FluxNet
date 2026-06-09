@@ -68,7 +68,6 @@ export function formatBytes(bytes: number): BytesResult {
  * Formats a link speed in bits-per-second (bps) to a human-readable string.
  * Uses SI units (1000-based) since link speeds are conventionally SI.
  *
- * FIX: Issue 2.6 — Consolidated from InterfacesPage local function
  *
  * @param bps - Link speed in bits per second
  * @returns Formatted string like "1.00 Gbps" or "100 Mbps"

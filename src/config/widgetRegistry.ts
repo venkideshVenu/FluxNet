@@ -39,7 +39,6 @@ import {
 
 export type WidgetLabel = "pill" | "compact" | "hud";
 
-// FIX: Issue 15.3 — Canonical getter types for consistent function signatures
 export type IntervalGetter = (fallback?: number) => number;
 export type AlwaysOnTopGetter = (fallback?: boolean) => boolean;
 export type ColorModeGetter = () => ColorMode;
@@ -53,7 +52,6 @@ export interface WidgetRegistryEntry {
   intervalKey: string;
   modeKey: string;
   alwaysOnTopKey: string;
-  // FIX: Issue 15.3 — Use canonical getter types
   getStoredInterval: IntervalGetter;
   getStoredAlwaysOnTop: AlwaysOnTopGetter;
   getStoredMode: ColorModeGetter;
