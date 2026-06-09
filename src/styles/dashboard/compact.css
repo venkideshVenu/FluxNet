@@ -39,6 +39,12 @@ html[data-app="compact"] #root {
   --compact-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
+[tabindex="0"]:focus-visible {
+  outline: 2px solid rgba(124, 111, 247, 0.8);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
 /* ── Card shell ── */
 .cw-root {
   width: 180px;

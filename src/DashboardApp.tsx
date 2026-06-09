@@ -16,7 +16,9 @@ import { AlertsPage } from "@/pages";
 import { SettingsPage } from "@/pages";
 import { WidgetSettingsPage } from "@/pages";
 import { getStorageItem } from "@/utils";
-import "./dashboard.css";
+import "./styles/dashboard/layout.css";
+import "./styles/dashboard/components.css";
+import "./styles/dashboard/pages.css";
 import { AppProviders } from "./AppProviders";
 
 /**

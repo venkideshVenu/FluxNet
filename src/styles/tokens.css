@@ -1,55 +1,45 @@
-/**
- * ┌──────────────────────────────────────────────────────────────────────────┐
- * │ FLUXNET DESIGN TOKENS                                                    │
- * │                                                                          │
- * │ FIX: Issue 11.2/11.3 — Central design token inventory.                  │
- * │                                                                          │
- * │ All CSS variables used across the application are defined here.           │
- * │ Import this file BEFORE any component-specific CSS.                      │
- * │                                                                          │
- * │ Usage:                                                                   │
- * │   color: var(--text);                                                    │
- * │   background: var(--panel);                                              │
- * │   border: 1px solid var(--border);                                       │
- * └──────────────────────────────────────────────────────────────────────────┘
- */
-
 /* ═══════════════════════════════════════════════════════════════════════════
-   BASE TOKENS — Light Mode (default)
+   FLUXNET DESIGN TOKENS
+   
+   Single source of truth for all CSS variables.
+   Imported by index.css → available to all windows.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── Light Mode (default) ────────────────────────────────────────────────── */
 :root {
-  /* ── Core surfaces ─────────────────────────────────────────────────────── */
-  --bg: #f8f7fc;
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #f7f6ff;
   --panel: #ffffff;
   --panel-hover: #f5f4fa;
   --surface: #fafafe;
 
-  /* ── Borders ───────────────────────────────────────────────────────────── */
-  --border: #e8e6f0;
+  /* Borders */
+  --border: #eceaf8;
   --border-strong: #d4d2e0;
 
-  /* ── Text ──────────────────────────────────────────────────────────────── */
+  /* Text */
   --text: #1a1830;
-  --text-muted: #8b87a0;
-  --text-subtle: #b0adc0;
+  --text-muted: #9995cc;
+  --text-subtle: #6b68a0;
 
-  /* ── Accent (overridden dynamically by applyAccent()) ──────────────────── */
+  /* Accent (base — overridden dynamically by applyAccent()) */
   --accent: #7c6ff7;
-  --accent-strong: #5d4fd4;
-  --accent-soft: #f0eefe;
-  --accent-soft-2: #f5f3ff;
-  --accent-border: #c4bff7;
-  --accent-muted: #ddd9fc;
+  --accent-strong: #5b54c4;
+  --accent-soft: #eeedfe;
+  --accent-soft-2: #f3f2fd;
+  --accent-border: #c8c5f5;
+  --accent-muted: #e0def5;
   --accent-shadow: rgba(124, 111, 247, 0.2);
 
-  /* ── Network colours ───────────────────────────────────────────────────── */
-  --net-download: #7c6ff7;
-  --net-upload: #22c97a;
+  /* Network */
+  --net-upload: #119a55;
+  --net-download: #197db4;
 
-  /* ── Status colours ────────────────────────────────────────────────────── */
+  /* Status */
   --success: #22c97a;
-  --success-bg: #ecfdf5;
+  --success-bg: #dcfbee;
   --warning: #f59e0b;
   --warning-bg: #fffbeb;
   --danger: #ef4444;
@@ -57,275 +47,68 @@
   --danger-text: #dc2626;
   --danger-border: #fecaca;
 
-  /* ── Shadows ───────────────────────────────────────────────────────────── */
+  /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
 
-  /* ── Spacing (reference only — use directly in CSS) ────────────────────── */
+  /* Radius */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  /* ── Typography ────────────────────────────────────────────────────────── */
-  --font-sans:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  /* Typography */
+  --font-sans: "DM Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
-  /* ── Focus ring ────────────────────────────────────────────────────────── */
+  /* Focus */
   --focus-ring: 0 0 0 2px var(--accent-border);
-  --focus-ring-offset: 0 0 0 3px var(--accent);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DARK MODE TOKENS
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Dark Mode ───────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-[data-theme="dark"] {
-  /* ── Core surfaces ─────────────────────────────────────────────────────── */
-  --bg: #0f0e1a;
-  --panel: #1a1830;
-  --panel-hover: #221f3a;
-  --surface: #16142a;
+  --bg: #0f1016;
+  --panel: #161826;
+  --panel-hover: #1e2030;
+  --surface: #12141e;
 
-  /* ── Borders ───────────────────────────────────────────────────────────── */
-  --border: #2a2745;
+  --border: #27293b;
   --border-strong: #3d3960;
 
-  /* ── Text ──────────────────────────────────────────────────────────────── */
-  --text: #eae8f5;
-  --text-muted: #8b87a0;
-  --text-subtle: #5c5875;
+  --text: #eef0f7;
+  --text-muted: #9f9bbb;
+  --text-subtle: #b7b3d6;
 
-  /* ── Accent (base overridden dynamically) ──────────────────────────────── */
   --accent-soft: #1e1a35;
   --accent-soft-2: #16142a;
   --accent-border: #3d3670;
   --accent-muted: #2a2550;
 
-  /* ── Status colours (dark variants) ────────────────────────────────────── */
   --success-bg: #0d2818;
   --warning-bg: #2a1f0a;
   --danger-bg: #2a0f0f;
   --danger-text: #f87171;
   --danger-border: #7f1d1d;
 
-  /* ── Shadows ───────────────────────────────────────────────────────────── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   HUD-SPECIFIC TOKENS (used in hud.css and HudPresentation)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
+/* ── HUD-specific tokens ─────────────────────────────────────────────────── */
 :root {
-  --hud-bg: rgba(12, 11, 24, 0.92);
-  --hud-border: rgba(124, 111, 247, 0.2);
-  --hud-text: #eae8f5;
-  --hud-muted: #5c5875;
-  --hud-good: #22c55e; /* FIX: Issue 3.3 — Green for excellent ping < 50ms */
-  --hud-amber: #f59e0b; /* Acceptable ping 50–150ms */
-  --hud-danger: #ef4444; /* Poor ping > 150ms */
+  --hud-good: #22c55e;
+  --hud-amber: #f59e0b;
+  --hud-danger: #ef4444;
+  --hud-muted: rgba(234, 233, 255, 0.6);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   WIDGET-SPECIFIC TOKENS (pill, compact overlays)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-:root {
-  --widget-bg: rgba(15, 13, 26, 0.88);
-  --widget-border: rgba(124, 111, 247, 0.15);
-  --widget-text: #eae8f5;
-  --widget-muted: #8b87a0;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACCESSIBILITY — Focus Styles
-   FIX: Issue 12.5 — Visible focus rings for keyboard navigation
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Buttons and interactive elements */
-button:focus-visible,
-[role="switch"]:focus-visible,
-[role="button"]:focus-visible,
-select:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  box-shadow: var(--focus-ring);
-}
-
-/* FIX: Issue 12.5 — HUD drag handle focus ring */
-.hud-drag-handle:focus-visible {
-  outline: 2px solid var(--hud-amber);
-  outline-offset: 2px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ACCESSIBILITY — Skip Navigation
-   FIX: Issue 12.6 — Visually hidden until focused
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.skip-link {
-  position: absolute;
-  top: -100%;
-  left: 0;
-  z-index: 9999;
-  padding: 8px 16px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  border-radius: 0 0 var(--radius-md) 0;
-  transition: top 0.2s;
-}
-
-.skip-link:focus {
-  top: 0;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COMPONENT TOKENS — Danger Button
-   FIX: Issue 11.1 — Uses CSS variables instead of hardcoded hex
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.btn-danger {
-  background: var(--danger-bg);
-  color: var(--danger-text);
-  border: 1px solid var(--danger-border);
-  border-radius: var(--radius-md);
-  padding: 5px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity 0.15s;
-}
-
-.btn-danger:hover {
-  opacity: 0.85;
-}
-
-.btn-danger:focus-visible {
-  outline: 2px solid var(--danger);
-  outline-offset: 2px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COMPONENT TOKENS — Retry Button
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.btn-retry {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-md);
-  padding: 6px 14px;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  margin-top: 12px;
-}
-
-.btn-retry:hover {
-  background: var(--accent-soft-2);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COMPONENT TOKENS — Toggle (disabled state)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.toggle.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COMPONENT TOKENS — Error Banner
-   FIX: Issue 13.2 — Error state display
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--danger-bg);
-  border: 1px solid var(--danger-border);
-  border-radius: var(--radius-md);
-  color: var(--danger-text);
-  font-size: 12px;
-  margin-bottom: 16px;
-}
-
-.error-banner-text {
-  flex: 1;
-}
-
-.error-banner-dismiss {
-  background: none;
-  border: none;
-  color: var(--danger-text);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 4px;
-  line-height: 1;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COMPONENT TOKENS — First-Run Banner
-   FIX: Issue 13.3 — First-run experience
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.first-run-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-md);
-  margin-bottom: 16px;
-}
-
-.first-run-banner-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.first-run-banner-text {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.first-run-banner-text strong {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 14px;
-}
-
-.first-run-banner-action {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.first-run-banner-action:hover {
-  opacity: 0.9;
+:root[data-theme="light"] {
+  --hud-good: #16a34a;
+  --hud-amber: #c97d00;
+  --hud-danger: #dc2626;
+  --hud-muted: #7a86a5;
 }
