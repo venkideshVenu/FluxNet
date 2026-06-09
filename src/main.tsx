@@ -1,12 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import PillApp from "./PillApp";
-import CompactApp from "./CompactApp";
-import HudApp from "./HudApp";
-import DashboardApp from "./DashboardApp";
-import "./index.css";
+import { ErrorBoundary } from "@/components";
+import PillApp from "@/PillApp";
+import CompactApp from "@/CompactApp";
+import HudApp from "@/HudApp";
+import DashboardApp from "@/DashboardApp";
+import "@/index.css";
 
 async function boot() {
   const label = getCurrentWindow().label;

@@ -1,7 +1,7 @@
-import { useNetworkPoller } from "./hooks/useNetworkPoller";
-import { PillWidget } from "./components/PillWidget";
-import { useWidgetSettings } from "./hooks/useWidgetSettings";
-import "./pill.css";
+import { useNetworkPoller } from "@/hooks";
+import { PillWidget } from "@/components";
+import { useWidgetSettings } from "@/hooks";
+import "@/pill.css";
 
 export default function PillApp() {
   useNetworkPoller();

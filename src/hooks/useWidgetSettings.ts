@@ -8,7 +8,7 @@ import {
   LS_PILL_MODE,
   LS_COMPACT_MODE,
   LS_HUD_MODE,
-} from "@/utils/theme";
+} from "@/utils";
 import {
   getStoredPillAlwaysOnTop,
   getStoredCompactAlwaysOnTop,
@@ -16,7 +16,7 @@ import {
   LS_PILL_ALWAYS_ON_TOP,
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
-} from "@/utils/windowPrefs";
+} from "@/utils";
 
 type WidgetLabel = "pill" | "compact" | "hud";
 

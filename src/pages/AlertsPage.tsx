@@ -1,5 +1,5 @@
-import { useNetworkStore } from "@/store/networkStore";
-import { formatSpeed } from "@/utils/formatSpeed";
+import { useNetworkStore } from "@/store";
+import { formatSpeed } from "@/utils";
 import { useMemo } from "react";
 
 export function AlertsPage() {

@@ -1,13 +1,12 @@
-import { invokeWithTimeout } from "../utils/invokeWithTimeout";
+import { invokeWithTimeout } from "@/utils";
 import type {
   BandwidthSample,
   DailyUsage,
   HourlyUsage,
   MonthlyUsage,
   UsageStats,
-} from "../types/persistence";
+} from "@/types";
 
-// FIX: Issue 2.2 — Renamed from useStorageApi (not a hook), moved to api/
 export async function fetchUsageStats(): Promise<UsageStats> {
   return invokeWithTimeout<UsageStats>("get_usage_stats_cmd");
 }

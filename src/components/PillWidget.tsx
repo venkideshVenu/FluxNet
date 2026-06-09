@@ -1,6 +1,6 @@
-import { useNetworkStore } from "@/store/networkStore";
-import { formatSpeed } from "@/utils/formatSpeed";
-import { useDragToMove } from "@/hooks/useDragToMove";
+import { useNetworkStore } from "@/store";
+import { formatSpeed } from "@/utils";
+import { useDragToMove } from "@/hooks";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {

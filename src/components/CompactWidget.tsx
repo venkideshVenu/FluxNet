@@ -1,10 +1,10 @@
-import { fetchUsageStats } from "@/hooks/useStorageApi";
 import { useNetworkStore } from "@/store";
 import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
-import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
+import { formatBytes, formatSpeed } from "@/utils";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { useDragToMove } from "@/hooks/useDragToMove";
+import { useDragToMove } from "@/hooks";
+import { fetchUsageStats } from "@/api";
 
 export function CompactWidget() {
   const { data, isConnected, todayDownloadBytes, todayUploadBytes } =

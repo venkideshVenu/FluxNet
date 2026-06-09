@@ -15,14 +15,14 @@ import {
   fetchHourlySummary,
   fetchMonthlySummary,
   fetchUsageStats,
-} from "../hooks/useStorageApi";
-import { formatBytes, formatSpeed } from "../utils/formatSpeed";
+} from "@/api";
+import { formatBytes, formatSpeed } from "@/utils";
 import type {
   DailyUsage,
   HourlyUsage,
   MonthlyUsage,
   UsageStats,
-} from "../types/persistence";
+} from "@/types";
 
 type Tab = "hourly" | "daily" | "monthly";
 

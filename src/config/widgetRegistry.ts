@@ -5,7 +5,7 @@ import {
   LS_PILL_INTERVAL,
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
-} from "../utils/polling";
+} from "@/utils";
 import {
   getStoredPillAlwaysOnTop,
   getStoredCompactAlwaysOnTop,
@@ -13,7 +13,7 @@ import {
   LS_PILL_ALWAYS_ON_TOP,
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
-} from "../utils/windowPrefs";
+} from "@/utils";
 import {
   getStoredPillMode,
   getStoredCompactMode,
@@ -22,7 +22,7 @@ import {
   LS_COMPACT_MODE,
   LS_HUD_MODE,
   ColorMode,
-} from "../utils/theme";
+} from "@/utils";
 
 export type WidgetLabel = "pill" | "compact" | "hud";
 

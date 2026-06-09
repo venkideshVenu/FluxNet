@@ -1,8 +1,8 @@
 import { usePingPoller } from "@/hooks";
 import { useNetworkStore, usePingStore } from "@/store";
-import { formatSpeed } from "@/utils/formatSpeed";
+import { formatSpeed } from "@/utils";
 import { HudPresentation } from "./HudPresentation";
-import { useDragToMove } from "@/hooks/useDragToMove";
+import { useDragToMove } from "@/hooks";
 
 export function GamingHud() {
   usePingPoller(2000);

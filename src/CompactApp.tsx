@@ -1,6 +1,6 @@
-import { useNetworkPoller } from "./hooks/useNetworkPoller";
-import { CompactWidget } from "./components/CompactWidget";
-import { useWidgetSettings } from "./hooks/useWidgetSettings";
+import { useNetworkPoller } from "@/hooks";
+import { CompactWidget } from "@/components";
+import { useWidgetSettings } from "@/hooks";
 import "./compact.css";
 
 export default function CompactApp() {

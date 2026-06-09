@@ -7,9 +7,8 @@ import {
   getStoredColorMode,
   LS_THEME,
   LS_MODE,
-} from "../utils/theme";
+} from "@/utils";
 
-// FIX: Issue 5.4 — Theme initialization with storage event subscription
 export function useThemeSync() {
   useEffect(() => {
     const apply = () => {

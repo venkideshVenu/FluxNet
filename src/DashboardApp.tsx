@@ -1,20 +1,20 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useNetworkPoller } from "./hooks/useNetworkPoller";
-import { Sidebar } from "./components/Sidebar";
-import { DashboardPage } from "./pages/DashboardPage";
-import { HistoryPage } from "./pages/HistoryPage";
-import { InterfacesPage } from "./pages/InterfacesPage";
-import { AlertsPage } from "./pages/AlertsPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { WidgetSettingsPage } from "./pages/WidgetSettingsPage";
+import { useNetworkPoller } from "@/hooks";
+import { Sidebar } from "@/components";
+import { DashboardPage } from "@/pages";
+import { HistoryPage } from "@/pages";
+import { InterfacesPage } from "@/pages";
+import { AlertsPage } from "@/pages";
+import { SettingsPage } from "@/pages";
+import { WidgetSettingsPage } from "@/pages";
 import {
   THEMES,
   applyAccent,
   applyColorMode,
   getStoredAccentIndex,
   getStoredColorMode,
-} from "./utils/theme";
+} from "@/utils";
 import "./dashboard.css";
 
 export default function DashboardApp() {

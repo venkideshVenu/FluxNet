@@ -1,6 +1,6 @@
-import { useNetworkPoller } from "./hooks/useNetworkPoller";
-import { GamingHud } from "./components/GamingHud";
-import { useWidgetSettings } from "./hooks/useWidgetSettings";
+import { useNetworkPoller } from "@/hooks";
+import { GamingHud } from "@/components";
+import { useWidgetSettings } from "@/hooks";
 import "./hud.css";
 
 export default function HudApp() {

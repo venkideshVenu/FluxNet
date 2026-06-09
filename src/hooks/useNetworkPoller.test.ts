@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useNetworkPoller } from "./useNetworkPoller";
-import { useNetworkStore } from "../store/networkStore";
+import { useNetworkStore } from "@/store";
 
 // Mock the Tauri invoke function
 vi.mock("@tauri-apps/api/core", () => ({

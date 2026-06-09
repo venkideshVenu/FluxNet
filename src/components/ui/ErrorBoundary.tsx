@@ -1,6 +1,5 @@
 import React from "react";
 
-// FIX: Issue 14.4 — Global error boundary prevents blank white screen crashes
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;

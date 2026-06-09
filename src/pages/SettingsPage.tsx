@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNetworkStore, DisplayUnits } from "@/store/networkStore";
+import { useNetworkStore, DisplayUnits } from "@/store";
 import {
   THEMES,
   applyAccent,
@@ -8,7 +8,7 @@ import {
   getStoredAccentIndex,
   getStoredColorMode,
   ColorMode,
-} from "@/utils/theme";
+} from "@/utils";
 import { setStorageItem } from "@/utils";
 
 export function SettingsPage() {
