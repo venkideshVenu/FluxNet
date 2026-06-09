@@ -16,6 +16,7 @@ import {
   getStoredColorMode,
 } from "@/utils";
 import "./dashboard.css";
+import { AppProviders } from "./AppProviders";
 
 export default function DashboardApp() {
   // No argument needed — the poller reads its interval from the store
@@ -29,21 +30,23 @@ export default function DashboardApp() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <div className="app-shell">
-        <Sidebar />
-        <main className="app-content">
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/interfaces" element={<InterfacesPage />} />
-            <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/widgets" element={<WidgetSettingsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+    <AppProviders>
+      <BrowserRouter>
+        <div className="app-shell">
+          <Sidebar />
+          <main id="main-content" className="app-content">
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/interfaces" element={<InterfacesPage />} />
+              <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/widgets" element={<WidgetSettingsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
+      </BrowserRouter>
+    </AppProviders>
   );
 }
