@@ -41,7 +41,6 @@ export function CompactWidget() {
             ul: stats.todayUploadBytes,
           });
       } catch (err) {
-        // FIX: Issue 14.1 — Log errors instead of silently swallowing
         console.error("CompactWidget: fetchUsageStats failed:", err);
       }
     };
@@ -61,14 +60,10 @@ export function CompactWidget() {
         interfaceName={data.interfaceName}
         isConnected={isConnected}
         intervalLabel={intervalLabel}
-        downloadValue={dn.value}
-        downloadUnit={dn.unit}
-        uploadValue={up.value}
-        uploadUnit={up.unit}
-        todayDownloadValue={dnToday.value}
-        todayDownloadUnit={dnToday.unit}
-        todayUploadValue={upToday.value}
-        todayUploadUnit={upToday.unit}
+        download={dn}
+        upload={up}
+        todayDownload={dnToday}
+        todayUpload={upToday}
       />
     </div>
   );

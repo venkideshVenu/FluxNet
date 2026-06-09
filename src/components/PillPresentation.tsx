@@ -1,4 +1,4 @@
-interface PillPresentationProps {
+export interface PillPresentationProps {
   downloadValue: string;
   downloadUnit: string;
   uploadValue: string;

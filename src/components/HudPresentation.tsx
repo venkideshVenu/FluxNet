@@ -1,4 +1,4 @@
-interface HudPresentationProps {
+export interface HudPresentationProps {
   downloadValue: string;
   downloadUnit: string;
   uploadValue: string;
@@ -17,11 +17,12 @@ export function HudPresentation({
 }: HudPresentationProps) {
   const latencyText = latencyMs < 0 ? "—" : `${Math.round(latencyMs)}`;
   const lossText = `${lossPercent.toFixed(1)}%`;
+
   const pingColour =
     latencyMs < 0
       ? "var(--hud-muted)"
       : latencyMs < 50
-        ? "var(--hud-amber)"
+        ? "var(--hud-good)"
         : latencyMs < 150
           ? "var(--hud-amber)"
           : "var(--hud-danger)";

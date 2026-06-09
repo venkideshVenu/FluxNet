@@ -1,6 +1,3 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ColorMode } from "@/utils";
 import { Toggle } from "@/components";
 import { PillPresentation } from "@/components";
@@ -12,6 +9,16 @@ import {
   WidgetLabel,
   WidgetRegistryEntry,
 } from "@/config";
+import { useWidgetPanelState } from "@/hooks/useWidgetPanelState";
+import type { PillPresentationProps } from "@/components/PillPresentation";
+import type { CompactPresentationProps } from "@/components/CompactPresentation";
+import type { HudPresentationProps } from "@/components/HudPresentation";
+
+// FIX: Issue 15.1 — Typed preview component properly instead of React.ComponentType<any>
+type PreviewProps =
+  | PillPresentationProps
+  | CompactPresentationProps
+  | HudPresentationProps;
 
 interface WidgetViewConfig {
   entry: WidgetRegistryEntry;
@@ -20,7 +27,7 @@ interface WidgetViewConfig {
     colorMode: ColorMode,
     opacity: number,
     intervalMs: number,
-  ) => Record<string, unknown>;
+  ) => PreviewProps;
 }
 
 const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
@@ -42,14 +49,10 @@ const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
       interfaceName: "en0",
       isConnected: true,
       intervalLabel: `${intervalMs / 1000}s`,
-      downloadValue: "24.5",
-      downloadUnit: "MB/s",
-      uploadValue: "3.2",
-      uploadUnit: "MB/s",
-      todayDownloadValue: "12.3",
-      todayDownloadUnit: "GB",
-      todayUploadValue: "2.1",
-      todayUploadUnit: "GB",
+      download: { value: "24.5", unit: "MB/s" },
+      upload: { value: "3.2", unit: "MB/s" },
+      todayDownload: { value: "12.3", unit: "GB" },
+      todayUpload: { value: "2.1", unit: "GB" },
     }),
   },
   hud: {
@@ -66,96 +69,143 @@ const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
   },
 };
 
+const INTERVAL_OPTIONS = [
+  { value: "0.5", label: "0.5 seconds" },
+  { value: "1", label: "1 second" },
+  { value: "2", label: "2 seconds" },
+  { value: "5", label: "5 seconds" },
+];
+
+// FIX: Issue 3.1 — Split WidgetConfigPanel into smaller focused sub-components
+
+/** Widget behavior settings (always-on-top, dark mode, interval) */
+function WidgetBehaviorSettings({
+  alwaysOnTop,
+  colorMode,
+  intervalMs,
+  onAlwaysOnTopChange,
+  onColorModeChange,
+  onIntervalChange,
+}: {
+  alwaysOnTop: boolean;
+  colorMode: ColorMode;
+  intervalMs: number;
+  onAlwaysOnTopChange: (value: boolean) => void;
+  onColorModeChange: (mode: ColorMode) => void;
+  onIntervalChange: (raw: string) => void;
+}) {
+  return (
+    <>
+      <div className="settings-row">
+        <div>
+          <div className="settings-label">Always on top</div>
+          <div className="settings-sub">Float above all windows</div>
+        </div>
+        <Toggle
+          checked={alwaysOnTop}
+          onChange={() => onAlwaysOnTopChange(!alwaysOnTop)}
+          label="Always on top"
+        />
+      </div>
+      <div className="settings-row">
+        <div>
+          <div className="settings-label">Dark mode</div>
+          <div className="settings-sub">Use a dark theme</div>
+        </div>
+        <Toggle
+          checked={colorMode === "dark"}
+          onChange={() =>
+            onColorModeChange(colorMode === "dark" ? "light" : "dark")
+          }
+          label="Dark mode"
+        />
+      </div>
+      <div className="settings-row">
+        <div>
+          <div className="settings-label">Refresh interval</div>
+          <div className="settings-sub">How often the widget updates</div>
+        </div>
+        <select
+          className="fn-select"
+          value={String(intervalMs / 1000)}
+          onChange={(e) => onIntervalChange(e.target.value)}
+        >
+          {INTERVAL_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
+  );
+}
+
+/** Widget appearance settings (opacity slider) */
+function WidgetAppearanceSettings({
+  opacity,
+  onOpacityChange,
+  onOpacityCommit,
+}: {
+  opacity: number;
+  onOpacityChange: (value: number) => void;
+  onOpacityCommit: (value: number) => void;
+}) {
+  return (
+    <div className="settings-row">
+      <div>
+        <div className="settings-label">Opacity</div>
+        <div className="settings-sub">{opacity}%</div>
+      </div>
+      <input
+        type="range"
+        className="fn-slider"
+        min={40}
+        max={100}
+        value={opacity}
+        onChange={(e) => onOpacityChange(Number(e.target.value))}
+        onMouseUp={(e) =>
+          onOpacityCommit(Number((e.target as HTMLInputElement).value))
+        }
+        onTouchEnd={(e) =>
+          onOpacityCommit(Number((e.target as HTMLInputElement).value))
+        }
+      />
+    </div>
+  );
+}
+
+/** Live preview panel for a widget */
+function WidgetPreview({
+  previewBg,
+  previewComponent: Preview,
+  previewProps,
+}: {
+  previewBg: string;
+  previewComponent: React.ComponentType<any>;
+  previewProps: PreviewProps;
+}) {
+  return (
+    <div className="widget-preview-panel" style={{ background: previewBg }}>
+      <div className="preview-content">
+        <Preview {...previewProps} />
+      </div>
+    </div>
+  );
+}
+
+/** Full config panel for a single widget — now a thin coordinator */
 function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const view = WIDGET_VIEWS[widgetLabel];
   const config = view.entry;
 
-  const [visible, setVisible] = useState<boolean | null>(null);
-  const [alwaysOnTop, setAlwaysOnTop] = useState(config.getStoredAlwaysOnTop());
-  const [opacity, setOpacity] = useState(() => {
-    const saved = localStorage.getItem(config.opacityKey);
-    return saved ? Number(saved) : config.defaultOpacity;
-  });
-  const [colorMode, setColorMode] = useState<ColorMode>(config.getStoredMode());
-  const [intervalMs, setIntervalMs] = useState(config.getStoredInterval());
+  const state = useWidgetPanelState(config);
 
-  useEffect(() => {
-    WebviewWindow.getByLabel(config.label).then((win) => {
-      if (win) {
-        win.isVisible().then(setVisible);
-      } else {
-        setVisible(false);
-      }
-    });
-  }, [config.label]);
-
-  const toggleVisible = async () => {
-    const next = !visible;
-    setVisible(next);
-    await invoke("set_widget_visibility", {
-      label: config.label,
-      visible: next,
-    });
-  };
-
-  const handleAlwaysOnTop = async (value: boolean) => {
-    setAlwaysOnTop(value);
-    localStorage.setItem(config.alwaysOnTopKey, String(value));
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.alwaysOnTopKey,
-        newValue: String(value),
-      }),
-    );
-    await invoke("set_widget_always_on_top", { label: config.label, value });
-  };
-
-  const handleOpacityCommit = async (value: number) => {
-    localStorage.setItem(config.opacityKey, String(value));
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.opacityKey,
-        newValue: String(value),
-      }),
-    );
-    await invoke("set_widget_opacity", {
-      label: config.label,
-      value: value / 100,
-    });
-  };
-
-  const handleColorMode = (mode: ColorMode) => {
-    setColorMode(mode);
-    localStorage.setItem(config.modeKey, mode);
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.modeKey,
-        newValue: mode,
-      }),
-    );
-  };
-
-  const handleInterval = (raw: string) => {
-    const ms = parseFloat(raw) * 1000;
-    setIntervalMs(ms);
-    localStorage.setItem(config.intervalKey, String(ms));
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: config.intervalKey,
-        newValue: String(ms),
-      }),
-    );
-  };
-
-  const intervalOptions = [
-    { value: "0.5", label: "0.5 seconds" },
-    { value: "1", label: "1 second" },
-    { value: "2", label: "2 seconds" },
-    { value: "5", label: "5 seconds" },
-  ];
-
-  const Preview = view.previewComponent;
-  const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
+  const previewProps = view.getPreviewProps(
+    state.colorMode,
+    state.opacity,
+    state.intervalMs,
+  );
 
   return (
     <div className="widget-section">
@@ -171,94 +221,41 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
             className="settings-card"
             style={{ borderTop: `2px solid ${config.accentColor}22` }}
           >
-            <div className="settings-row">
-              <div>
-                <div className="settings-label">Always on top</div>
-                <div className="settings-sub">Float above all windows</div>
-              </div>
-              <Toggle
-                checked={alwaysOnTop}
-                onChange={() => handleAlwaysOnTop(!alwaysOnTop)}
-                label="Always on top"
-              />
-            </div>
-            <div className="settings-row">
-              <div>
-                <div className="settings-label">Dark mode</div>
-                <div className="settings-sub">Use a dark theme</div>
-              </div>
-              <Toggle
-                checked={colorMode === "dark"}
-                onChange={() =>
-                  handleColorMode(colorMode === "dark" ? "light" : "dark")
-                }
-                label="Dark mode"
-              />
-            </div>
-            <div className="settings-row">
-              <div>
-                <div className="settings-label">Refresh interval</div>
-                <div className="settings-sub">How often the widget updates</div>
-              </div>
-              <select
-                className="fn-select"
-                value={String(intervalMs / 1000)}
-                onChange={(e) => handleInterval(e.target.value)}
-              >
-                {intervalOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="settings-row">
-              <div>
-                <div className="settings-label">Opacity</div>
-                <div className="settings-sub">{opacity}%</div>
-              </div>
-              <input
-                type="range"
-                className="fn-slider"
-                min={40}
-                max={100}
-                value={opacity}
-                onChange={(e) => setOpacity(Number(e.target.value))}
-                onMouseUp={(e) =>
-                  handleOpacityCommit(
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
-                onTouchEnd={(e) =>
-                  handleOpacityCommit(
-                    Number((e.target as HTMLInputElement).value),
-                  )
-                }
-              />
-            </div>
+            <WidgetBehaviorSettings
+              alwaysOnTop={state.alwaysOnTop}
+              colorMode={state.colorMode}
+              intervalMs={state.intervalMs}
+              onAlwaysOnTopChange={state.handleAlwaysOnTop}
+              onColorModeChange={state.handleColorMode}
+              onIntervalChange={state.handleInterval}
+            />
+            <WidgetAppearanceSettings
+              opacity={state.opacity}
+              onOpacityChange={state.handleOpacityChange}
+              onOpacityCommit={state.handleOpacityCommit}
+            />
           </div>
         </div>
-        <div
-          className="widget-preview-panel"
-          style={{ background: config.previewBg }}
-        >
-          <div className="preview-content">
-            <Preview {...previewProps} />
-          </div>
-        </div>
+
+        <WidgetPreview
+          previewBg={config.previewBg}
+          previewComponent={view.previewComponent}
+          previewProps={previewProps}
+        />
+
         <button
-          className={`visibility-btn ${visible ? "visible" : "hidden"}`}
-          onClick={toggleVisible}
-          disabled={visible === null}
+          className={`visibility-btn ${state.visible ? "visible" : "hidden"}`}
+          onClick={state.toggleVisible}
+          disabled={state.visible === null}
           style={{ color: config.accentColor }}
         >
           <span
             className="visibility-btn-dot"
             style={{ background: config.accentColor }}
           />
-          {visible === null
+          {state.visible === null
             ? "Loading…"
-            : visible
+            : state.visible
               ? "Hide Widget"
               : "Show Widget"}
         </button>

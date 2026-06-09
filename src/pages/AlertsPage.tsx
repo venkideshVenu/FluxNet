@@ -34,6 +34,16 @@ export function AlertsPage() {
           time: "just now",
         });
       }
+
+      if (peakUpload > 0 && last.upload > peakUpload * 0.9) {
+        const sp = formatSpeed(last.upload);
+        list.push({
+          type: "warn",
+          title: "Upload spike",
+          body: `Upload hit ${sp.value} ${sp.unit} — near session peak.`,
+          time: "just now",
+        });
+      }
     }
 
     if (list.length === 0) {

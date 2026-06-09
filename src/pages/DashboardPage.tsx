@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -8,50 +9,42 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useNetworkStore } from "@/store";
-import { formatSpeed } from "@/utils";
+import { formatSpeed, computeChartScale } from "@/utils";
 
 export function DashboardPage() {
-  const { data, isConnected, peakDownload, history } = useNetworkStore();
+  const { data, isConnected, peakDownload, history, pollIntervalMs } =
+    useNetworkStore();
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
   const pk = formatSpeed(peakDownload);
 
-  // Convert history bytes → MB for chart display
-  const chartData = history.map((p, i) => ({
-    t: i,
-    upload: +(p.upload / 1_048_576).toFixed(2),
-    download: +(p.download / 1_048_576).toFixed(2),
-  }));
-
-  const maxValue = chartData.reduce(
-    (max, point) => Math.max(max, point.upload, point.download),
-    0,
+  const chartData = useMemo(
+    () =>
+      history.map((p, i) => ({
+        t: i,
+        upload: +(p.upload / 1_048_576).toFixed(2),
+        download: +(p.download / 1_048_576).toFixed(2),
+      })),
+    [history],
   );
-  const step =
-    maxValue <= 0.1
-      ? 0.02
-      : maxValue <= 0.5
-        ? 0.1
-        : maxValue <= 1
-          ? 0.2
-          : maxValue <= 2
-            ? 0.5
-            : maxValue <= 5
-              ? 1
-              : maxValue <= 20
-                ? 2
-                : maxValue <= 50
-                  ? 5
-                  : maxValue <= 100
-                    ? 10
-                    : maxValue <= 200
-                      ? 20
-                      : maxValue <= 500
-                        ? 50
-                        : 100;
-  const yMax = Math.max(step, Math.ceil(maxValue / step) * step);
-  const precision = maxValue < 1 ? 2 : maxValue < 10 ? 1 : 0;
+
+  const maxValue = useMemo(
+    () =>
+      chartData.reduce(
+        (max, point) => Math.max(max, point.upload, point.download),
+        0,
+      ),
+    [chartData],
+  );
+
+  const { step, yMax, precision } = useMemo(
+    () => computeChartScale(maxValue),
+    [maxValue],
+  );
+
+  // Derive interval label from store instead of hardcoding
+  const intervalLabel = `${pollIntervalMs / 1000}s`;
 
   return (
     <div className="page">
@@ -59,7 +52,7 @@ export function DashboardPage() {
         <div>
           <div className="page-title">Dashboard</div>
           <div className="page-subtitle">
-            {data.interfaceName || "—"} · updating every 1s
+            {data.interfaceName || "—"} · updating every {intervalLabel}
           </div>
         </div>
         <span className="live-badge">
@@ -147,7 +140,7 @@ export function DashboardPage() {
                 tickLine={false}
                 width={32}
                 domain={[0, yMax]}
-                tickCount={5}
+                tickCount={Math.min(5, Math.floor(yMax / step) + 1)}
                 tickFormatter={(v) => Number(v).toFixed(precision)}
               />
               <Tooltip
