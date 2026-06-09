@@ -1,42 +1,64 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNetworkStore, DisplayUnits } from "../store/networkStore";
+import { useSettingsStore, DisplayUnits } from "@/store";
+import { useNetworkStore } from "@/store";
 import {
   THEMES,
-  LS_THEME,
-  LS_MODE,
   applyAccent,
   applyColorMode,
   getStoredAccentIndex,
   getStoredColorMode,
   ColorMode,
-} from "../utils/theme";
+  setStorageItem,
+} from "@/utils";
 
 export function SettingsPage() {
-  const pollIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
-  const displayUnits = useNetworkStore((s) => s.displayUnits);
-  const setPollInterval = useNetworkStore((s) => s.setPollInterval);
-  const setDisplayUnits = useNetworkStore((s) => s.setDisplayUnits);
+  const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
+  const pingTarget = useSettingsStore((s) => s.pingTarget);
+  const setPollInterval = useSettingsStore((s) => s.setPollInterval);
+  const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
+  const setPingTarget = useSettingsStore((s) => s.setPingTarget);
+
+  const resetPeaks = useNetworkStore((s) => s.resetPeaks);
 
   const [startWithOS, setStartWithOS] = useState(false);
+  const [autostartAvailable, setAutostartAvailable] = useState(true);
+  const [autostartError, setAutostartError] = useState<string | null>(null);
+
   const [selectedTheme, setSelectedTheme] = useState(getStoredAccentIndex);
   const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
-  const [pingTarget, setPingTarget] = useState("1.1.1.1");
+  const [localPingTarget, setLocalPingTarget] = useState(pingTarget);
 
-  // Load backend settings on mount
+  const pingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     invoke<number>("get_refresh_interval")
       .then((ms) => setPollInterval(ms))
       .catch(console.warn);
     invoke<string>("get_ping_target")
-      .then((target) => setPingTarget(target))
+      .then((target) => {
+        setPingTarget(target);
+        setLocalPingTarget(target);
+      })
       .catch(console.warn);
     invoke<boolean>("autostart:is-enabled")
-      .then((enabled) => setStartWithOS(enabled))
-      .catch(() => setStartWithOS(false));
-  }, []);
+      .then((enabled) => {
+        setStartWithOS(enabled);
+        setAutostartAvailable(true);
+      })
+      .catch((err) => {
+        setStartWithOS(false);
+        setAutostartAvailable(false);
+        setAutostartError("Autostart plugin not available. Feature disabled.");
+        console.warn("autostart not available:", err);
+      });
+  }, [setPollInterval, setPingTarget]);
 
-  // Theme & color mode effects
+  useEffect(() => {
+    setLocalPingTarget(pingTarget);
+  }, [pingTarget]);
+
   useEffect(() => {
     applyAccent(THEMES[selectedTheme]?.color ?? THEMES[0].color);
   }, [selectedTheme]);
@@ -48,34 +70,65 @@ export function SettingsPage() {
     const secs = parseFloat(raw);
     const ms = secs * 1000;
     setPollInterval(ms);
-    await invoke("set_refresh_interval", { intervalMs: ms });
+    await invoke("set_refresh_interval", { intervalMs: ms }).catch(
+      console.warn,
+    );
   };
 
   const handleUnits = (raw: string) => setDisplayUnits(raw as DisplayUnits);
 
   const handleStartWithOS = async (value: boolean) => {
+    if (!autostartAvailable) return;
     setStartWithOS(value);
+    setAutostartError(null);
     try {
       if (value) await invoke("autostart:enable");
       else await invoke("autostart:disable");
     } catch (err) {
-      console.warn("autostart not available:", err);
+      setAutostartError(
+        "Failed to change autostart setting. Please try again.",
+      );
+      setStartWithOS(!value);
+      console.warn("autostart error:", err);
     }
   };
 
-  const handlePingTarget = async (target: string) => {
-    setPingTarget(target);
-    await invoke("set_ping_target", { target }).catch(console.warn);
-  };
+  const handlePingTarget = useCallback(
+    (target: string) => {
+      setLocalPingTarget(target);
+      if (pingDebounceRef.current) {
+        clearTimeout(pingDebounceRef.current);
+      }
+      const isValid = /^[a-zA-Z0-9.\-:]+$/.test(target) && target.length > 0;
+      if (isValid) {
+        pingDebounceRef.current = setTimeout(() => {
+          setPingTarget(target);
+          invoke("set_ping_target", { target }).catch(console.warn);
+        }, 500);
+      }
+    },
+    [setPingTarget],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (pingDebounceRef.current) clearTimeout(pingDebounceRef.current);
+    };
+  }, []);
 
   const handleTheme = (index: number) => {
     setSelectedTheme(index);
-    localStorage.setItem(LS_THEME, String(index));
+    setStorageItem("fluxnet_accent_index", index);
   };
 
   const handleColorMode = (mode: ColorMode) => {
     setColorMode(mode);
-    localStorage.setItem(LS_MODE, mode);
+    setStorageItem("fluxnet_color_mode", mode);
+  };
+
+  const handleResetPeaks = () => {
+    resetPeaks();
+    invoke("reset_peaks").catch(console.warn);
   };
 
   return (
@@ -136,8 +189,10 @@ export function SettingsPage() {
             <input
               type="text"
               className="fn-input"
-              value={pingTarget}
+              value={localPingTarget}
               onChange={(e) => handlePingTarget(e.target.value)}
+              placeholder="e.g. 1.1.1.1"
+              pattern="[a-zA-Z0-9.\-:]+"
               style={{ width: 160, fontFamily: "monospace" }}
             />
           </div>
@@ -145,13 +200,38 @@ export function SettingsPage() {
           <div className="settings-row">
             <div>
               <div className="settings-label">Start with Windows</div>
-              <div className="settings-sub">Launch FluxNet at login</div>
+              <div className="settings-sub">
+                Launch FluxNet at login
+                {autostartError && (
+                  <span
+                    style={{
+                      display: "block",
+                      color: "var(--danger, #c33)",
+                      fontSize: 11,
+                      marginTop: 4,
+                    }}
+                  >
+                    {autostartError}
+                  </span>
+                )}
+              </div>
             </div>
             <div
-              className={`toggle ${startWithOS ? "on" : "off"}`}
+              className={`toggle ${startWithOS ? "on" : "off"} ${!autostartAvailable ? "disabled" : ""}`}
               onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
+              aria-disabled={!autostartAvailable}
+              tabIndex={autostartAvailable ? 0 : -1}
+              onKeyDown={(e) => {
+                if (
+                  autostartAvailable &&
+                  (e.key === " " || e.key === "Enter")
+                ) {
+                  e.preventDefault();
+                  handleStartWithOS(!startWithOS);
+                }
+              }}
             >
               <div className="toggle-thumb" />
             </div>
@@ -174,6 +254,13 @@ export function SettingsPage() {
               }
               role="switch"
               aria-checked={colorMode === "dark"}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  handleColorMode(colorMode === "dark" ? "light" : "dark");
+                }
+              }}
             >
               <div className="toggle-thumb" />
             </div>
@@ -188,13 +275,20 @@ export function SettingsPage() {
             }}
           >
             <div className="settings-label">Accent colour</div>
-            <div className="theme-chips">
+            <div
+              className="theme-chips"
+              role="radiogroup"
+              aria-label="Accent colour"
+            >
               {THEMES.map((t, i) => (
-                <div
+                <button
                   key={i}
+                  type="button"
                   className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
                   style={{ background: t.color }}
                   title={t.label}
+                  aria-label={`${t.label} theme`}
+                  aria-pressed={selectedTheme === i}
                   onClick={() => handleTheme(i)}
                 />
               ))}
@@ -214,17 +308,9 @@ export function SettingsPage() {
               </div>
             </div>
             <button
-              onClick={() => invoke("reset_peaks")}
-              style={{
-                background: "#FFF0F0",
-                color: "#DC2626",
-                border: "1px solid #FECACA",
-                borderRadius: 7,
-                padding: "5px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
+              type="button"
+              onClick={handleResetPeaks}
+              className="btn-danger"
             >
               Reset peaks
             </button>

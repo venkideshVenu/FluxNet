@@ -1,7 +1,12 @@
 import { create } from "zustand";
 
+/**
+ * Ping/latency statistics store.
+ * Used exclusively by the HUD widget via usePingPoller.
+ */
 type PingStats = {
-  latencyMs: number; // -1 means timeout
+  /** Ping latency in milliseconds. `null` means no data / timeout. */
+  latencyMs: number | null;
   lossPercent: number;
 };
 
@@ -11,6 +16,6 @@ type PingStore = {
 };
 
 export const usePingStore = create<PingStore>((set) => ({
-  stats: { latencyMs: -1, lossPercent: 0 },
+  stats: { latencyMs: null, lossPercent: 0 },
   setStats: (stats) => set({ stats }),
 }));

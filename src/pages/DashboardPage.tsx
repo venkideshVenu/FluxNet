@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
   Area,
@@ -7,51 +9,89 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
+import { useNetworkStore } from "@/store";
+import { useSettingsStore } from "@/store";
+import { formatSpeed, computeChartScale, getStorageItem } from "@/utils";
 
 export function DashboardPage() {
-  const { data, isConnected, peakDownload, history } = useNetworkStore();
+  const {
+    data,
+    isConnected,
+    isInitialized,
+    lastError,
+    peakDownload,
+    history,
+    dismissError,
+  } = useNetworkStore();
+
+  const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+  const navigate = useNavigate();
 
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
   const pk = formatSpeed(peakDownload);
 
-  // Convert history bytes → MB for chart display
-  const chartData = history.map((p, i) => ({
-    t: i,
-    upload: +(p.upload / 1_048_576).toFixed(2),
-    download: +(p.download / 1_048_576).toFixed(2),
-  }));
-
-  const maxValue = chartData.reduce(
-    (max, point) => Math.max(max, point.upload, point.download),
-    0,
+  const chartData = useMemo(
+    () =>
+      history.map((p, i) => ({
+        t: i,
+        upload: +(p.upload / 1_048_576).toFixed(2),
+        download: +(p.download / 1_048_576).toFixed(2),
+      })),
+    [history],
   );
-  const step =
-    maxValue <= 0.1
-      ? 0.02
-      : maxValue <= 0.5
-        ? 0.1
-        : maxValue <= 1
-          ? 0.2
-          : maxValue <= 2
-            ? 0.5
-            : maxValue <= 5
-              ? 1
-              : maxValue <= 20
-                ? 2
-                : maxValue <= 50
-                  ? 5
-                  : maxValue <= 100
-                    ? 10
-                    : maxValue <= 200
-                      ? 20
-                      : maxValue <= 500
-                        ? 50
-                        : 100;
-  const yMax = Math.max(step, Math.ceil(maxValue / step) * step);
-  const precision = maxValue < 1 ? 2 : maxValue < 10 ? 1 : 0;
+
+  const maxValue = useMemo(
+    () =>
+      chartData.reduce(
+        (max, point) => Math.max(max, point.upload, point.download),
+        0,
+      ),
+    [chartData],
+  );
+
+  const { yMax, precision } = useMemo(
+    () => computeChartScale(maxValue),
+    [maxValue],
+  );
+
+  const intervalLabel = `${pollIntervalMs / 1000}s`;
+
+  const isFirstRun = !getStorageItem("fluxnet_configured", "");
+  const hasNoInterface = !data.interfaceName;
+
+  if (!isInitialized) {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <div className="page-title">Dashboard</div>
+            <div className="page-subtitle">Connecting to network monitor…</div>
+          </div>
+        </div>
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-label">Download</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Upload</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Peak today</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -59,7 +99,7 @@ export function DashboardPage() {
         <div>
           <div className="page-title">Dashboard</div>
           <div className="page-subtitle">
-            {data.interfaceName || "—"} · updating every 1s
+            {data.interfaceName || "—"} · updating every {intervalLabel}
           </div>
         </div>
         <span className="live-badge">
@@ -67,6 +107,39 @@ export function DashboardPage() {
           {isConnected ? "Live" : "No signal"}
         </span>
       </div>
+
+      {lastError && (
+        <div className="error-banner" role="alert">
+          <span className="error-banner-text">
+            ⚠️ Monitoring error: {lastError}
+          </span>
+          <button
+            type="button"
+            className="error-banner-dismiss"
+            onClick={dismissError}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {isFirstRun && hasNoInterface && (
+        <div className="first-run-banner">
+          <span className="first-run-banner-icon">👋</span>
+          <div className="first-run-banner-text">
+            <strong>Welcome to FluxNet!</strong>
+            Select a network interface to begin monitoring your bandwidth.
+          </div>
+          <button
+            type="button"
+            className="first-run-banner-action"
+            onClick={() => navigate("/interfaces")}
+          >
+            Select Interface
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="stat-grid">

@@ -1,19 +1,41 @@
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
-import { useMemo } from "react";
+import { useNetworkStore } from "@/store";
+import { formatSpeed } from "@/utils";
+import { useMemo, useRef } from "react";
+
+/** Formats a timestamp as a relative "Xs ago" / "Xm ago" string */
+function formatRelativeTime(timestampMs: number): string {
+  const diffMs = Date.now() - timestampMs;
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  return `${diffHr}h ago`;
+}
 
 export function AlertsPage() {
   const { peakUpload, peakDownload, isConnected, history } = useNetworkStore();
 
+  // Track when the session started for timestamp context
+  const sessionStartRef = useRef(Date.now());
+
   const alerts = useMemo(() => {
-    const list: { type: "warn" | "error" | "info"; title: string; body: string; time: string }[] = [];
+    const now = Date.now();
+    const list: {
+      type: "warn" | "error" | "info";
+      title: string;
+      body: string;
+      time: string;
+    }[] = [];
 
     if (!isConnected) {
       list.push({
         type: "error",
         title: "Interface disconnected",
         body: "FluxNet lost contact with the network interface. Check your connection.",
-        time: "just now",
+        time: formatRelativeTime(now),
       });
     }
 
@@ -26,7 +48,17 @@ export function AlertsPage() {
           type: "warn",
           title: "Download spike",
           body: `Download hit ${sp.value} ${sp.unit} — near session peak.`,
-          time: "just now",
+          time: formatRelativeTime(now),
+        });
+      }
+
+      if (peakUpload > 0 && last.upload > peakUpload * 0.9) {
+        const sp = formatSpeed(last.upload);
+        list.push({
+          type: "warn",
+          title: "Upload spike",
+          body: `Upload hit ${sp.value} ${sp.unit} — near session peak.`,
+          time: formatRelativeTime(now),
         });
       }
     }
@@ -36,7 +68,7 @@ export function AlertsPage() {
         type: "info",
         title: "All clear",
         body: "No alerts this session. FluxNet is monitoring normally.",
-        time: "now",
+        time: `Session started ${formatRelativeTime(sessionStartRef.current)}`,
       });
     }
 
@@ -48,7 +80,9 @@ export function AlertsPage() {
       <div className="page-header">
         <div>
           <div className="page-title">Alerts</div>
-          <div className="page-subtitle">Session notifications and anomalies</div>
+          <div className="page-subtitle">
+            Session notifications and anomalies
+          </div>
         </div>
       </div>
 

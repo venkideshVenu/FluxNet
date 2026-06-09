@@ -1,37 +1,19 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useNetworkStore } from "../store/networkStore";
+import { useNetworkStore } from "@/store";
+import {
+  formatLinkSpeed,
+  invokeWithTimeout,
+  getStorageItem,
+  setStorageItem,
+} from "@/utils";
 
 type InterfaceInfo = {
   name: string;
   description: string;
-  ifIndex: number;
+  if_index: number;
   status: string;
   mac: string;
-  linkSpeedBps: number;
-};
-
-const formatLinkSpeed = (bps: number) => {
-  if (!bps || bps <= 0) {
-    return "0 bps";
-  }
-
-  const units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"];
-  let value = bps;
-  let i = 0;
-
-  while (value >= 1000 && i < units.length - 1) {
-    value /= 1000;
-    i += 1;
-  }
-
-  const rounded =
-    value >= 100
-      ? value.toFixed(0)
-      : value >= 10
-        ? value.toFixed(1)
-        : value.toFixed(2);
-  return `${rounded} ${units[i]}`;
+  link_speed_bps: number;
 };
 
 export function InterfacesPage() {
@@ -39,17 +21,24 @@ export function InterfacesPage() {
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
+  const [error, setError] = useState<string | null>(null);
+
+  const isFirstRun = !getStorageItem("fluxnet_configured", "");
 
   useEffect(() => {
-    invoke<InterfaceInfo[]>("get_interfaces")
+    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
       .then(setInterfaces)
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Failed to load interfaces:", err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
   }, []);
 
   const select = async (name: string) => {
     setSelecting(name);
     try {
-      await invoke("set_interface", { name });
+      await invokeWithTimeout("set_interface", { name });
+      setStorageItem("fluxnet_configured", "true");
     } catch (e) {
       console.error(e);
     } finally {
@@ -64,9 +53,7 @@ export function InterfacesPage() {
   const downCount = totalCount - upCount;
 
   const visibleInterfaces = interfaces.filter((iface) => {
-    if (filter === "all") {
-      return true;
-    }
+    if (filter === "all") return true;
     const isUp = iface.status.toLowerCase() === "up";
     return filter === "up" ? isUp : !isUp;
   });
@@ -81,6 +68,17 @@ export function InterfacesPage() {
           </div>
         </div>
       </div>
+
+      {isFirstRun && (
+        <div className="first-run-banner">
+          <span className="first-run-banner-icon">🎯</span>
+          <div className="first-run-banner-text">
+            <strong>Select your network interface to begin monitoring</strong>
+            Choose an active (Up) interface from the list below. FluxNet will
+            start tracking bandwidth immediately.
+          </div>
+        </div>
+      )}
 
       <div className="iface-hero">
         <div className="iface-hero-card">
@@ -121,7 +119,28 @@ export function InterfacesPage() {
       </div>
 
       <div className="chart-card">
-        {visibleInterfaces.length === 0 ? (
+        {error ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">⚠️</div>
+            <div className="empty-state-text">
+              Failed to load interfaces: {error}
+            </div>
+            <button
+              type="button"
+              className="btn-retry"
+              onClick={() => {
+                setError(null);
+                invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
+                  .then(setInterfaces)
+                  .catch((err) => {
+                    setError(err instanceof Error ? err.message : String(err));
+                  });
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : visibleInterfaces.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">⚡</div>
             <div className="empty-state-text">
@@ -151,20 +170,23 @@ export function InterfacesPage() {
                   : isUp
                     ? "connected"
                     : "disconnected";
-              const linkSpeedLabel = formatLinkSpeed(iface.linkSpeedBps);
+              const linkSpeedLabel = formatLinkSpeed(iface.link_speed_bps);
               const macLabel = iface.mac || "—";
 
               return (
-                <div
+                <button
                   key={iface.name}
+                  type="button"
                   className={`iface-row ${isSelectable ? "" : "disabled"} ${isActive ? "highlight" : ""}`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
                   }
-                  aria-disabled={!isSelectable}
+                  disabled={!isSelectable}
+                  aria-label={`${iface.name} — ${statusLabel}${isActive ? " (active)" : ""}`}
                 >
                   <div
                     className={`iface-icon ${isUp ? "up" : "down"} ${!isActive && !isPending ? "inactive" : ""}`}
+                    aria-hidden="true"
                   >
                     {isUp ? "⌘" : "◌"}
                   </div>
@@ -176,7 +198,7 @@ export function InterfacesPage() {
                       {iface.description || "—"}
                     </div>
                     <div className="iface-meta">
-                      IF {iface.ifIndex} · {macLabel}
+                      IF {iface.if_index} · {macLabel}
                     </div>
                   </div>
                   <div className="iface-details">
@@ -192,7 +214,7 @@ export function InterfacesPage() {
                   <span className={`iface-badge ${badgeClass}`}>
                     {badgeLabel}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>

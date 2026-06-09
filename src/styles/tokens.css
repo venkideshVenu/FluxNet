@@ -1,0 +1,114 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLUXNET DESIGN TOKENS
+   
+   Single source of truth for all CSS variables.
+   Imported by index.css → available to all windows.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Light Mode (default) ────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #f7f6ff;
+  --panel: #ffffff;
+  --panel-hover: #f5f4fa;
+  --surface: #fafafe;
+
+  /* Borders */
+  --border: #eceaf8;
+  --border-strong: #d4d2e0;
+
+  /* Text */
+  --text: #1a1830;
+  --text-muted: #9995cc;
+  --text-subtle: #6b68a0;
+
+  /* Accent (base — overridden dynamically by applyAccent()) */
+  --accent: #7c6ff7;
+  --accent-strong: #5b54c4;
+  --accent-soft: #eeedfe;
+  --accent-soft-2: #f3f2fd;
+  --accent-border: #c8c5f5;
+  --accent-muted: #e0def5;
+  --accent-shadow: rgba(124, 111, 247, 0.2);
+
+  /* Network */
+  --net-upload: #119a55;
+  --net-download: #197db4;
+
+  /* Status */
+  --success: #22c97a;
+  --success-bg: #dcfbee;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --danger-text: #dc2626;
+  --danger-border: #fecaca;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Typography */
+  --font-sans: "DM Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px var(--accent-border);
+}
+
+/* ── Dark Mode ───────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0f1016;
+  --panel: #161826;
+  --panel-hover: #1e2030;
+  --surface: #12141e;
+
+  --border: #27293b;
+  --border-strong: #3d3960;
+
+  --text: #eef0f7;
+  --text-muted: #9f9bbb;
+  --text-subtle: #b7b3d6;
+
+  --accent-soft: #1e1a35;
+  --accent-soft-2: #16142a;
+  --accent-border: #3d3670;
+  --accent-muted: #2a2550;
+
+  --success-bg: #0d2818;
+  --warning-bg: #2a1f0a;
+  --danger-bg: #2a0f0f;
+  --danger-text: #f87171;
+  --danger-border: #7f1d1d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── HUD-specific tokens ─────────────────────────────────────────────────── */
+:root {
+  --hud-good: #22c55e;
+  --hud-amber: #f59e0b;
+  --hud-danger: #ef4444;
+  --hud-muted: rgba(234, 233, 255, 0.6);
+}
+
+:root[data-theme="light"] {
+  --hud-good: #16a34a;
+  --hud-amber: #c97d00;
+  --hud-danger: #dc2626;
+  --hud-muted: #7a86a5;
+}

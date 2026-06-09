@@ -1,46 +1,103 @@
 import { describe, it, expect } from "vitest";
-import { formatSpeed } from "./formatSpeed";
+import { formatSpeed, formatBytes } from "./formatSpeed";
 
 describe("formatSpeed", () => {
-  it("returns 0.0 B/s for zero input", () => {
-    const r = formatSpeed(0);
-    expect(r.value).toBe("0.0");
-    expect(r.unit).toBe("B/s");
+  describe("auto mode", () => {
+    it("should return 0.0 B/s for zero input", () => {
+      const result = formatSpeed(0);
+      expect(result).toEqual({ value: "0.0", unit: "B/s" });
+    });
+
+    it("should return 0.0 B/s for negative input", () => {
+      const result = formatSpeed(-100);
+      expect(result).toEqual({ value: "0.0", unit: "B/s" });
+    });
+
+    it("should format bytes per second", () => {
+      const result = formatSpeed(500);
+      expect(result).toEqual({ value: "500", unit: "B/s" });
+    });
+
+    it("should format kilobytes per second", () => {
+      const result = formatSpeed(1024 * 50);
+      expect(result).toEqual({ value: "50.0", unit: "KB/s" });
+    });
+
+    it("should format megabytes per second", () => {
+      const result = formatSpeed(1024 * 1024 * 25);
+      expect(result).toEqual({ value: "25.0", unit: "MB/s" });
+    });
+
+    it("should format gigabytes per second", () => {
+      const result = formatSpeed(1024 * 1024 * 1024 * 1.5);
+      expect(result).toEqual({ value: "1.50", unit: "GB/s" });
+    });
+
+    it("should handle Infinity gracefully", () => {
+      const result = formatSpeed(Infinity);
+      expect(result).toEqual({ value: "0.0", unit: "B/s" });
+    });
+
+    it("should handle NaN gracefully", () => {
+      const result = formatSpeed(NaN);
+      expect(result).toEqual({ value: "0.0", unit: "B/s" });
+    });
   });
 
-  it("formats bytes correctly", () => {
-    const r = formatSpeed(500);
-    expect(r.value).toBe("500");
-    expect(r.unit).toBe("B/s");
+  describe("forced units", () => {
+    it("should force MB/s", () => {
+      const result = formatSpeed(1024 * 1024 * 10, "MB/s");
+      expect(result).toEqual({ value: "10.0", unit: "MB/s" });
+    });
+
+    it("should force KB/s", () => {
+      const result = formatSpeed(1024 * 100, "KB/s");
+      expect(result).toEqual({ value: "100.0", unit: "KB/s" });
+    });
+
+    it("should force Mbps", () => {
+      // 1 MB/s = 8 Mbps (roughly, using 1000*1000 for Mbps)
+      const result = formatSpeed(1000 * 1000, "Mbps");
+      expect(result).toEqual({ value: "8.0", unit: "Mbps" });
+    });
+
+    it("should return 0.0 with forced unit for zero", () => {
+      expect(formatSpeed(0, "MB/s")).toEqual({ value: "0.0", unit: "MB/s" });
+      expect(formatSpeed(0, "KB/s")).toEqual({ value: "0.0", unit: "KB/s" });
+      expect(formatSpeed(0, "Mbps")).toEqual({ value: "0.0", unit: "Mbps" });
+    });
+  });
+});
+
+describe("formatBytes", () => {
+  it("should return 0 B for zero input", () => {
+    expect(formatBytes(0)).toEqual({ value: "0", unit: "B" });
   });
 
-  it("formats kilobytes correctly", () => {
-    const r = formatSpeed(1536); // 1.5 KB
-    expect(r.value).toBe("1.5");
-    expect(r.unit).toBe("KB/s");
+  it("should return 0 B for negative input", () => {
+    expect(formatBytes(-100)).toEqual({ value: "0", unit: "B" });
   });
 
-  it("formats megabytes correctly", () => {
-    const r = formatSpeed(12_582_912); // 12.0 MB
-    expect(r.value).toBe("12.0");
-    expect(r.unit).toBe("MB/s");
+  it("should format bytes", () => {
+    expect(formatBytes(500)).toEqual({ value: "500", unit: "B" });
   });
 
-  it("formats gigabytes correctly", () => {
-    const r = formatSpeed(1_073_741_824); // 1 GB
-    expect(r.value).toBe("1.00");
-    expect(r.unit).toBe("GB/s");
+  it("should format kilobytes", () => {
+    const result = formatBytes(1024 * 50);
+    expect(result).toEqual({ value: "50.0", unit: "KB" });
   });
 
-  it("handles negative values safely", () => {
-    const r = formatSpeed(-100);
-    expect(r.value).toBe("0.0");
-    expect(r.unit).toBe("B/s");
+  it("should format megabytes", () => {
+    const result = formatBytes(1024 * 1024 * 25);
+    expect(result).toEqual({ value: "25.0", unit: "MB" });
   });
 
-  it("handles Infinity safely", () => {
-    const r = formatSpeed(Infinity);
-    expect(r.value).toBe("0.0");
-    expect(r.unit).toBe("B/s");
+  it("should format gigabytes", () => {
+    const result = formatBytes(1024 * 1024 * 1024 * 2.5);
+    expect(result).toEqual({ value: "2.5", unit: "GB" });
+  });
+
+  it("should handle Infinity gracefully", () => {
+    expect(formatBytes(Infinity)).toEqual({ value: "0", unit: "B" });
   });
 });

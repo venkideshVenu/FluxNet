@@ -1,3 +1,5 @@
+import { getStorageItem } from "./storage";
+
 export type ColorMode = "light" | "dark";
 
 type Rgb = { r: number; g: number; b: number };
@@ -13,11 +15,11 @@ export const THEMES: ThemeSwatch[] = [
   { color: "#1A1830", label: "Midnight" },
 ];
 
-export const LS_THEME = "fluxnet_accent_index";
-export const LS_MODE = "fluxnet_color_mode";
-export const LS_PILL_MODE = "fluxnet_pill_mode";
-export const LS_COMPACT_MODE = "fluxnet_compact_mode";
-export const LS_HUD_MODE = "fluxnet_hud_mode";
+export const LS_THEME = "fluxnet_accent_index" as const;
+export const LS_MODE = "fluxnet_color_mode" as const;
+export const LS_PILL_MODE = "fluxnet_pill_mode" as const;
+export const LS_COMPACT_MODE = "fluxnet_compact_mode" as const;
+export const LS_HUD_MODE = "fluxnet_hud_mode" as const;
 
 function hexToRgb(hex: string): Rgb | null {
   const normalized = hex.trim().replace("#", "");
@@ -44,7 +46,6 @@ function rgbToHex({ r, g, b }: Rgb): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-/** Apply the accent colour as CSS variables on <html> */
 export function applyAccent(color: string) {
   const root = document.documentElement.style;
   root.setProperty("--accent", color);
@@ -66,19 +67,16 @@ export function applyAccent(color: string) {
   );
 }
 
-/** Apply the light/dark mode as a data attribute on <html> */
 export function applyColorMode(mode: ColorMode) {
   document.documentElement.setAttribute("data-theme", mode);
 }
 
 export function getStoredAccentIndex(fallback = 0): number {
-  const saved = localStorage.getItem(LS_THEME);
-  const parsed = saved ? Number(saved) : fallback;
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return getStorageItem(LS_THEME, fallback);
 }
 
 export function getStoredColorMode(): ColorMode {
-  const saved = localStorage.getItem(LS_MODE);
+  const saved = getStorageItem(LS_MODE, "system");
   if (saved === "light" || saved === "dark") return saved;
   if (
     typeof window !== "undefined" &&
@@ -90,19 +88,19 @@ export function getStoredColorMode(): ColorMode {
 }
 
 export function getStoredPillMode(): ColorMode {
-  const saved = localStorage.getItem(LS_PILL_MODE);
+  const saved = getStorageItem(LS_PILL_MODE, "dark");
   if (saved === "light" || saved === "dark") return saved;
   return "dark";
 }
 
 export function getStoredCompactMode(): ColorMode {
-  const saved = localStorage.getItem(LS_COMPACT_MODE);
+  const saved = getStorageItem(LS_COMPACT_MODE, "dark");
   if (saved === "light" || saved === "dark") return saved;
   return "dark";
 }
 
 export function getStoredHudMode(): ColorMode {
-  const saved = localStorage.getItem(LS_HUD_MODE);
+  const saved = getStorageItem(LS_HUD_MODE, "dark");
   if (saved === "light" || saved === "dark") return saved;
   return "dark";
 }

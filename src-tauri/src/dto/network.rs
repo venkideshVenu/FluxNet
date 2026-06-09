@@ -35,10 +35,3 @@ pub struct NetworkStatsEvent {
     pub download_bps: f64,
     pub interface_name: String,
 }
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PingStatsEvent {
-    pub latency_ms: f64,
-    pub loss_percent: f64,
-}

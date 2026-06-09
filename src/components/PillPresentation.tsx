@@ -1,4 +1,6 @@
-interface PillPresentationProps {
+import { memo } from "react";
+
+export interface PillPresentationProps {
   downloadValue: string;
   downloadUnit: string;
   uploadValue: string;
@@ -6,7 +8,8 @@ interface PillPresentationProps {
   isConnected: boolean;
 }
 
-export function PillPresentation({
+// All props are primitives (strings, boolean), so default shallow comparison works correctly.
+export const PillPresentation = memo(function PillPresentation({
   downloadValue,
   downloadUnit,
   uploadValue,
@@ -47,4 +50,4 @@ export function PillPresentation({
       />
     </div>
   );
-}
+});

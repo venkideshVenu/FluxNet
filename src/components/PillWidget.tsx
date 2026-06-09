@@ -1,26 +1,23 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useNetworkStore } from "../store/networkStore";
-import { formatSpeed } from "../utils/formatSpeed";
+import { useNetworkStore } from "@/store";
+import { formatSpeed } from "@/utils";
+import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {
   const { data, isConnected } = useNetworkStore();
   const up = formatSpeed(data.uploadBytesPerSec);
   const dn = formatSpeed(data.downloadBytesPerSec);
-
-  const handleDragStart = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      await getCurrentWindow().startDragging();
-    } catch {}
-  };
+  const handleDrag = useDragToMove();
+  const handleKeyNudge = useKeyboardNudge();
 
   return (
     <div
-      onMouseDown={handleDragStart}
+      onMouseDown={handleDrag}
+      onKeyDown={handleKeyNudge}
       role="status"
-      title="Drag to move"
-      aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}`}
+      tabIndex={0}
+      title="Drag to move · Arrow keys to nudge"
+      aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}. Use arrow keys to reposition.`}
     >
       <PillPresentation
         downloadValue={dn.value}

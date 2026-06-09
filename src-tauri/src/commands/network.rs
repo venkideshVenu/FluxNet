@@ -65,7 +65,6 @@ pub struct MonitorState {
     pub peak_upload: f64,
     pub peak_download: f64,
     pub history: VecDeque<HistoryPoint>,
-    pub start_time: Instant,
     pub last_upload: f64,
     pub last_download: f64,
     // interfaces_cache REMOVED from here — now lives in SharedInterfacesCache (FIX R2)
@@ -81,7 +80,6 @@ impl Default for MonitorState {
             peak_upload: 0.0,
             peak_download: 0.0,
             history: VecDeque::with_capacity(120),
-            start_time: Instant::now(),
             last_upload: 0.0,
             last_download: 0.0,
         }

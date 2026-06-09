@@ -1,29 +1,29 @@
-interface CompactPresentationProps {
+import { memo } from "react";
+
+export interface SpeedStat {
+  value: string;
+  unit: string;
+}
+
+export interface CompactPresentationProps {
   interfaceName: string;
   isConnected: boolean;
   intervalLabel: string;
-  downloadValue: string;
-  downloadUnit: string;
-  uploadValue: string;
-  uploadUnit: string;
-  todayDownloadValue: string;
-  todayDownloadUnit: string;
-  todayUploadValue: string;
-  todayUploadUnit: string;
+  download: SpeedStat;
+  upload: SpeedStat;
+  todayDownload: SpeedStat;
+  todayUpload: SpeedStat;
 }
 
-export function CompactPresentation({
+// Custom comparator checks nested SpeedStat objects for equality.
+export const CompactPresentation = memo(function CompactPresentation({
   interfaceName,
   isConnected,
   intervalLabel,
-  downloadValue,
-  downloadUnit,
-  uploadValue,
-  uploadUnit,
-  todayDownloadValue,
-  todayDownloadUnit,
-  todayUploadValue,
-  todayUploadUnit,
+  download,
+  upload,
+  todayDownload,
+  todayUpload,
 }: CompactPresentationProps) {
   return (
     <div className="cw-root" role="status">
@@ -56,8 +56,8 @@ export function CompactPresentation({
             <span className="cw-dir dn" /> Download
           </span>
           <span className="cw-speed-value">
-            <span className="cw-num">{downloadValue}</span>
-            <span className="cw-unit">{downloadUnit}</span>
+            <span className="cw-num">{download.value}</span>
+            <span className="cw-unit">{download.unit}</span>
           </span>
         </div>
         <div className="cw-speed-row">
@@ -65,8 +65,8 @@ export function CompactPresentation({
             <span className="cw-dir up" /> Upload
           </span>
           <span className="cw-speed-value">
-            <span className="cw-num">{uploadValue}</span>
-            <span className="cw-unit">{uploadUnit}</span>
+            <span className="cw-num">{upload.value}</span>
+            <span className="cw-unit">{upload.unit}</span>
           </span>
         </div>
       </div>
@@ -78,16 +78,16 @@ export function CompactPresentation({
         <span className="cw-today-values">
           <span className="cw-today-item">
             <span className="cw-dir dn" />
-            <span className="cw-today-num">{todayDownloadValue}</span>
-            <span className="cw-today-unit">{todayDownloadUnit}</span>
+            <span className="cw-today-num">{todayDownload.value}</span>
+            <span className="cw-today-unit">{todayDownload.unit}</span>
           </span>
           <span className="cw-today-item">
             <span className="cw-dir up" />
-            <span className="cw-today-num">{todayUploadValue}</span>
-            <span className="cw-today-unit">{todayUploadUnit}</span>
+            <span className="cw-today-num">{todayUpload.value}</span>
+            <span className="cw-today-unit">{todayUpload.unit}</span>
           </span>
         </span>
       </div>
     </div>
   );
-}
+});

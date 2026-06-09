@@ -20,7 +20,10 @@ async function boot() {
 
   document.documentElement.setAttribute("data-app", label);
 
-  ReactDOM.createRoot(document.getElementById("root")!).render(
+  const root = document.getElementById("root");
+  if (!root) throw new Error("Root element #root not found in DOM");
+
+  ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <Root />
     </React.StrictMode>,

@@ -1,4 +1,3 @@
-/* ── CSS variables ── */
 :root {
   --hud-bg-outer: #0c0b18;
   --hud-bg-card: #13111f;
@@ -8,6 +7,7 @@
   --hud-label: rgba(214, 211, 255, 0.85);
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
+  --hud-good: #22c55e;
   --hud-amber: #f59e0b;
   --hud-danger: #ef4444;
   --hud-neutral: #ffffff;
@@ -26,6 +26,7 @@ html[data-app="hud"][data-theme="light"] {
   --hud-label: #51607f;
   --hud-up: var(--net-upload);
   --hud-dn: var(--net-download);
+  --hud-good: #16a34a;
   --hud-amber: #c97d00;
   --hud-danger: #dc2626;
   --hud-neutral: #18213d;
@@ -135,6 +136,11 @@ html[data-app="hud"][data-theme="light"] .hud-card {
 .hud-drag-handle:active {
   cursor: grabbing;
   opacity: 1;
+}
+
+.hud-drag-handle:focus-visible {
+  outline: 2px solid var(--hud-amber);
+  outline-offset: 2px;
 }
 
 .hud-drag-handle::before {

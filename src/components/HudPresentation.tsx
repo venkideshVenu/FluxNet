@@ -1,13 +1,16 @@
-interface HudPresentationProps {
+import { memo } from "react";
+
+export interface HudPresentationProps {
   downloadValue: string;
   downloadUnit: string;
   uploadValue: string;
   uploadUnit: string;
-  latencyMs: number;
+  /** Ping latency in ms. `null` means no data / timeout. */
+  latencyMs: number | null;
   lossPercent: number;
 }
 
-export function HudPresentation({
+export const HudPresentation = memo(function HudPresentation({
   downloadValue,
   downloadUnit,
   uploadValue,
@@ -15,13 +18,14 @@ export function HudPresentation({
   latencyMs,
   lossPercent,
 }: HudPresentationProps) {
-  const latencyText = latencyMs < 0 ? "—" : `${Math.round(latencyMs)}`;
+  const latencyText = latencyMs === null ? "—" : `${Math.round(latencyMs)}`;
   const lossText = `${lossPercent.toFixed(1)}%`;
+
   const pingColour =
-    latencyMs < 0
+    latencyMs === null
       ? "var(--hud-muted)"
       : latencyMs < 50
-        ? "var(--hud-amber)"
+        ? "var(--hud-good)"
         : latencyMs < 150
           ? "var(--hud-amber)"
           : "var(--hud-danger)";
@@ -63,7 +67,7 @@ export function HudPresentation({
             <span className="hud-row-label">PING</span>
             <span className="hud-row-value" style={{ color: pingColour }}>
               {latencyText}
-              {latencyMs >= 0 && <span className="hud-unit">ms</span>}
+              {latencyMs !== null && <span className="hud-unit">ms</span>}
             </span>
           </div>
           <div className="hud-row">
@@ -74,4 +78,4 @@ export function HudPresentation({
       </div>
     </div>
   );
-}
+});

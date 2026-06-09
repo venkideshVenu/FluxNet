@@ -1,11 +1,16 @@
 import { useNetworkPoller } from "./hooks/useNetworkPoller";
 import { GamingHud } from "./components/GamingHud";
 import { useWidgetSettings } from "./hooks/useWidgetSettings";
-import "./hud.css";
+import { AppProviders } from "./AppProviders";
+import "./styles/hud.css";
 
 export default function HudApp() {
   useNetworkPoller();
   useWidgetSettings("hud");
 
-  return <GamingHud />;
+  return (
+    <AppProviders>
+      <GamingHud />
+    </AppProviders>
+  );
 }
