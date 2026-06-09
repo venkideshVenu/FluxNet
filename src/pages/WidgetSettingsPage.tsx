@@ -14,10 +14,6 @@ import {
 } from "@/config";
 import { useWidgetPanelState } from "@/hooks/useWidgetPanelState";
 
-// FIX: Issue 15.1 — Properly typed preview configuration per widget type.
-// Each widget has a specific preview component type and matching props getter.
-// This eliminates `React.ComponentType<any>` and `Record<string, any>`.
-
 interface PillViewConfig {
   entry: WidgetRegistryEntry;
   previewComponent: typeof PillPresentation;
@@ -191,11 +187,12 @@ function WidgetAppearanceSettings({
   );
 }
 
-/**
- * FIX: Issue 15.1 — Type-safe preview rendering.
- * The Preview component and its props are linked through the WidgetViewConfig type.
- */
-function WidgetPreview({ view, colorMode, opacity, intervalMs }: {
+function WidgetPreview({
+  view,
+  colorMode,
+  opacity,
+  intervalMs,
+}: {
   view: WidgetViewConfig;
   colorMode: ColorMode;
   opacity: number;

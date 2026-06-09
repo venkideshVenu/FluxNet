@@ -5,6 +5,7 @@ import { fetchPingStats } from "@/api";
 
 /**
  * Polls get_ping_stats every intervalMs.
+ * Internally guards against non-HUD windows.
  */
 export function usePingPoller(intervalMs = 2000) {
   const setStats = usePingStore((s) => s.setStats);
@@ -19,7 +20,8 @@ export function usePingPoller(intervalMs = 2000) {
       try {
         const raw = await fetchPingStats();
         setStats({
-          latencyMs: raw.latency_ms,
+          // Backend uses -1 for timeout; frontend uses null
+          latencyMs: raw.latency_ms < 0 ? null : raw.latency_ms,
           lossPercent: raw.loss_percent,
         });
       } catch (err) {

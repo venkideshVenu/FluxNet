@@ -17,9 +17,7 @@ import {
   fetchUsageStats,
 } from "@/api";
 import { formatBytes, formatSpeed } from "@/utils";
-import { StatCard } from "@/components";
-import { ChartCard } from "@/components";
-import { EmptyMessage } from "@/components";
+import { StatCard, ChartCard, EmptyMessage } from "@/components";
 import type {
   DailyUsage,
   HourlyUsage,
@@ -29,9 +27,8 @@ import type {
 
 type Tab = "hourly" | "daily" | "monthly";
 
-type DisplayValue = { value: string; unit: string };
-
-function renderValue(result: DisplayValue) {
+/** Joins a { value, unit } result into a single display string */
+function formatDisplay(result: { value: string; unit: string }): string {
   return `${result.value} ${result.unit}`;
 }
 
@@ -137,32 +134,26 @@ export function HistoryPage() {
     [sortedMonthly],
   );
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "hourly", label: "Last 48 h" },
-    { id: "daily", label: "Last 30 days" },
-    { id: "monthly", label: "Monthly" },
-  ];
-
   const summaryCards = useMemo(
     () =>
       stats
         ? [
             {
               label: "Downloaded today",
-              value: renderValue(formatBytes(stats.todayDownloadBytes)),
+              value: formatDisplay(formatBytes(stats.todayDownloadBytes)),
             },
             {
               label: "Uploaded today",
-              value: renderValue(formatBytes(stats.todayUploadBytes)),
+              value: formatDisplay(formatBytes(stats.todayUploadBytes)),
             },
             {
               label: "This week",
-              value: renderValue(formatBytes(stats.weekDownloadBytes)),
+              value: formatDisplay(formatBytes(stats.weekDownloadBytes)),
               sub: "↓",
             },
             {
               label: "This month",
-              value: renderValue(formatBytes(stats.monthDownloadBytes)),
+              value: formatDisplay(formatBytes(stats.monthDownloadBytes)),
               sub: "↓",
             },
           ]
@@ -170,8 +161,14 @@ export function HistoryPage() {
     [stats],
   );
 
-  // Monthly data is sorted by "YYYY-MM" string — lexicographic = chronological
+  // Monthly data sorted by "YYYY-MM" — lexicographic = chronological
   const currentMonthly = sortedMonthly.at(-1) ?? null;
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "hourly", label: "Last 48 h" },
+    { id: "daily", label: "Last 30 days" },
+    { id: "monthly", label: "Monthly" },
+  ];
 
   return (
     <div className="page">
@@ -184,11 +181,18 @@ export function HistoryPage() {
         </div>
       </div>
 
-      {initialLoad && <div className="page-subtitle">Loading history…</div>}
+      {initialLoad && (
+        <div
+          className="page-subtitle"
+          style={{ padding: "40px 0", textAlign: "center" }}
+        >
+          Loading history…
+        </div>
+      )}
 
-      {error && (
-        <div className="page-subtitle" style={{ color: "var(--danger, #c33)" }}>
-          {error}
+      {error && !initialLoad && (
+        <div className="error-banner" role="alert">
+          <span className="error-banner-text">⚠️ {error}</span>
         </div>
       )}
 
@@ -272,13 +276,13 @@ export function HistoryPage() {
                     </defs>
                     <XAxis
                       dataKey="label"
-                      tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                      tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                      tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => Number(value).toFixed(0)}
@@ -286,7 +290,7 @@ export function HistoryPage() {
                     />
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#ECEAF8"
+                      stroke="var(--border)"
                       vertical={false}
                     />
                     <Tooltip
@@ -328,18 +332,18 @@ export function HistoryPage() {
                   <BarChart data={dailyChart} barGap={2}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="#ECEAF8"
+                      stroke="var(--border)"
                       vertical={false}
                     />
                     <XAxis
                       dataKey="label"
-                      tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                      tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
                       interval={4}
                     />
                     <YAxis
-                      tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                      tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => Number(value).toFixed(0)}
@@ -381,7 +385,7 @@ export function HistoryPage() {
                   label="Latest month ↓"
                   value={
                     currentMonthly
-                      ? renderValue(
+                      ? formatDisplay(
                           formatBytes(currentMonthly.totalDownloadBytes),
                         )
                       : "—"
@@ -391,7 +395,7 @@ export function HistoryPage() {
                   label="Latest month ↑"
                   value={
                     currentMonthly
-                      ? renderValue(
+                      ? formatDisplay(
                           formatBytes(currentMonthly.totalUploadBytes),
                         )
                       : "—"
@@ -401,14 +405,16 @@ export function HistoryPage() {
                   label="Peak download"
                   value={
                     stats
-                      ? renderValue(formatSpeed(stats.peakDownloadBps))
+                      ? formatDisplay(formatSpeed(stats.peakDownloadBps))
                       : "—"
                   }
                 />
                 <StatCard
                   label="Peak upload"
                   value={
-                    stats ? renderValue(formatSpeed(stats.peakUploadBps)) : "—"
+                    stats
+                      ? formatDisplay(formatSpeed(stats.peakUploadBps))
+                      : "—"
                   }
                 />
               </div>
@@ -424,18 +430,18 @@ export function HistoryPage() {
                     <BarChart data={monthlyChart} barGap={2}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#ECEAF8"
+                        stroke="var(--border)"
                         vertical={false}
                       />
                       <XAxis
                         dataKey="label"
-                        tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                        tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                         tickLine={false}
                         axisLine={false}
                         interval={0}
                       />
                       <YAxis
-                        tick={{ fill: "#C8C5F5", fontSize: 11 }}
+                        tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                         tickLine={false}
                         axisLine={false}
                         tickFormatter={(value) => Number(value).toFixed(0)}
