@@ -1,10 +1,10 @@
+import { fetchUsageStats } from "@/api/storageApi";
 import { useNetworkStore } from "@/store";
 import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
-import { formatBytes, formatSpeed } from "@/utils";
+import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { useDragToMove } from "@/hooks";
-import { fetchUsageStats } from "@/api";
+import { useDragToMove } from "@/hooks/useDragToMove";
 
 export function CompactWidget() {
   const { data, isConnected, todayDownloadBytes, todayUploadBytes } =
@@ -40,7 +40,10 @@ export function CompactWidget() {
             dl: stats.todayDownloadBytes,
             ul: stats.todayUploadBytes,
           });
-      } catch {}
+      } catch (err) {
+        // FIX: Issue 14.1 — Log errors instead of silently swallowing
+        console.error("CompactWidget: fetchUsageStats failed:", err);
+      }
     };
     syncTodayTotals();
     const id = setInterval(syncTodayTotals, 30_000);

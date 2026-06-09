@@ -63,3 +63,35 @@ export function formatBytes(bytes: number): BytesResult {
   if (bytes >= KB) return { value: (bytes / KB).toFixed(1), unit: "KB" };
   return { value: bytes.toFixed(0), unit: "B" };
 }
+
+/**
+ * Formats a link speed in bits-per-second (bps) to a human-readable string.
+ * Uses SI units (1000-based) since link speeds are conventionally SI.
+ *
+ * FIX: Issue 2.6 — Consolidated from InterfacesPage local function
+ *
+ * @param bps - Link speed in bits per second
+ * @returns Formatted string like "1.00 Gbps" or "100 Mbps"
+ */
+export function formatLinkSpeed(bps: number): string {
+  if (!bps || bps <= 0 || !isFinite(bps)) {
+    return "0 bps";
+  }
+
+  const units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"];
+  let value = bps;
+  let i = 0;
+
+  while (value >= 1000 && i < units.length - 1) {
+    value /= 1000;
+    i += 1;
+  }
+
+  const rounded =
+    value >= 100
+      ? value.toFixed(0)
+      : value >= 10
+        ? value.toFixed(1)
+        : value.toFixed(2);
+  return `${rounded} ${units[i]}`;
+}

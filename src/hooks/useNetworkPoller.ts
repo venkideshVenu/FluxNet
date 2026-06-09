@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNetworkStore } from "@/store";
@@ -9,7 +9,8 @@ import {
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
-} from "@/utils";
+} from "@/utils/polling";
+import { useStoredInterval } from "@/hooks";
 
 // Dashboard and Compact use the full snapshot.
 // Pill and HUD use the lighter live-stats path because they only need the
@@ -30,16 +31,22 @@ export function useNetworkPoller() {
   const addTodayUsage = useNetworkStore((s) => s.addTodayUsage);
   const resetTodayUsage = useNetworkStore((s) => s.resetTodayUsage);
 
-  // Per-window poll intervals
+  // Per-window poll intervals — FIX Issue 2.1: consolidated via useStoredInterval
   const dashboardIntervalMs = useNetworkStore((s) => s.pollIntervalMs);
-  const [pillIntervalMs, setPillIntervalMs] = useState(() =>
-    getStoredPillIntervalMs(),
+  const pillIntervalMs = useStoredInterval(
+    "pill",
+    LS_PILL_INTERVAL,
+    getStoredPillIntervalMs,
   );
-  const [compactIntervalMs, setCompactIntervalMs] = useState(() =>
-    getStoredCompactIntervalMs(),
+  const compactIntervalMs = useStoredInterval(
+    "compact",
+    LS_COMPACT_INTERVAL,
+    getStoredCompactIntervalMs,
   );
-  const [hudIntervalMs, setHudIntervalMs] = useState(() =>
-    getStoredHudIntervalMs(),
+  const hudIntervalMs = useStoredInterval(
+    "hud",
+    LS_HUD_INTERVAL,
+    getStoredHudIntervalMs,
   );
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -52,46 +59,7 @@ export function useNetworkPoller() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   };
 
-  // ── Sync per-window intervals from localStorage ──────────────────────────
-
-  useEffect(() => {
-    if (windowLabel !== "pill") return;
-    const sync = () => setPillIntervalMs(getStoredPillIntervalMs());
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === LS_PILL_INTERVAL) sync();
-    };
-    sync();
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [windowLabel]);
-
-  useEffect(() => {
-    if (windowLabel !== "hud") return;
-    const sync = () => setHudIntervalMs(getStoredHudIntervalMs());
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === LS_HUD_INTERVAL) sync();
-    };
-    sync();
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [windowLabel]);
-
-  useEffect(() => {
-    if (windowLabel !== "compact") return;
-    const sync = () => setCompactIntervalMs(getStoredCompactIntervalMs());
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === LS_COMPACT_INTERVAL) sync();
-    };
-    sync();
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [windowLabel]);
-
   // ── Main polling loop ─────────────────────────────────────────────────────
-  //
-  // The background Rust task is the only thing that ever samples the NIC.
-  // These frontend polls are pure reads: Dashboard and Compact ask for the
-  // full snapshot, while Pill and HUD read only the current speeds.
 
   useEffect(() => {
     const poll = async () => {
@@ -179,6 +147,7 @@ export function useNetworkPoller() {
     hudIntervalMs,
     pillIntervalMs,
     windowLabel,
+    setData,
     addTodayUsage,
     resetTodayUsage,
     setSnapshot,

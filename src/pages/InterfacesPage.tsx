@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNetworkStore } from "@/store";
+import { formatLinkSpeed } from "@/utils";
 
 type InterfaceInfo = {
   name: string;
@@ -11,39 +12,20 @@ type InterfaceInfo = {
   linkSpeedBps: number;
 };
 
-const formatLinkSpeed = (bps: number) => {
-  if (!bps || bps <= 0) {
-    return "0 bps";
-  }
-
-  const units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"];
-  let value = bps;
-  let i = 0;
-
-  while (value >= 1000 && i < units.length - 1) {
-    value /= 1000;
-    i += 1;
-  }
-
-  const rounded =
-    value >= 100
-      ? value.toFixed(0)
-      : value >= 10
-        ? value.toFixed(1)
-        : value.toFixed(2);
-  return `${rounded} ${units[i]}`;
-};
-
 export function InterfacesPage() {
   const { data } = useNetworkStore();
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<InterfaceInfo[]>("get_interfaces")
       .then(setInterfaces)
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Failed to load interfaces:", err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
   }, []);
 
   const select = async (name: string) => {
@@ -121,7 +103,14 @@ export function InterfacesPage() {
       </div>
 
       <div className="chart-card">
-        {visibleInterfaces.length === 0 ? (
+        {error ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">⚠️</div>
+            <div className="empty-state-text">
+              Failed to load interfaces: {error}
+            </div>
+          </div>
+        ) : visibleInterfaces.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">⚡</div>
             <div className="empty-state-text">
@@ -155,16 +144,19 @@ export function InterfacesPage() {
               const macLabel = iface.mac || "—";
 
               return (
-                <div
+                <button
                   key={iface.name}
+                  type="button"
                   className={`iface-row ${isSelectable ? "" : "disabled"} ${isActive ? "highlight" : ""}`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
                   }
-                  aria-disabled={!isSelectable}
+                  disabled={!isSelectable}
+                  aria-label={`${iface.name} — ${statusLabel}${isActive ? " (active)" : ""}`}
                 >
                   <div
                     className={`iface-icon ${isUp ? "up" : "down"} ${!isActive && !isPending ? "inactive" : ""}`}
+                    aria-hidden="true"
                   >
                     {isUp ? "⌘" : "◌"}
                   </div>
@@ -192,7 +184,7 @@ export function InterfacesPage() {
                   <span className={`iface-badge ${badgeClass}`}>
                     {badgeLabel}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>

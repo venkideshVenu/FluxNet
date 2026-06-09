@@ -1,5 +1,5 @@
 export { computeChartScale } from "./chartScale";
-export { formatSpeed, formatBytes } from "./formatSpeed";
+export { formatSpeed, formatBytes, formatLinkSpeed } from "./formatSpeed";
 export type { SpeedResult, BytesResult, DisplayUnits } from "./formatSpeed";
 export { invokeWithTimeout } from "./invokeWithTimeout";
 export {

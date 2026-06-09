@@ -30,11 +30,6 @@ pub fn read_total_counters(networks: &Networks, interface_name: &str) -> Option<
     None
 }
 
-/// Lists all available network interface names from a refreshed Networks object.
-pub fn list_interfaces(networks: &Networks) -> Vec<String> {
-    networks.iter().map(|(name, _)| name.clone()).collect()
-}
-
 // ─── TESTS ───────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
@@ -76,16 +71,6 @@ mod tests {
     fn test_speed_with_sub_second_interval() {
         let speed = calculate_speed(1_500_000, 1_000_000, 0.5);
         assert_eq!(speed, 1_000_000.0);
-    }
-
-    #[test]
-    fn test_list_interfaces_returns_something() {
-        let networks = Networks::new_with_refreshed_list();
-        let interfaces = list_interfaces(&networks);
-        assert!(
-            !interfaces.is_empty(),
-            "expected at least one network interface"
-        );
     }
 
     #[test]
