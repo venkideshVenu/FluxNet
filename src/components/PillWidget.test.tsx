@@ -1,62 +1,83 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";import { render, screen } from "@testing-library/react";
 import { PillWidget } from "./PillWidget";
-import { useNetworkStore } from "../store/networkStore";
+import { useNetworkStore } from "@/store";
 
-beforeEach(() => {
-  useNetworkStore.setState({
-    data: { uploadBytesPerSec: 0, downloadBytesPerSec: 0, interfaceName: "" },
-    isConnected: false,
-  });
-});
+// Mock Tauri APIs via the abstraction layer
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    label: "pill",
+    startDragging: vi.fn(),
+    outerPosition: vi.fn().mockResolvedValue({ x: 0, y: 0 }),
+    setPosition: vi.fn(),
+  }),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+}));
 
 describe("PillWidget", () => {
-  it("renders upload and download sections", () => {
-    render(<PillWidget />);
-    // The aria-label covers both
-    const status = screen.getByRole("status");
-    expect(status).toBeInTheDocument();
-  });
-
-  it("shows 0.0 B/s when no data", () => {
-    render(<PillWidget />);
-    const vals = screen.getAllByText("0.0");
-    expect(vals.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("displays formatted MB/s values from store", () => {
+  beforeEach(() => {
     useNetworkStore.setState({
       data: {
-        uploadBytesPerSec: 12_582_912, // 12.0 MB/s
-        downloadBytesPerSec: 91_488_870, // 87.3 MB/s
-        interfaceName: "wlan0",
+        uploadBytesPerSec: 1_048_576, // 1 MB/s
+        downloadBytesPerSec: 5_242_880, // 5 MB/s
+        interfaceName: "Wi-Fi",
       },
       isConnected: true,
+      isInitialized: true,
     });
-
-    render(<PillWidget />);
-    expect(screen.getByText("12.0")).toBeInTheDocument();
-    expect(screen.getByText("87.3")).toBeInTheDocument();
   });
 
-  it("shows connected live dot when isConnected is true", () => {
-    useNetworkStore.setState({
-      data: {
-        uploadBytesPerSec: 1000,
-        downloadBytesPerSec: 1000,
-        interfaceName: "wlan0",
-      },
-      isConnected: true,
-    });
+  it("renders download and upload values", () => {
+    render(<PillWidget />);
+    expect(screen.getByText("5.0")).toBeInTheDocument();
+    expect(screen.getByText("1.0")).toBeInTheDocument();
+  });
 
+  it("renders units", () => {
+    render(<PillWidget />);
+    const mbUnits = screen.getAllByText("MB/s");
+    expect(mbUnits.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows live dot when connected", () => {
     render(<PillWidget />);
     const dot = document.querySelector(".pill-live-dot.live");
-    expect(dot).toBeInTheDocument();
+    expect(dot).toBeTruthy();
   });
 
   it("shows dead dot when disconnected", () => {
+    useNetworkStore.setState({ isConnected: false });
     render(<PillWidget />);
     const dot = document.querySelector(".pill-live-dot.dead");
-    expect(dot).toBeInTheDocument();
+    expect(dot).toBeTruthy();
   });
+
+  it("has accessible role and label", () => {
+    render(<PillWidget />);
+    const container = screen.getByRole("status");
+    expect(container).toBeTruthy();
+    expect(container.getAttribute("aria-label")).toContain("Download");
+    expect(container.getAttribute("aria-label")).toContain("Upload");
+  });
+
+  it("has tabIndex for keyboard accessibility", () => {
+    render(<PillWidget />);
+    const container = screen.getByRole("status");
+    expect(container.getAttribute("tabindex")).toBe("0");
+  });
+
+  /**
+   * NOTE (Issue 16.3): Drag behavior (onMouseDown → startDragging) cannot be
+   * meaningfully tested in jsdom because:
+   * 1. Tauri's startDragging() is a native window operation
+   * 2. jsdom has no concept of window drag
+   * 3. The mock would only verify the function was called, not actual behavior
+   *
+   * Drag testing should be done via Tauri's E2E test framework if needed.
+   *
+   * Similarly, keyboard nudge (arrow keys → setPosition) uses native window
+   * positioning which is not available in jsdom.
+   */
 });

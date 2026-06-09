@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke, WebviewWindow } from "@/api/tauri";
 import { ColorMode } from "@/utils";
 import { WidgetRegistryEntry } from "@/config";
 import { setStorageWithNotify } from "@/utils/storageEvents";
 
+/**
+ * Manages all local state and side effects for a single widget config panel.
+ * FIX: Issue 16.2 — Uses api/tauri.ts for all Tauri API access.
+ */
 export function useWidgetPanelState(config: WidgetRegistryEntry) {
   const [visible, setVisible] = useState<boolean | null>(null);
   const [alwaysOnTop, setAlwaysOnTop] = useState(config.getStoredAlwaysOnTop());

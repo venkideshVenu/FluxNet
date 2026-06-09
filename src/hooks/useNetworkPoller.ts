@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { WINDOW_LABEL } from "@/api/tauri";
 import { useNetworkStore } from "@/store";
 import { useSettingsStore } from "@/store";
 import { pollNetworkData } from "@/api";
@@ -14,13 +14,10 @@ import {
 import { useStoredInterval } from "@/hooks/useStoredInterval";
 import { useDailyUsageAccumulator } from "@/hooks/useDailyUsageAccumulator";
 
-const WINDOW_LABEL = getCurrentWindow().label;
-
 /**
  * Core polling hook — thin coordinator.
- * 1. Determine correct poll interval for this window
- * 2. Run the poll loop on a timer
- * 3. Dispatch results to the correct store actions
+ * FIX: Issue 8.1 — 3 responsibilities only.
+ * FIX: Issue 16.2 — Uses api/tauri.ts for window label.
  */
 export function useNetworkPoller() {
   const setData = useNetworkStore((s) => s.setData);

@@ -19,3 +19,13 @@ export type {
   RawPingStats,
   NormalizedPollResult,
 } from "./networkApi";
+
+export {
+  invoke,
+  getCurrentWindow,
+  WebviewWindow,
+  WINDOW_LABEL,
+  startDragging,
+  getWindowPosition,
+  setWindowPosition,
+} from "./tauri";

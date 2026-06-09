@@ -1,37 +1,26 @@
 import { useCallback } from "react";
-import { getCurrentWindow, PhysicalPosition } from "@tauri-apps/api/window";
-
-const currentWindow = getCurrentWindow();
+import { startDragging, getWindowPosition, setWindowPosition } from "@/api/tauri";
 
 /** Pixel amount to move on each arrow key press */
 const NUDGE_AMOUNT = 10;
 
 /**
- * Returns handlers for mouse-based dragging and optional keyboard nudging.
- *
- * Use onMouseDown={handleDrag} for mouse dragging.
- * Use onKeyDown={handleKeyNudge} for keyboard-based position nudging.
- *
- * Keyboard controls: Arrow keys move the window by NUDGE_AMOUNT pixels.
- * Hold Shift for 5x movement speed.
+ * Returns a mouse handler for Tauri window dragging.
+ * FIX: Issue 16.2 — Uses api/tauri.ts abstraction for testability.
  */
 export function useDragToMove() {
-  const handleDrag = useCallback(async (e: React.MouseEvent) => {
+  return useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
-    try {
-      await currentWindow.startDragging();
-    } catch (err) {
-      console.error("Failed to start dragging:", err);
-    }
+    await startDragging();
   }, []);
-
-  return handleDrag;
 }
 
 /**
  * Keyboard-based position nudge handler for accessibility.
- * Attach to onKeyDown on the widget container.
+ * FIX: Issue 12.4 — Provides keyboard alternative to mouse dragging.
+ * FIX: Issue 16.2 — Uses api/tauri.ts abstraction for testability.
  *
+ * Arrow keys move window by NUDGE_AMOUNT. Hold Shift for 5x speed.
  */
 export function useKeyboardNudge() {
   return useCallback(async (e: React.KeyboardEvent) => {
@@ -55,19 +44,16 @@ export function useKeyboardNudge() {
         dy = amount;
         break;
       default:
-        return; // Don't prevent default for other keys
+        return;
     }
 
     e.preventDefault();
 
     try {
-      const pos = await currentWindow.outerPosition();
-
-      await currentWindow.setPosition(
-        new PhysicalPosition(pos.x + dx, pos.y + dy),
-      );
-    } catch (err) {
-      console.debug("Keyboard nudge failed:", err);
+      const pos = await getWindowPosition();
+      await setWindowPosition(pos.x + dx, pos.y + dy);
+    } catch {
+      // Position adjustment not supported or failed — acceptable
     }
   }, []);
 }

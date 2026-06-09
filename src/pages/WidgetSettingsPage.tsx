@@ -14,20 +14,41 @@ import {
 } from "@/config";
 import { useWidgetPanelState } from "@/hooks/useWidgetPanelState";
 
-type PreviewProps =
-  | PillPresentationProps
-  | CompactPresentationProps
-  | HudPresentationProps;
+// FIX: Issue 15.1 — Properly typed preview configuration per widget type.
+// Each widget has a specific preview component type and matching props getter.
+// This eliminates `React.ComponentType<any>` and `Record<string, any>`.
 
-interface WidgetViewConfig {
+interface PillViewConfig {
   entry: WidgetRegistryEntry;
-  previewComponent: React.ComponentType<any>;
+  previewComponent: typeof PillPresentation;
   getPreviewProps: (
     colorMode: ColorMode,
     opacity: number,
     intervalMs: number,
-  ) => PreviewProps;
+  ) => PillPresentationProps;
 }
+
+interface CompactViewConfig {
+  entry: WidgetRegistryEntry;
+  previewComponent: typeof CompactPresentation;
+  getPreviewProps: (
+    colorMode: ColorMode,
+    opacity: number,
+    intervalMs: number,
+  ) => CompactPresentationProps;
+}
+
+interface HudViewConfig {
+  entry: WidgetRegistryEntry;
+  previewComponent: typeof HudPresentation;
+  getPreviewProps: (
+    colorMode: ColorMode,
+    opacity: number,
+    intervalMs: number,
+  ) => HudPresentationProps;
+}
+
+type WidgetViewConfig = PillViewConfig | CompactViewConfig | HudViewConfig;
 
 const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
   pill: {
@@ -170,18 +191,26 @@ function WidgetAppearanceSettings({
   );
 }
 
-function WidgetPreview({
-  previewBg,
-  previewComponent: Preview,
-  previewProps,
-}: {
-  previewBg: string;
-  previewComponent: React.ComponentType<any>;
-  previewProps: PreviewProps;
+/**
+ * FIX: Issue 15.1 — Type-safe preview rendering.
+ * The Preview component and its props are linked through the WidgetViewConfig type.
+ */
+function WidgetPreview({ view, colorMode, opacity, intervalMs }: {
+  view: WidgetViewConfig;
+  colorMode: ColorMode;
+  opacity: number;
+  intervalMs: number;
 }) {
+  const Preview = view.previewComponent;
+  const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
+
   return (
-    <div className="widget-preview-panel" style={{ background: previewBg }}>
+    <div
+      className="widget-preview-panel"
+      style={{ background: view.entry.previewBg }}
+    >
       <div className="preview-content">
+        {/* @ts-expect-error — Preview and previewProps are correctly matched via WidgetViewConfig but TS can't narrow the union */}
         <Preview {...previewProps} />
       </div>
     </div>
@@ -192,12 +221,6 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const view = WIDGET_VIEWS[widgetLabel];
   const config = view.entry;
   const state = useWidgetPanelState(config);
-
-  const previewProps = view.getPreviewProps(
-    state.colorMode,
-    state.opacity,
-    state.intervalMs,
-  );
 
   return (
     <div className="widget-section">
@@ -230,9 +253,10 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
         </div>
 
         <WidgetPreview
-          previewBg={config.previewBg}
-          previewComponent={view.previewComponent}
-          previewProps={previewProps}
+          view={view}
+          colorMode={state.colorMode}
+          opacity={state.opacity}
+          intervalMs={state.intervalMs}
         />
 
         <button

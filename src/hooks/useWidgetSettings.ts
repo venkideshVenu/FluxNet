@@ -1,24 +1,25 @@
 import { useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { WIDGET_REGISTRY, WidgetLabel } from "@/config";
-import { applyColorMode } from "@/utils";
-import { getStorageItem } from "@/utils";
+import { invoke } from "@/api/tauri";
+import { WIDGET_REGISTRY, WidgetLabel } from "@/config/widgetRegistry";
+import { applyColorMode } from "@/utils/theme";
+import { getStorageItem } from "@/utils/storage";
 
+/**
+ * Applies initial widget settings and listens for live changes.
+ * FIX: Issue 16.2 — Uses api/tauri.ts for invoke.
+ */
 export function useWidgetSettings(label: WidgetLabel) {
   useEffect(() => {
     const config = WIDGET_REGISTRY[label];
     if (!config) return;
 
-    // Apply initial color mode
     applyColorMode(config.getStoredMode());
 
-    // Apply initial always-on-top
     invoke("set_widget_always_on_top", {
       label,
       value: config.getStoredAlwaysOnTop(),
     }).catch(console.error);
 
-    // Apply initial opacity
     const opacity =
       Number(
         getStorageItem(
@@ -30,7 +31,6 @@ export function useWidgetSettings(label: WidgetLabel) {
       console.error,
     );
 
-    // Listen for storage changes from other windows (native cross-window StorageEvent)
     const handleStorage = (event: StorageEvent) => {
       if (event.key === config.alwaysOnTopKey && event.newValue !== null) {
         invoke("set_widget_always_on_top", {

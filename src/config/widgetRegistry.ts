@@ -34,13 +34,15 @@ import {
  * │ 3. Create mini.css stylesheet                                            │
  * │ 4. Add to main.tsx label→component map                                   │
  * │ 5. Add window definition in tauri.conf.json                              │
- * │                                                                          │
- * │ All other systems (useWidgetSettings, WidgetSettingsPage,                │
- * │ useStoredInterval, etc.) read from this registry dynamically.            │
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
 export type WidgetLabel = "pill" | "compact" | "hud";
+
+// FIX: Issue 15.3 — Canonical getter types for consistent function signatures
+export type IntervalGetter = (fallback?: number) => number;
+export type AlwaysOnTopGetter = (fallback?: boolean) => boolean;
+export type ColorModeGetter = () => ColorMode;
 
 export interface WidgetRegistryEntry {
   label: WidgetLabel;
@@ -51,9 +53,10 @@ export interface WidgetRegistryEntry {
   intervalKey: string;
   modeKey: string;
   alwaysOnTopKey: string;
-  getStoredInterval: (fallback?: number) => number;
-  getStoredAlwaysOnTop: (fallback?: boolean) => boolean;
-  getStoredMode: () => ColorMode;
+  // FIX: Issue 15.3 — Use canonical getter types
+  getStoredInterval: IntervalGetter;
+  getStoredAlwaysOnTop: AlwaysOnTopGetter;
+  getStoredMode: ColorModeGetter;
   invokeAlwaysOnTop: string;
   invokeOpacity: string;
   invokeVisibility: string;

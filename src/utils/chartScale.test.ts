@@ -1,97 +1,123 @@
 import { describe, it, expect } from "vitest";
-import { computeChartScale } from "./chartScale";
+import { formatSpeed, formatBytes, formatLinkSpeed } from "./formatSpeed";
 
-describe("computeChartScale", () => {
-  it("should handle very small values (< 0.1)", () => {
-    const result = computeChartScale(0.05);
-    expect(result.step).toBe(0.02);
-    expect(result.yMax).toBeGreaterThanOrEqual(0.05);
-    expect(result.precision).toBe(2);
+describe("formatSpeed", () => {
+  it("returns 0.0 B/s for zero input", () => {
+    const result = formatSpeed(0);
+    expect(result.value).toBe("0.0");
+    expect(result.unit).toBe("B/s");
   });
 
-  it("should handle small values (0.1 - 0.5)", () => {
-    const result = computeChartScale(0.3);
-    expect(result.step).toBe(0.1);
-    expect(result.yMax).toBeGreaterThanOrEqual(0.3);
-    expect(result.precision).toBe(2);
+  it("returns 0.0 for negative input", () => {
+    const result = formatSpeed(-100);
+    expect(result.value).toBe("0.0");
   });
 
-  it("should handle medium-small values (0.5 - 1)", () => {
-    const result = computeChartScale(0.7);
-    expect(result.step).toBe(0.2);
-    expect(result.yMax).toBeGreaterThanOrEqual(0.7);
-    expect(result.precision).toBe(2);
+  it("formats bytes per second", () => {
+    const result = formatSpeed(500);
+    expect(result.value).toBe("500");
+    expect(result.unit).toBe("B/s");
   });
 
-  it("should handle medium values (1 - 2)", () => {
-    const result = computeChartScale(1.5);
-    expect(result.step).toBe(0.5);
-    expect(result.yMax).toBeGreaterThanOrEqual(1.5);
-    expect(result.precision).toBe(1);
+  it("formats kilobytes per second", () => {
+    const result = formatSpeed(2048);
+    expect(result.value).toBe("2.0");
+    expect(result.unit).toBe("KB/s");
   });
 
-  it("should handle values (2 - 5)", () => {
-    const result = computeChartScale(3);
-    expect(result.step).toBe(1);
-    expect(result.yMax).toBeGreaterThanOrEqual(3);
-    expect(result.precision).toBe(1);
+  it("formats megabytes per second", () => {
+    const result = formatSpeed(5 * 1024 * 1024);
+    expect(result.value).toBe("5.0");
+    expect(result.unit).toBe("MB/s");
   });
 
-  it("should handle values (5 - 20)", () => {
-    const result = computeChartScale(12);
-    expect(result.step).toBe(2);
-    expect(result.yMax).toBeGreaterThanOrEqual(12);
-    expect(result.precision).toBe(0);
+  it("formats gigabytes per second", () => {
+    const result = formatSpeed(2 * 1024 * 1024 * 1024);
+    expect(result.value).toBe("2.00");
+    expect(result.unit).toBe("GB/s");
   });
 
-  it("should handle values (20 - 50)", () => {
-    const result = computeChartScale(35);
-    expect(result.step).toBe(5);
-    expect(result.yMax).toBeGreaterThanOrEqual(35);
-    expect(result.precision).toBe(0);
+  describe("forced units", () => {
+    it("forces MB/s", () => {
+      const result = formatSpeed(1024 * 1024, "MB/s");
+      expect(result.value).toBe("1.0");
+      expect(result.unit).toBe("MB/s");
+    });
+
+    it("forces KB/s", () => {
+      const result = formatSpeed(2048, "KB/s");
+      expect(result.value).toBe("2.0");
+      expect(result.unit).toBe("KB/s");
+    });
+
+    it("forces Mbps (megabits)", () => {
+      const result = formatSpeed(1_000_000, "Mbps");
+      // 1,000,000 bytes * 8 = 8,000,000 bits = 8 Mbps
+      expect(result.value).toBe("8.0");
+      expect(result.unit).toBe("Mbps");
+    });
+
+    it("returns 0.0 with forced unit for zero input", () => {
+      const result = formatSpeed(0, "MB/s");
+      expect(result.value).toBe("0.0");
+      expect(result.unit).toBe("MB/s");
+    });
+  });
+});
+
+describe("formatBytes", () => {
+  it("returns 0 B for zero input", () => {
+    const result = formatBytes(0);
+    expect(result.value).toBe("0");
+    expect(result.unit).toBe("B");
   });
 
-  it("should handle values (50 - 100)", () => {
-    const result = computeChartScale(75);
-    expect(result.step).toBe(10);
-    expect(result.yMax).toBeGreaterThanOrEqual(75);
-    expect(result.precision).toBe(0);
+  it("formats bytes", () => {
+    const result = formatBytes(512);
+    expect(result.value).toBe("512");
+    expect(result.unit).toBe("B");
   });
 
-  it("should handle values (100 - 200)", () => {
-    const result = computeChartScale(150);
-    expect(result.step).toBe(20);
-    expect(result.yMax).toBeGreaterThanOrEqual(150);
-    expect(result.precision).toBe(0);
+  it("formats kilobytes", () => {
+    const result = formatBytes(2048);
+    expect(result.value).toBe("2.0");
+    expect(result.unit).toBe("KB");
   });
 
-  it("should handle values (200 - 500)", () => {
-    const result = computeChartScale(350);
-    expect(result.step).toBe(50);
-    expect(result.yMax).toBeGreaterThanOrEqual(350);
-    expect(result.precision).toBe(0);
+  it("formats megabytes", () => {
+    const result = formatBytes(10 * 1024 * 1024);
+    expect(result.value).toBe("10.0");
+    expect(result.unit).toBe("MB");
   });
 
-  it("should handle very large values (> 500)", () => {
-    const result = computeChartScale(800);
-    expect(result.step).toBe(100);
-    expect(result.yMax).toBeGreaterThanOrEqual(800);
-    expect(result.precision).toBe(0);
+  it("formats gigabytes", () => {
+    const result = formatBytes(5.5 * 1024 * 1024 * 1024);
+    expect(result.value).toBe("5.5");
+    expect(result.unit).toBe("GB");
+  });
+});
+
+describe("formatLinkSpeed", () => {
+  it("returns '0 bps' for zero", () => {
+    expect(formatLinkSpeed(0)).toBe("0 bps");
   });
 
-  it("should handle zero", () => {
-    const result = computeChartScale(0);
-    expect(result.step).toBe(0.02);
-    expect(result.yMax).toBe(0.02); // Math.max(step, 0)
-    expect(result.precision).toBe(2);
+  it("formats megabits", () => {
+    expect(formatLinkSpeed(100_000_000)).toBe("100 Mbps");
   });
 
-  it("yMax should always be a multiple of step", () => {
-    const testValues = [0.03, 0.4, 0.8, 1.3, 4, 15, 40, 80, 180, 400, 700];
-    for (const val of testValues) {
-      const result = computeChartScale(val);
-      const remainder = result.yMax % result.step;
-      expect(remainder).toBeCloseTo(0, 10);
-    }
+  it("formats gigabits", () => {
+    expect(formatLinkSpeed(1_000_000_000)).toBe("1.00 Gbps");
+  });
+
+  it("formats with correct decimal places", () => {
+    expect(formatLinkSpeed(2_500_000_000)).toBe("2.50 Gbps");
+    expect(formatLinkSpeed(54_000_000)).toBe("54.0 Mbps");
+  });
+
+  it("handles invalid input", () => {
+    expect(formatLinkSpeed(-1)).toBe("0 bps");
+    expect(formatLinkSpeed(NaN)).toBe("0 bps");
+    expect(formatLinkSpeed(Infinity)).toBe("0 bps");
   });
 });

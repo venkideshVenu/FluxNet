@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { WINDOW_LABEL } from "@/api/tauri";
 
-const WINDOW_LABEL = getCurrentWindow().label;
-
+/**
+ * Syncs a polling interval from localStorage for a specific window label.
+ * FIX: Issue 16.2 — Uses api/tauri.ts for window label (testable).
+ */
 export function useStoredInterval(
   targetLabel: string,
   lsKey: string,

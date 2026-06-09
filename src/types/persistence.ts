@@ -1,11 +1,13 @@
 export interface BandwidthSample {
-  timestamp: number; // Unix seconds
+  /** Unix timestamp in seconds (NOT milliseconds). Use `new Date(timestamp * 1000)` for JS Date. */
+  timestamp: number;
   downloadBps: number;
   uploadBps: number;
 }
 
 export interface HourlyUsage {
-  hourStart: number; // Unix seconds
+  /** Unix timestamp in seconds marking the start of the hour. */
+  hourStart: number;
   avgDownloadBps: number;
   avgUploadBps: number;
   peakDownloadBps: number;
@@ -16,7 +18,8 @@ export interface HourlyUsage {
 }
 
 export interface DailyUsage {
-  day: string; // "YYYY-MM-DD"
+  /** Date string in "YYYY-MM-DD" format */
+  day: string;
   avgDownloadBps: number;
   avgUploadBps: number;
   peakDownloadBps: number;
@@ -26,7 +29,8 @@ export interface DailyUsage {
 }
 
 export interface MonthlyUsage {
-  month: string; // "YYYY-MM"
+  /** Month string in "YYYY-MM" format (lexicographic = chronological) */
+  month: string;
   totalDownloadBytes: number;
   totalUploadBytes: number;
   peakDownloadBps: number;
