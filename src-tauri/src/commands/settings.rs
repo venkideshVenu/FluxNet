@@ -3,28 +3,20 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use tauri::State;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Accept a value if it parses as an IP address OR looks like a plausible hostname.
-/// This is intentionally lenient — detailed DNS validation is the OS's job.
 fn is_valid_ping_target(s: &str) -> bool {
     let s = s.trim();
     if s.is_empty() {
         return false;
     }
-    // IP address — strict
     if s.parse::<IpAddr>().is_ok() {
         return true;
     }
-    // Hostname heuristic: printable ASCII, no spaces, ≤253 chars, no forbidden chars
     if s.len() > 253 {
         return false;
     }
     s.chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_')
 }
-
-// ── Commands ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub fn get_ping_target(store: State<Arc<SettingsStore>>) -> Result<String, String> {
@@ -52,15 +44,18 @@ pub fn get_refresh_interval(store: State<Arc<SettingsStore>>) -> Result<u32, Str
     Ok(store.read(|s| s.clamped_refresh_interval_ms()))
 }
 
+/// Persists the user's preferred display refresh interval.
+/// NOTE: This does NOT change the backend sampling rate (always 500ms).
+/// It only affects how often the frontend polls for updated data.
 #[tauri::command]
 pub fn set_refresh_interval(
     store: State<Arc<SettingsStore>>,
     interval_ms: u32,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    if !(100..=5_000).contains(&interval_ms) {
+    if !(500..=5_000).contains(&interval_ms) {
         return Err(format!(
-            "refresh_interval_ms must be between 100 and 5000, got {interval_ms}"
+            "refresh_interval_ms must be between 500 and 5000, got {interval_ms}"
         ));
     }
     store.update(&app, |s| s.refresh_interval_ms = interval_ms);
