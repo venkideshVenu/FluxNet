@@ -11,11 +11,12 @@ const NAV = [
 export function Sidebar() {
   return (
     <aside className="sidebar" aria-label="Main navigation">
-      <div className="sidebar-brand">
-        <div className="sidebar-logo" aria-hidden="true">
-          F
-        </div>
-        <span className="sidebar-name">FluxNet</span>
+      <div className="sidebar-brand" aria-label="FluxNet">
+        <img
+          className="sidebar-brand-image"
+          src="/branding/logo-horizontal.png"
+          alt="FluxNet"
+        />
       </div>
 
       <nav className="sidebar-nav">
