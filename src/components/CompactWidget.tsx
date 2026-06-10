@@ -1,5 +1,5 @@
 import { fetchUsageStats } from "@/api/storageApi";
-import { useNetworkStore } from "@/store";
+import { useNetworkStore, useSettingsStore } from "@/store";
 import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
 import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
 import { useEffect, useState } from "react";
@@ -8,13 +8,14 @@ import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
 
 export function CompactWidget() {
   const { data, isConnected } = useNetworkStore();
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
   const [intervalMs, setIntervalMs] = useState(getStoredCompactIntervalMs);
   const [dbStats, setDbStats] = useState<{ dl: number; ul: number } | null>(
     null,
   );
 
-  const up = formatSpeed(data.uploadBytesPerSec);
-  const dn = formatSpeed(data.downloadBytesPerSec);
+  const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
+  const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
   const upToday = dbStats ? formatBytes(dbStats.ul) : { value: "—", unit: "" };
   const dnToday = dbStats ? formatBytes(dbStats.dl) : { value: "—", unit: "" };
   const intervalLabel = `${intervalMs / 1000}s`;
@@ -29,19 +30,6 @@ export function CompactWidget() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  /**
-   *
-   * The `alive` flag prevents calling `setDbStats` after the component unmounts.
-   * This handles the race condition where:
-   * 1. setInterval fires `syncTodayTotals`
-   * 2. `fetchUsageStats()` starts an async IPC call
-   * 3. Component unmounts (cleanup sets alive = false, clears interval)
-   * 4. The IPC response arrives → `if (alive)` prevents the stale setState
-   *
-   * In React StrictMode (dev only), components mount → unmount → remount.
-   * This could briefly cause two intervals, but the first cleanup fires immediately,
-   * so at most one extra fetch occurs (which is idempotent). This is acceptable.
-   */
   useEffect(() => {
     let alive = true;
     const syncTodayTotals = async () => {

@@ -1,5 +1,5 @@
 import { usePingPoller } from "@/hooks";
-import { useNetworkStore, usePingStore } from "@/store";
+import { useNetworkStore, usePingStore, useSettingsStore } from "@/store";
 import { formatSpeed } from "@/utils";
 import { HudPresentation } from "./HudPresentation";
 import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
@@ -8,8 +8,9 @@ export function GamingHud() {
   usePingPoller(2000);
   const { data } = useNetworkStore();
   const { stats } = usePingStore();
-  const up = formatSpeed(data.uploadBytesPerSec);
-  const dn = formatSpeed(data.downloadBytesPerSec);
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
+  const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
+  const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
 
   const handleDrag = useDragToMove();
   const handleKeyNudge = useKeyboardNudge();
