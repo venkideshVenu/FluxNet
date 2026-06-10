@@ -1,9 +1,3 @@
-/**
- * Converts bytes-per-second to a human-readable string.
- * Returns value and unit separately so the UI can style them independently.
- *
- * Pass `forceUnit` (from the settings store) to override auto-scaling.
- */
 export type SpeedResult = {
   value: string;
   unit: string;
@@ -36,13 +30,11 @@ export function formatSpeed(
     case "KB/s":
       return { value: (bytesPerSec / KB).toFixed(1), unit: "KB/s" };
     case "Mbps":
-      // 1 byte = 8 bits; Mbps = megabits per second
       return {
         value: ((bytesPerSec * 8) / (1000 * 1000)).toFixed(1),
         unit: "Mbps",
       };
     default:
-      // auto
       if (bytesPerSec >= GB)
         return { value: (bytesPerSec / GB).toFixed(2), unit: "GB/s" };
       if (bytesPerSec >= MB)
@@ -64,17 +56,9 @@ export function formatBytes(bytes: number): BytesResult {
   return { value: bytes.toFixed(0), unit: "B" };
 }
 
-/**
- * Formats a link speed in bits-per-second (bps) to a human-readable string.
- * Uses SI units (1000-based) since link speeds are conventionally SI.
- *
- *
- * @param bps - Link speed in bits per second
- * @returns Formatted string like "1.00 Gbps" or "100 Mbps"
- */
 export function formatLinkSpeed(bps: number): string {
   if (!bps || bps <= 0 || !isFinite(bps)) {
-    return "0 bps";
+    return "—";
   }
 
   const units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"];
@@ -93,4 +77,18 @@ export function formatLinkSpeed(bps: number): string {
         ? value.toFixed(1)
         : value.toFixed(2);
   return `${rounded} ${units[i]}`;
+}
+
+/**
+ * Adaptive chart unit selection based on the max value (in bytes/sec).
+ * Returns { divisor, unitLabel } for chart Y-axis.
+ */
+export function getAdaptiveChartUnit(maxBytesPerSec: number): {
+  divisor: number;
+  unitLabel: string;
+} {
+  if (maxBytesPerSec >= GB) return { divisor: GB, unitLabel: "GB/s" };
+  if (maxBytesPerSec >= MB) return { divisor: MB, unitLabel: "MB/s" };
+  if (maxBytesPerSec >= KB) return { divisor: KB, unitLabel: "KB/s" };
+  return { divisor: 1, unitLabel: "B/s" };
 }

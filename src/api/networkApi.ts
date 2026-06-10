@@ -1,9 +1,5 @@
 import { invokeWithTimeout } from "@/utils";
 
-/**
- * Raw shapes returned by the Rust backend.
- * These mirror the Rust structs and use snake_case.
- */
 export type RawNetworkStats = {
   upload_bytes_per_sec: number;
   download_bytes_per_sec: number;
@@ -16,7 +12,7 @@ export type RawDashboardSnapshot = {
   peak_upload: number;
   peak_download: number;
   interface_name: string;
-  is_connected?: boolean;
+  is_connected: boolean;
   history: { upload: number; download: number; t: number }[];
 };
 
@@ -40,15 +36,13 @@ export async function fetchPingStats(): Promise<RawPingStats> {
 export type NormalizedPollResult = {
   currentUpload: number;
   currentDownload: number;
-  /** Only present for dashboard/compact windows */
   snapshot?: {
     peakUpload: number;
     peakDownload: number;
     interfaceName: string;
-    isConnected?: boolean;
+    isConnected: boolean;
     history: { upload: number; download: number; t: number }[];
   };
-  /** Only present for pill/hud windows */
   liveData?: {
     uploadBytesPerSec: number;
     downloadBytesPerSec: number;

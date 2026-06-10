@@ -27,3 +27,7 @@ export const useSettingsStore = create<SettingsStore>()(
     },
   ),
 );
+
+export function getDisplayUnits(): DisplayUnits {
+  return useSettingsStore.getState().displayUnits;
+}
