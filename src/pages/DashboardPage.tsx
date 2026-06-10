@@ -11,7 +11,12 @@ import {
 } from "recharts";
 import { useNetworkStore } from "@/store";
 import { useSettingsStore } from "@/store";
-import { formatSpeed, computeChartScale, getStorageItem } from "@/utils";
+import {
+  formatSpeed,
+  getAdaptiveChartUnit,
+  computeChartScale,
+  getStorageItem,
+} from "@/utils";
 
 export function DashboardPage() {
   const {
@@ -20,28 +25,46 @@ export function DashboardPage() {
     isInitialized,
     lastError,
     peakDownload,
+    peakUpload,
     history,
     dismissError,
   } = useNetworkStore();
 
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
   const navigate = useNavigate();
 
-  const up = formatSpeed(data.uploadBytesPerSec);
-  const dn = formatSpeed(data.downloadBytesPerSec);
-  const pk = formatSpeed(peakDownload);
+  const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
+  const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
+  const pkDl = formatSpeed(peakDownload, displayUnits);
+  const pkUl = formatSpeed(peakUpload, displayUnits);
+
+  // Determine adaptive chart unit based on max raw value
+  const maxRawValue = useMemo(
+    () =>
+      history.reduce(
+        (max, point) => Math.max(max, point.upload, point.download),
+        0,
+      ),
+    [history],
+  );
+
+  const { divisor: chartDivisor, unitLabel: chartUnitLabel } = useMemo(
+    () => getAdaptiveChartUnit(maxRawValue),
+    [maxRawValue],
+  );
 
   const chartData = useMemo(
     () =>
       history.map((p, i) => ({
         t: i,
-        upload: +(p.upload / 1_048_576).toFixed(2),
-        download: +(p.download / 1_048_576).toFixed(2),
+        upload: +(p.upload / chartDivisor).toFixed(2),
+        download: +(p.download / chartDivisor).toFixed(2),
       })),
-    [history],
+    [history, chartDivisor],
   );
 
-  const maxValue = useMemo(
+  const maxChartValue = useMemo(
     () =>
       chartData.reduce(
         (max, point) => Math.max(max, point.upload, point.download),
@@ -51,14 +74,21 @@ export function DashboardPage() {
   );
 
   const { yMax, precision } = useMemo(
-    () => computeChartScale(maxValue),
-    [maxValue],
+    () => computeChartScale(maxChartValue),
+    [maxChartValue],
   );
 
   const intervalLabel = `${pollIntervalMs / 1000}s`;
 
   const isFirstRun = !getStorageItem("fluxnet_configured", "");
   const hasNoInterface = !data.interfaceName;
+
+  // Connection status label
+  const connectionLabel = useMemo(() => {
+    if (!data.interfaceName) return "No interface";
+    if (!isConnected) return "No signal";
+    return "Live";
+  }, [data.interfaceName, isConnected]);
 
   if (!isInitialized) {
     return (
@@ -83,7 +113,13 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Peak today</div>
+            <div className="stat-label">Peak ↓</div>
+            <div className="stat-value">
+              <span className="stat-num">—</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Peak ↑</div>
             <div className="stat-value">
               <span className="stat-num">—</span>
             </div>
@@ -102,9 +138,9 @@ export function DashboardPage() {
             {data.interfaceName || "—"} · updating every {intervalLabel}
           </div>
         </div>
-        <span className="live-badge">
-          <span className="live-dot" />
-          {isConnected ? "Live" : "No signal"}
+        <span className={`live-badge ${!isConnected ? "disconnected" : ""}`}>
+          <span className={`live-dot ${!isConnected ? "dead" : ""}`} />
+          {connectionLabel}
         </span>
       </div>
 
@@ -141,8 +177,11 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Stat cards */}
-      <div className="stat-grid">
+      {/* Stat cards — 4 columns now */}
+      <div
+        className="stat-grid"
+        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+      >
         <div className="stat-card">
           <div className="stat-label">Download</div>
           <div className="stat-value">
@@ -162,19 +201,28 @@ export function DashboardPage() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-label">Peak today</div>
+          <div className="stat-label">Peak Download</div>
           <div className="stat-value">
-            <span className="stat-num">{pk.value}</span>
-            <span className="stat-unit">{pk.unit}</span>
+            <span className="stat-num">{pkDl.value}</span>
+            <span className="stat-unit">{pkDl.unit}</span>
           </div>
-          <span className="stat-badge peak">↓ Download</span>
+          <span className="stat-badge peak">↓ Session</span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Peak Upload</div>
+          <div className="stat-value">
+            <span className="stat-num">{pkUl.value}</span>
+            <span className="stat-unit">{pkUl.unit}</span>
+          </div>
+          <span className="stat-badge peak">↑ Session</span>
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Chart with adaptive units */}
       <div className="chart-section">
         <div className="chart-section-title">
-          Bandwidth history — last {history.length}s
+          Bandwidth history — last {history.length} samples
         </div>
         <div className="chart-card">
           <ResponsiveContainer width="100%" height={200}>
@@ -210,15 +258,15 @@ export function DashboardPage() {
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#ECEAF8"
+                stroke="var(--border)"
                 vertical={false}
               />
               <XAxis dataKey="t" hide />
               <YAxis
-                tick={{ fontSize: 10, fill: "#C8C5F5" }}
+                tick={{ fontSize: 10, fill: "var(--text-muted)" }}
                 axisLine={false}
                 tickLine={false}
-                width={32}
+                width={38}
                 domain={[0, yMax]}
                 tickCount={5}
                 tickFormatter={(v) => Number(v).toFixed(precision)}
@@ -235,7 +283,7 @@ export function DashboardPage() {
                 itemStyle={{ color: "var(--text)" }}
                 cursor={{ stroke: "var(--accent-border)", strokeWidth: 1 }}
                 formatter={(val, name) => [
-                  `${val ?? 0} MB/s`,
+                  `${val ?? 0} ${chartUnitLabel}`,
                   name === "upload" ? "Upload" : "Download",
                 ]}
               />
@@ -278,9 +326,13 @@ export function DashboardPage() {
               Download
             </div>
             <span
-              style={{ marginLeft: "auto", fontSize: 10, color: "#C8C5F5" }}
+              style={{
+                marginLeft: "auto",
+                fontSize: 10,
+                color: "var(--text-muted)",
+              }}
             >
-              MB/s
+              {chartUnitLabel}
             </span>
           </div>
         </div>

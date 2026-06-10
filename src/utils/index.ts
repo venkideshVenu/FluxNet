@@ -1,6 +1,13 @@
-export { computeChartScale } from "./chartScale";
-export { formatSpeed, formatBytes, formatLinkSpeed } from "./formatSpeed";
+export {
+  formatSpeed,
+  formatBytes,
+  formatLinkSpeed,
+  getAdaptiveChartUnit,
+} from "./formatSpeed";
 export type { SpeedResult, BytesResult, DisplayUnits } from "./formatSpeed";
+export { computeChartScale } from "./chartScale";
+export { getStorageItem, setStorageItem } from "./storage";
+export type { StorageSchema } from "./storage";
 export { invokeWithTimeout } from "./invokeWithTimeout";
 export {
   getStoredPillIntervalMs,
@@ -10,9 +17,6 @@ export {
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
 } from "./polling";
-export { getStorageItem, setStorageItem } from "./storage";
-export type { StorageSchema } from "./storage";
-export { setStorageWithNotify, removeStorageWithNotify } from "./storageEvents";
 export {
   THEMES,
   applyAccent,

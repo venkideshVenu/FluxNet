@@ -42,7 +42,9 @@ export function SettingsPage() {
         setLocalPingTarget(target);
       })
       .catch(console.warn);
-    invoke<boolean>("autostart:is-enabled")
+
+    // Tauri 2 autostart plugin commands use "plugin:autostart|command" format
+    invoke<boolean>("plugin:autostart|is_enabled")
       .then((enabled) => {
         setStartWithOS(enabled);
         setAutostartAvailable(true);
@@ -82,8 +84,8 @@ export function SettingsPage() {
     setStartWithOS(value);
     setAutostartError(null);
     try {
-      if (value) await invoke("autostart:enable");
-      else await invoke("autostart:disable");
+      if (value) await invoke("plugin:autostart|enable");
+      else await invoke("plugin:autostart|disable");
     } catch (err) {
       setAutostartError(
         "Failed to change autostart setting. Please try again.",
@@ -147,8 +149,11 @@ export function SettingsPage() {
         <div className="settings-card">
           <div className="settings-row">
             <div>
-              <div className="settings-label">Refresh interval</div>
-              <div className="settings-sub">How often to poll network data</div>
+              <div className="settings-label">Dashboard refresh interval</div>
+              <div className="settings-sub">
+                How often the dashboard UI updates (backend always samples at
+                500ms)
+              </div>
             </div>
             <select
               className="fn-select"
@@ -165,14 +170,16 @@ export function SettingsPage() {
           <div className="settings-row">
             <div>
               <div className="settings-label">Display units</div>
-              <div className="settings-sub">How speeds are formatted</div>
+              <div className="settings-sub">
+                How speeds are formatted everywhere
+              </div>
             </div>
             <select
               className="fn-select"
               value={displayUnits}
               onChange={(e) => handleUnits(e.target.value)}
             >
-              <option value="auto">Auto</option>
+              <option value="auto">Auto (adaptive)</option>
               <option value="MB/s">MB/s</option>
               <option value="KB/s">KB/s</option>
               <option value="Mbps">Mbps</option>
@@ -285,7 +292,16 @@ export function SettingsPage() {
                   key={i}
                   type="button"
                   className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
-                  style={{ background: t.color }}
+                  style={{
+                    background: t.color,
+                    // Add border for dark colors to make them visible
+                    border:
+                      selectedTheme === i
+                        ? `2px solid var(--accent)`
+                        : isLightColor(t.color)
+                          ? `2px solid transparent`
+                          : `2px solid rgba(255,255,255,0.3)`,
+                  }}
                   title={t.label}
                   aria-label={`${t.label} theme`}
                   aria-pressed={selectedTheme === i}
@@ -302,9 +318,9 @@ export function SettingsPage() {
         <div className="settings-card">
           <div className="settings-row">
             <div>
-              <div className="settings-label">Reset peak values</div>
+              <div className="settings-label">Reset session peaks</div>
               <div className="settings-sub">
-                Clear session peak upload and download
+                Clear peak upload/download for this session
               </div>
             </div>
             <button
@@ -312,11 +328,21 @@ export function SettingsPage() {
               onClick={handleResetPeaks}
               className="btn-danger"
             >
-              Reset peaks
+              Reset
             </button>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+/** Simple check if a hex color is "light" enough to not need a visible border */
+function isLightColor(hex: string): boolean {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  // Perceived brightness
+  return r * 0.299 + g * 0.587 + b * 0.114 > 80;
 }

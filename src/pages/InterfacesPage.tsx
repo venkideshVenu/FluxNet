@@ -1,11 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNetworkStore } from "@/store";
-import {
-  formatLinkSpeed,
-  invokeWithTimeout,
-  getStorageItem,
-  setStorageItem,
-} from "@/utils";
+import { formatLinkSpeed, invokeWithTimeout, setStorageItem } from "@/utils";
 
 type InterfaceInfo = {
   name: string;
@@ -14,7 +9,32 @@ type InterfaceInfo = {
   status: string;
   mac: string;
   link_speed_bps: number;
+  interface_type: string;
 };
+
+function getInterfaceIcon(interfaceType: string, isUp: boolean): string {
+  if (!isUp) return "◌";
+  switch (interfaceType) {
+    case "wifi":
+      return "📶";
+    case "ethernet":
+      return "🔌";
+    case "usb":
+      return "🔗";
+    case "bluetooth":
+      return "🔵";
+    case "cellular":
+      return "📱";
+    case "vpn":
+      return "🔒";
+    case "virtual":
+      return "💻";
+    case "tunnel":
+      return "🚇";
+    default:
+      return "⌘";
+  }
+}
 
 export function InterfacesPage() {
   const { data } = useNetworkStore();
@@ -22,10 +42,9 @@ export function InterfacesPage() {
   const [selecting, setSelecting] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [error, setError] = useState<string | null>(null);
+  const [selectError, setSelectError] = useState<string | null>(null);
 
-  const isFirstRun = !getStorageItem("fluxnet_configured", "");
-
-  useEffect(() => {
+  const loadInterfaces = useCallback(() => {
     invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
       .then(setInterfaces)
       .catch((err) => {
@@ -34,13 +53,23 @@ export function InterfacesPage() {
       });
   }, []);
 
+  // Initial load + periodic refresh every 5s
+  useEffect(() => {
+    loadInterfaces();
+    const id = setInterval(loadInterfaces, 5000);
+    return () => clearInterval(id);
+  }, [loadInterfaces]);
+
   const select = async (name: string) => {
     setSelecting(name);
+    setSelectError(null);
     try {
       await invokeWithTimeout("set_interface", { name });
       setStorageItem("fluxnet_configured", "true");
     } catch (e) {
-      console.error(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("set_interface failed:", msg);
+      setSelectError(`Failed to select "${name}": ${msg}`);
     } finally {
       setSelecting(null);
     }
@@ -69,14 +98,17 @@ export function InterfacesPage() {
         </div>
       </div>
 
-      {isFirstRun && (
-        <div className="first-run-banner">
-          <span className="first-run-banner-icon">🎯</span>
-          <div className="first-run-banner-text">
-            <strong>Select your network interface to begin monitoring</strong>
-            Choose an active (Up) interface from the list below. FluxNet will
-            start tracking bandwidth immediately.
-          </div>
+      {selectError && (
+        <div className="error-banner" role="alert" style={{ marginBottom: 16 }}>
+          <span className="error-banner-text">⚠️ {selectError}</span>
+          <button
+            type="button"
+            className="error-banner-dismiss"
+            onClick={() => setSelectError(null)}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -130,11 +162,7 @@ export function InterfacesPage() {
               className="btn-retry"
               onClick={() => {
                 setError(null);
-                invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-                  .then(setInterfaces)
-                  .catch((err) => {
-                    setError(err instanceof Error ? err.message : String(err));
-                  });
+                loadInterfaces();
               }}
             >
               Retry
@@ -156,7 +184,7 @@ export function InterfacesPage() {
               const isPending = selecting === iface.name;
               const statusLower = iface.status.toLowerCase();
               const isUp = statusLower === "up";
-              const isSelectable = isUp;
+              const isSelectable = isUp && !isActive;
               const statusLabel = iface.status || "Unknown";
               const badgeLabel = isPending
                 ? "Switching…"
@@ -172,12 +200,13 @@ export function InterfacesPage() {
                     : "disconnected";
               const linkSpeedLabel = formatLinkSpeed(iface.link_speed_bps);
               const macLabel = iface.mac || "—";
+              const icon = getInterfaceIcon(iface.interface_type, isUp);
 
               return (
                 <button
                   key={iface.name}
                   type="button"
-                  className={`iface-row ${isSelectable ? "" : "disabled"} ${isActive ? "highlight" : ""}`}
+                  className={`iface-row ${!isSelectable ? "disabled" : ""} ${isActive ? "highlight" : ""}`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
                   }
@@ -188,7 +217,7 @@ export function InterfacesPage() {
                     className={`iface-icon ${isUp ? "up" : "down"} ${!isActive && !isPending ? "inactive" : ""}`}
                     aria-hidden="true"
                   >
-                    {isUp ? "⌘" : "◌"}
+                    {icon}
                   </div>
                   <div className="iface-main">
                     <div className="iface-name" title={iface.name}>
@@ -198,7 +227,7 @@ export function InterfacesPage() {
                       {iface.description || "—"}
                     </div>
                     <div className="iface-meta">
-                      IF {iface.if_index} · {macLabel}
+                      IF {iface.if_index} · {macLabel} · {iface.interface_type}
                     </div>
                   </div>
                   <div className="iface-details">

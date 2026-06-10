@@ -402,3 +402,15 @@
   color: var(--accent-strong);
   border-color: var(--accent-border);
 }
+
+/* ── Live Badge States ── */
+.live-badge.disconnected {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.live-badge.disconnected .live-dot,
+.live-dot.dead {
+  background: var(--danger);
+  animation: none;
+}

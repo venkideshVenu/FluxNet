@@ -201,13 +201,20 @@ function WidgetPreview({
   const Preview = view.previewComponent;
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
 
+  // Apply the widget's own color mode to the preview container
+  const bgStyle =
+    colorMode === "light"
+      ? { background: "rgba(255, 255, 255, 0.96)" }
+      : { background: view.entry.previewBg };
+
   return (
     <div
       className="widget-preview-panel"
-      style={{ background: view.entry.previewBg }}
+      style={bgStyle}
+      data-theme={colorMode}
     >
-      <div className="preview-content">
-        {/* @ts-expect-error — Preview and previewProps are correctly matched via WidgetViewConfig but TS can't narrow the union */}
+      <div className="preview-content" style={{ opacity: opacity / 100 }}>
+        {/* @ts-expect-error — Preview and previewProps are correctly matched */}
         <Preview {...previewProps} />
       </div>
     </div>
