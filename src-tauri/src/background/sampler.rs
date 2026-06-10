@@ -17,18 +17,21 @@ use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio_util::sync::CancellationToken;
 
-const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500 ms = 5 s
+/// Fixed backend sampling interval — always 500ms for accurate measurements.
+/// Frontend display refresh is controlled independently per window.
+const SAMPLER_INTERVAL_MS: u64 = 500;
+
+const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500ms = 5s
 
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
-// ── Startup catch-up: fill missing monthly rows (FIX R6) ─────────────────────
+// ── Startup catch-up: fill missing monthly rows ──────────────────────────────
 
 fn backfill_missing_months(db: &DbState) {
     let conn = db.0.lock();
     let now = Local::now();
     let current_month_str = now.format("%Y-%m").to_string();
 
-    // Find the most-recent month already in monthly_usage
     let last_stored: Option<String> = conn
         .query_row(
             "SELECT month FROM monthly_usage ORDER BY month DESC LIMIT 1",
@@ -38,20 +41,18 @@ fn backfill_missing_months(db: &DbState) {
         .ok();
 
     let Some(last_str) = last_stored else {
-        return; // no rows at all — nothing to back-fill
+        return;
     };
     if last_str >= current_month_str {
-        return; // up to date
+        return;
     }
 
     tracing::info!("Back-filling monthly rollups from {last_str} to {current_month_str}");
 
-    // Iterate from (last_stored + 1 month) up to (but not including) the current month
     let mut cursor: chrono::NaiveDate = {
         let parts: Vec<&str> = last_str.splitn(2, '-').collect();
         let y: i32 = parts[0].parse().unwrap_or(now.year());
         let m: u32 = parts[1].parse().unwrap_or(now.month());
-        // step forward one month
         let next_m = if m == 12 { 1 } else { m + 1 };
         let next_y = if m == 12 { y + 1 } else { y };
         chrono::NaiveDate::from_ymd_opt(next_y, next_m, 1).unwrap_or_default()
@@ -64,7 +65,6 @@ fn backfill_missing_months(db: &DbState) {
             .unwrap_or_else(Local::now);
         let _ = rollup_monthly(&conn, dt);
 
-        // Advance one month
         let m = cursor.month();
         let y = cursor.year();
         let next_m = if m == 12 { 1 } else { m + 1 };
@@ -77,17 +77,13 @@ fn backfill_missing_months(db: &DbState) {
     }
 }
 
-// ── Any visible window? (PERF-1) ─────────────────────────────────────────────
-
 fn any_window_visible(app: &AppHandle) -> bool {
     app.webview_windows()
         .values()
         .any(|w| w.is_visible().unwrap_or(false))
 }
 
-// ── Sampler entry point ───────────────────────────────────────────────────────
-
-/// Starts the background sampling loop and returns a handle for graceful shutdown.
+/// Starts the background sampling loop at a fixed 500ms rate.
 pub fn start_sampler(
     monitor_state: SharedMonitorState,
     db: DbState,
@@ -99,9 +95,8 @@ pub fn start_sampler(
     backfill_missing_months(&db);
 
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
-        let initial_ms = settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
-        let mut current_interval_ms = initial_ms;
-        let mut sample_interval = tokio::time::interval(Duration::from_millis(current_interval_ms));
+        let mut sample_interval = tokio::time::interval(Duration::from_millis(SAMPLER_INTERVAL_MS));
+        sample_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
         cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -116,7 +111,7 @@ pub fn start_sampler(
             tokio::select! {
                 _ = cancel_token.cancelled() => {
                     tracing::info!("Sampler shutting down – performing final WAL checkpoint");
-                  let db_clone = db.clone();
+                    let db_clone = db.clone();
                     std::thread::spawn(move || {
                         let conn = db_clone.0.lock();
                         let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
@@ -127,21 +122,11 @@ pub fn start_sampler(
                 _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
-                    let desired_ms =
-                        settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
-                    if desired_ms != current_interval_ms {
-                        current_interval_ms = desired_ms;
-                        sample_interval =
-                            tokio::time::interval(Duration::from_millis(current_interval_ms));
-                        tracing::info!("Refresh interval changed to {desired_ms} ms");
-                    }
-
                     let now_local = Local::now();
                     let now_ts = now_local.timestamp();
                     let current_hour = now_local.hour();
                     let current_day = now_local.day();
 
-                    // Refresh network counters — outside any lock
                     networks.refresh();
 
                     let needs_selection = {
@@ -158,7 +143,6 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Sample — lock held only for the fast arithmetic, no I/O
                     let (dl, ul, iface, was_uninitialized) = {
                         let mut s = monitor_state.lock();
                         let uninit = s.last_sample.is_none();
@@ -167,7 +151,6 @@ pub fn start_sampler(
                     };
 
                     if !iface.is_empty() && !was_uninitialized {
-                        // Persist sample
                         {
                             let conn = db.0.lock();
                             let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
@@ -185,7 +168,7 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Periodic ping (every ~5 s)
+                    // Periodic ping
                     if tick_counter % PING_INTERVAL_TICKS == 0 {
                         let target_str = settings_store.read(|s| s.ping_target.clone());
                         let target: IpAddr = target_str
@@ -217,7 +200,7 @@ pub fn start_sampler(
                         }
 
                         if day_changed {
-                         let yesterday = now_local - ChronoDuration::days(1);
+                            let yesterday = now_local - ChronoDuration::days(1);
                             let _ = rollup_daily(&conn, yesterday);
 
                             if current_day == 1 {
