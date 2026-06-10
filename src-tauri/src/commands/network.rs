@@ -46,7 +46,7 @@ impl Default for InterfacesCache {
 
 pub type SharedInterfacesCache = Arc<Mutex<InterfacesCache>>;
 
-const INTERFACES_CACHE_TTL: Duration = Duration::from_secs(5);
+const INTERFACES_CACHE_TTL: Duration = Duration::from_secs(3);
 
 pub static INTERFACE_DIRTY: AtomicBool = AtomicBool::new(false);
 

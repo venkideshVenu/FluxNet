@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNetworkStore } from "@/store";
 import { formatLinkSpeed, invokeWithTimeout, setStorageItem } from "@/utils";
 
@@ -36,6 +36,9 @@ function getInterfaceIcon(interfaceType: string, isUp: boolean): string {
   }
 }
 
+/** How often to refresh interface list (ms) */
+const POLL_INTERVAL_MS = 3000;
+
 export function InterfacesPage() {
   const { data } = useNetworkStore();
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
@@ -43,22 +46,45 @@ export function InterfacesPage() {
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [error, setError] = useState<string | null>(null);
   const [selectError, setSelectError] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadInterfaces = useCallback(() => {
-    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-      .then(setInterfaces)
-      .catch((err) => {
-        console.error("Failed to load interfaces:", err);
-        setError(err instanceof Error ? err.message : String(err));
-      });
+  const loadInterfaces = useCallback(async () => {
+    try {
+      const result = await invokeWithTimeout<InterfaceInfo[]>("get_interfaces");
+      setInterfaces(result);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to load interfaces:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }, []);
 
-  // Initial load + periodic refresh every 5s
+  // Initial load + periodic refresh
   useEffect(() => {
+    // Fetch immediately on mount
     loadInterfaces();
-    const id = setInterval(loadInterfaces, 5000);
-    return () => clearInterval(id);
+
+    // Set up polling interval
+    timerRef.current = setInterval(loadInterfaces, POLL_INTERVAL_MS);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [loadInterfaces]);
+
+  // Also refresh when the active interface changes (from the network store)
+  const currentInterface = data.interfaceName;
+  const prevInterfaceRef = useRef(currentInterface);
+  useEffect(() => {
+    if (prevInterfaceRef.current !== currentInterface) {
+      prevInterfaceRef.current = currentInterface;
+      // Refresh immediately when the monitored interface changes
+      loadInterfaces();
+    }
+  }, [currentInterface, loadInterfaces]);
 
   const select = async (name: string) => {
     setSelecting(name);
@@ -66,6 +92,8 @@ export function InterfacesPage() {
     try {
       await invokeWithTimeout("set_interface", { name });
       setStorageItem("fluxnet_configured", "true");
+      // Refresh list immediately after selection to show updated state
+      await loadInterfaces();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("set_interface failed:", msg);
@@ -94,6 +122,10 @@ export function InterfacesPage() {
           <div className="page-title">Interfaces</div>
           <div className="page-subtitle">
             Currently monitoring: <strong>{data.interfaceName || "—"}</strong>
+            {" · "}
+            <span style={{ opacity: 0.6 }}>
+              Auto-refreshing every {POLL_INTERVAL_MS / 1000}s
+            </span>
           </div>
         </div>
       </div>
@@ -147,6 +179,14 @@ export function InterfacesPage() {
               Down ({downCount})
             </button>
           </div>
+          <button
+            type="button"
+            className="btn-retry"
+            onClick={loadInterfaces}
+            style={{ marginTop: 8, fontSize: 11 }}
+          >
+            ↻ Refresh now
+          </button>
         </div>
       </div>
 
@@ -184,7 +224,7 @@ export function InterfacesPage() {
               const isPending = selecting === iface.name;
               const statusLower = iface.status.toLowerCase();
               const isUp = statusLower === "up";
-              const isSelectable = isUp && !isActive;
+              const isSelectable = isUp && !isActive && !isPending;
               const statusLabel = iface.status || "Unknown";
               const badgeLabel = isPending
                 ? "Switching…"
