@@ -21,7 +21,7 @@ pub struct StoredPosition {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct StoredConfig {
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub visible: bool,
 
     #[serde(default)]
@@ -31,7 +31,10 @@ pub struct StoredConfig {
 impl Default for StoredConfig {
     fn default() -> Self {
         Self {
-            visible: true,
+            // Default to NOT visible — on fresh install widgets start hidden.
+            // Once user enables them and quits, `visible: true` is persisted
+            // and they'll be restored on next launch.
+            visible: false,
             always_on_top: false,
         }
     }

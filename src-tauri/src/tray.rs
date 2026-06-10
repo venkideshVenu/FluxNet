@@ -1,7 +1,7 @@
 use crate::commands::network::{APP_SHUTTING_DOWN, WIDGET_LABELS};
 use crate::commands::visibility::apply_widget_visibility;
 use crate::persistence::persistent_store::PersistentStore;
-use crate::persistence::widget_state::WidgetState;
+use crate::persistence::widget_state::{StoredPosition, WidgetState};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -13,7 +13,9 @@ use tokio_util::sync::CancellationToken;
 
 type WidgetStore = PersistentStore<WidgetState>;
 
+/// Program-start epoch for converting Instant to u64 nanoseconds.
 static EPOCH: OnceLock<Instant> = OnceLock::new();
+/// Nanoseconds since EPOCH of the last accepted tray left-click.
 static LAST_TRAY_CLICK_NS: AtomicU64 = AtomicU64::new(0);
 
 fn monotonic_now_ns() -> u64 {
@@ -21,11 +23,13 @@ fn monotonic_now_ns() -> u64 {
     epoch.elapsed().as_nanos() as u64
 }
 
-const DEBOUNCE_NS: u64 = 300_000_000;
+const DEBOUNCE_NS: u64 = 300_000_000; // 300 ms
 
 fn tray_icon() -> tauri::Result<Image<'static>> {
     Image::from_bytes(include_bytes!("../icons/32x32.png"))
 }
+
+// ── Tray builder ──────────────────────────────────────────────────────────────
 
 pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tauri::Result<()> {
     let app = app_handle.app_handle();
@@ -63,22 +67,36 @@ pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tau
         .tooltip("FluxNet")
         .on_menu_event(move |app_handle, event| match event.id.as_ref() {
             "quit" => {
-                // Mark shutdown BEFORE anything else — prevents CloseRequested
-                // handlers from overwriting visibility to false.
+                // 1. Mark shutdown FIRST — prevents CloseRequested handlers
+                //    from overwriting visibility to false during window teardown.
                 APP_SHUTTING_DOWN.store(true, Ordering::SeqCst);
 
-                // Save current widget visibility state BEFORE hiding windows
+                // 2. Save current widget visibility AND positions directly
+                //    (bypass the debouncer which may not flush in time).
                 store_clone.update(app_handle, |state| {
                     for label in WIDGET_LABELS {
                         if let Some(w) = app_handle.get_webview_window(label) {
+                            // Save visibility (the actual current state)
                             let vis = w.is_visible().unwrap_or(false);
                             state.set_visibility(label, vis);
+
+                            // Save position immediately
+                            if let Ok(pos) = w.outer_position() {
+                                state.positions.insert(
+                                    label.to_string(),
+                                    StoredPosition { x: pos.x, y: pos.y },
+                                );
+                            }
                         }
                     }
                 });
 
+                tracing::info!("Quit requested — widget states saved, cancelling sampler");
+
+                // 3. Cancel background tasks (triggers WAL checkpoint in sampler)
                 token.cancel();
 
+                // 4. Exit after a short delay (allows checkpoint to complete)
                 let app_h = app_handle.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(1_500));
@@ -129,6 +147,8 @@ pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tau
 
     Ok(())
 }
+
+// ── Dashboard helper ──────────────────────────────────────────────────────────
 
 pub fn open_dashboard(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {

@@ -50,7 +50,7 @@ const INTERFACES_CACHE_TTL: Duration = Duration::from_secs(5);
 
 pub static INTERFACE_DIRTY: AtomicBool = AtomicBool::new(false);
 
-/// Global shutdown flag — prevents CloseRequested from overwriting visibility on app exit.
+/// Global shutdown flag — prevents CloseRequested from overwriting widget visibility on exit.
 pub static APP_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 pub struct HistoryPoint {
