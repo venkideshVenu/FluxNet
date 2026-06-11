@@ -13,6 +13,7 @@ import {
   WidgetRegistryEntry,
 } from "@/config";
 import { useWidgetPanelState } from "@/hooks/useWidgetPanelState";
+import { resolveColorMode } from "@/utils/theme";
 
 interface PillViewConfig {
   entry: WidgetRegistryEntry;
@@ -121,18 +122,24 @@ function WidgetBehaviorSettings({
       </div>
       <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
         <div>
-          <div className="text-[13px] text-text font-[450]">Dark mode</div>
+          <div className="text-[13px] text-text font-[450]">Theme mode</div>
           <div className="text-[11px] text-text-muted mt-0.5">
-            Use a dark theme
+            {colorMode === "system"
+              ? "Follows Windows setting"
+              : colorMode === "dark"
+                ? "Always dark"
+                : "Always light"}
           </div>
         </div>
-        <Toggle
-          checked={colorMode === "dark"}
-          onChange={() =>
-            onColorModeChange(colorMode === "dark" ? "light" : "dark")
-          }
-          label="Dark mode"
-        />
+        <select
+          className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+          value={colorMode}
+          onChange={(e) => onColorModeChange(e.target.value as ColorMode)}
+        >
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
       </div>
       <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
         <div>
@@ -205,8 +212,11 @@ function WidgetPreview({
 }) {
   const Preview = view.previewComponent;
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
+
+  // Resolve "system" to actual theme for preview display
+  const effectiveTheme = resolveColorMode(colorMode);
   const bgStyle =
-    colorMode === "light"
+    effectiveTheme === "light"
       ? { background: "rgba(255, 255, 255, 0.96)" }
       : { background: view.entry.previewBg };
 
@@ -214,7 +224,7 @@ function WidgetPreview({
     <div
       className="flex flex-col col-start-2 row-start-1"
       style={bgStyle}
-      data-theme={colorMode}
+      data-theme={effectiveTheme}
     >
       <div
         className="flex-1 flex items-center justify-center min-h-[220px]"
@@ -270,7 +280,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
         />
 
         <button
-          className={`px-4 py-3 border-none bg-transparent text-[12px] font-semibold cursor-pointer font-sans tracking-[0.01em] uppercase border-t border-border col-span-full row-start-2 text-text transition-colors hover:bg-accent-soft-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+          className="px-4 py-3 border-none bg-transparent text-[12px] font-semibold cursor-pointer font-sans tracking-[0.01em] uppercase border-t border-border col-span-full row-start-2 text-text transition-colors hover:bg-accent-soft-2 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={state.toggleVisible}
           disabled={state.visible === null}
           style={{ color: config.accentColor }}

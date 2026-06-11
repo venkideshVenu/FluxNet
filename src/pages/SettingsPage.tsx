@@ -62,6 +62,18 @@ export function SettingsPage() {
     applyColorMode(colorMode);
   }, [colorMode]);
 
+  // Listen to system theme changes when in "system" mode
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => {
+      if (colorMode === "system") {
+        applyColorMode("system");
+      }
+    };
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [colorMode]);
+
   const handleInterval = async (raw: string) => {
     const secs = parseFloat(raw);
     const ms = secs * 1000;
@@ -251,30 +263,24 @@ export function SettingsPage() {
         <div className="bg-panel border border-border rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
             <div>
-              <div className="text-[13px] text-text font-[450]">Dark mode</div>
+              <div className="text-[13px] text-text font-[450]">Theme mode</div>
               <div className="text-[11px] text-text-muted mt-0.5">
-                Switch between light and dark
+                {colorMode === "system"
+                  ? "Follows Windows personalization setting"
+                  : colorMode === "dark"
+                    ? "Always use dark theme"
+                    : "Always use light theme"}
               </div>
             </div>
-            <div
-              className={`w-[38px] h-[21px] rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors shrink-0 ${colorMode === "dark" ? "bg-accent" : "bg-accent-muted"}`}
-              onClick={() =>
-                handleColorMode(colorMode === "dark" ? "light" : "dark")
-              }
-              role="switch"
-              aria-checked={colorMode === "dark"}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
-                  e.preventDefault();
-                  handleColorMode(colorMode === "dark" ? "light" : "dark");
-                }
-              }}
+            <select
+              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+              value={colorMode}
+              onChange={(e) => handleColorMode(e.target.value as ColorMode)}
             >
-              <div
-                className={`w-[17px] h-[17px] rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${colorMode === "dark" ? "translate-x-[17px]" : "translate-x-0"}`}
-              />
-            </div>
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </div>
 
           <div className="flex flex-col items-start gap-3 px-[18px] py-[13px]">

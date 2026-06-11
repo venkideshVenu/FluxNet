@@ -12,6 +12,7 @@ export function useWidgetSettings(label: WidgetLabel) {
     const config = WIDGET_REGISTRY[label];
     if (!config) return;
 
+    // Apply initial color mode
     applyColorMode(config.getStoredMode());
 
     invoke("set_widget_always_on_top", {
@@ -44,13 +45,28 @@ export function useWidgetSettings(label: WidgetLabel) {
           );
         }
       } else if (event.key === config.modeKey && event.newValue !== null) {
-        if (event.newValue === "light" || event.newValue === "dark") {
-          applyColorMode(event.newValue);
+        const mode = event.newValue;
+        if (mode === "light" || mode === "dark" || mode === "system") {
+          applyColorMode(mode);
         }
       }
     };
 
+    // Listen for OS theme changes when widget is in "system" mode
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemChange = () => {
+      const currentMode = config.getStoredMode();
+      if (currentMode === "system") {
+        applyColorMode("system");
+      }
+    };
+
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    mediaQuery.addEventListener("change", handleSystemChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      mediaQuery.removeEventListener("change", handleSystemChange);
+    };
   }, [label]);
 }
