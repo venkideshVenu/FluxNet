@@ -43,11 +43,6 @@ function resetStores() {
     todayUploadBytes: 0,
     todayDownloadBytes: 0,
   });
-  useSettingsStore.setState({
-    pollIntervalMs: 1000,
-    displayUnits: "auto",
-    pingTarget: "8.8.8.8",
-  });
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────

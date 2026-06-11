@@ -8,7 +8,6 @@ export interface PillPresentationProps {
   isConnected: boolean;
 }
 
-// All props are primitives (strings, boolean), so default shallow comparison works correctly.
 export const PillPresentation = memo(function PillPresentation({
   downloadValue,
   downloadUnit,
@@ -17,16 +16,11 @@ export const PillPresentation = memo(function PillPresentation({
   isConnected,
 }: PillPresentationProps) {
   const unitClass = (unit: string) => {
-    switch (unit) {
-      case "GB/s":
-        return "unit-gb";
-      case "MB/s":
-        return "unit-mb";
-      case "KB/s":
-        return "unit-kb";
-      default:
-        return "unit-b";
-    }
+    const u = unit.toLowerCase();
+    if (u.startsWith("gb") || u === "gb/s" || u === "gbps") return "unit-gb";
+    if (u.startsWith("mb") || u === "mb/s" || u === "mbps") return "unit-mb";
+    if (u.startsWith("kb") || u === "kb/s" || u === "kbps") return "unit-kb";
+    return "unit-b";
   };
 
   return (

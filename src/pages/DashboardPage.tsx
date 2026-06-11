@@ -39,7 +39,7 @@ export function DashboardPage() {
   const pkDl = formatSpeed(peakDownload, displayUnits);
   const pkUl = formatSpeed(peakUpload, displayUnits);
 
-  // Determine adaptive chart unit based on max raw value
+  // Determine adaptive chart unit based on max raw value AND display unit preference
   const maxRawValue = useMemo(
     () =>
       history.reduce(
@@ -50,8 +50,8 @@ export function DashboardPage() {
   );
 
   const { divisor: chartDivisor, unitLabel: chartUnitLabel } = useMemo(
-    () => getAdaptiveChartUnit(maxRawValue),
-    [maxRawValue],
+    () => getAdaptiveChartUnit(maxRawValue, displayUnits),
+    [maxRawValue, displayUnits],
   );
 
   const chartData = useMemo(
@@ -83,7 +83,6 @@ export function DashboardPage() {
   const isFirstRun = !getStorageItem("fluxnet_configured", "");
   const hasNoInterface = !data.interfaceName;
 
-  // Connection status label
   const connectionLabel = useMemo(() => {
     if (!data.interfaceName) return "No interface";
     if (!isConnected) return "No signal";
@@ -177,7 +176,6 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Stat cards — 4 columns now */}
       <div
         className="stat-grid"
         style={{ gridTemplateColumns: "repeat(4, 1fr)" }}

@@ -43,7 +43,6 @@ export function SettingsPage() {
       })
       .catch(console.warn);
 
-    // Tauri 2 autostart plugin commands use "plugin:autostart|command" format
     invoke<boolean>("plugin:autostart|is_enabled")
       .then((enabled) => {
         setStartWithOS(enabled);
@@ -171,7 +170,9 @@ export function SettingsPage() {
             <div>
               <div className="settings-label">Display units</div>
               <div className="settings-sub">
-                How speeds are formatted everywhere
+                {displayUnits === "bytes"
+                  ? "Bytes per second — adaptive (B/s, KB/s, MB/s, GB/s)"
+                  : "Bits per second — adaptive (bps, Kbps, Mbps, Gbps)"}
               </div>
             </div>
             <select
@@ -179,10 +180,8 @@ export function SettingsPage() {
               value={displayUnits}
               onChange={(e) => handleUnits(e.target.value)}
             >
-              <option value="auto">Auto (adaptive)</option>
-              <option value="MB/s">MB/s</option>
-              <option value="KB/s">KB/s</option>
-              <option value="Mbps">Mbps</option>
+              <option value="bytes">Bytes/s (KB/s, MB/s, GB/s)</option>
+              <option value="bits">Bits/s (Kbps, Mbps, Gbps)</option>
             </select>
           </div>
 
@@ -294,7 +293,6 @@ export function SettingsPage() {
                   className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
                   style={{
                     background: t.color,
-                    // Add border for dark colors to make them visible
                     border:
                       selectedTheme === i
                         ? `2px solid var(--accent)`
@@ -337,12 +335,10 @@ export function SettingsPage() {
   );
 }
 
-/** Simple check if a hex color is "light" enough to not need a visible border */
 function isLightColor(hex: string): boolean {
   const c = hex.replace("#", "");
   const r = parseInt(c.substring(0, 2), 16);
   const g = parseInt(c.substring(2, 4), 16);
   const b = parseInt(c.substring(4, 6), 16);
-  // Perceived brightness
   return r * 0.299 + g * 0.587 + b * 0.114 > 80;
 }
