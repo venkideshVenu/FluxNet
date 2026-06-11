@@ -2,11 +2,9 @@ import { useNetworkStore } from "@/store";
 import { formatSpeed } from "@/utils";
 import { useMemo, useRef } from "react";
 
-/** Formats a timestamp as a relative "Xs ago" / "Xm ago" string */
 function formatRelativeTime(timestampMs: number): string {
   const diffMs = Date.now() - timestampMs;
   const diffSec = Math.floor(diffMs / 1000);
-
   if (diffSec < 5) return "just now";
   if (diffSec < 60) return `${diffSec}s ago`;
   const diffMin = Math.floor(diffSec / 60);
@@ -17,8 +15,6 @@ function formatRelativeTime(timestampMs: number): string {
 
 export function AlertsPage() {
   const { peakUpload, peakDownload, isConnected, history } = useNetworkStore();
-
-  // Track when the session started for timestamp context
   const sessionStartRef = useRef(Date.now());
 
   const alerts = useMemo(() => {
@@ -39,7 +35,6 @@ export function AlertsPage() {
       });
     }
 
-    // Spike detection: last reading > 90% of peak
     const last = history[history.length - 1];
     if (last) {
       if (peakDownload > 0 && last.download > peakDownload * 0.9) {
@@ -51,7 +46,6 @@ export function AlertsPage() {
           time: formatRelativeTime(now),
         });
       }
-
       if (peakUpload > 0 && last.upload > peakUpload * 0.9) {
         const sp = formatSpeed(last.upload);
         list.push({
@@ -75,23 +69,36 @@ export function AlertsPage() {
     return list;
   }, [peakUpload, peakDownload, isConnected, history]);
 
+  const borderColor = (type: string) => {
+    if (type === "warn") return "border-l-warning";
+    if (type === "error") return "border-l-danger";
+    return "border-l-accent";
+  };
+
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">Alerts</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+            Alerts
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             Session notifications and anomalies
           </div>
         </div>
       </div>
 
-      <div className="alert-list">
+      <div className="flex flex-col gap-2">
         {alerts.map((a, i) => (
-          <div key={i} className={`alert-card ${a.type}`}>
-            <div className="alert-title">{a.title}</div>
-            <div className="alert-body">{a.body}</div>
-            <div className="alert-time">{a.time}</div>
+          <div
+            key={i}
+            className={`bg-panel border border-border border-l-[3px] ${borderColor(a.type)} rounded-[10px] px-4 py-3`}
+          >
+            <div className="text-[13px] font-medium text-text mb-[3px]">
+              {a.title}
+            </div>
+            <div className="text-[11px] text-text-muted">{a.body}</div>
+            <div className="text-[10px] text-accent-border mt-1">{a.time}</div>
           </div>
         ))}
       </div>

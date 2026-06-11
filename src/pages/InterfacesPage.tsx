@@ -36,7 +36,6 @@ function getInterfaceIcon(interfaceType: string, isUp: boolean): string {
   }
 }
 
-/** How often to refresh interface list (ms) */
 const POLL_INTERVAL_MS = 3000;
 
 export function InterfacesPage() {
@@ -59,29 +58,19 @@ export function InterfacesPage() {
     }
   }, []);
 
-  // Initial load + periodic refresh
   useEffect(() => {
-    // Fetch immediately on mount
     loadInterfaces();
-
-    // Set up polling interval
     timerRef.current = setInterval(loadInterfaces, POLL_INTERVAL_MS);
-
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [loadInterfaces]);
 
-  // Also refresh when the active interface changes (from the network store)
   const currentInterface = data.interfaceName;
   const prevInterfaceRef = useRef(currentInterface);
   useEffect(() => {
     if (prevInterfaceRef.current !== currentInterface) {
       prevInterfaceRef.current = currentInterface;
-      // Refresh immediately when the monitored interface changes
       loadInterfaces();
     }
   }, [currentInterface, loadInterfaces]);
@@ -92,7 +81,6 @@ export function InterfacesPage() {
     try {
       await invokeWithTimeout("set_interface", { name });
       setStorageItem("fluxnet_configured", "true");
-      // Refresh list immediately after selection to show updated state
       await loadInterfaces();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -116,14 +104,16 @@ export function InterfacesPage() {
   });
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">Interfaces</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+            Interfaces
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             Currently monitoring: <strong>{data.interfaceName || "—"}</strong>
             {" · "}
-            <span style={{ opacity: 0.6 }}>
+            <span className="opacity-60">
               Auto-refreshing every {POLL_INTERVAL_MS / 1000}s
             </span>
           </div>
@@ -131,99 +121,103 @@ export function InterfacesPage() {
       </div>
 
       {selectError && (
-        <div className="error-banner" role="alert" style={{ marginBottom: 16 }}>
-          <span className="error-banner-text">⚠️ {selectError}</span>
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-bg border border-danger-border rounded-md text-danger-text text-[12px] mb-4"
+          role="alert"
+        >
+          <span className="flex-1">⚠️ {selectError}</span>
           <button
             type="button"
-            className="error-banner-dismiss"
             onClick={() => setSelectError(null)}
             aria-label="Dismiss"
+            className="bg-transparent border-none text-danger-text cursor-pointer text-base px-1 leading-none"
           >
             ×
           </button>
         </div>
       )}
 
-      <div className="iface-hero">
-        <div className="iface-hero-card">
-          <div className="iface-hero-title">Active Interface</div>
-          <div className="iface-hero-value">
+      {/* Hero */}
+      <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-[18px] max-[900px]:grid-cols-1">
+        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-[18px] py-4 shadow-lg">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
+            Active Interface
+          </div>
+          <div className="text-lg font-bold text-text mt-2 tracking-[-0.01em]">
             {data.interfaceName || "No active interface"}
           </div>
-          <div className="iface-hero-meta">
+          <div className="mt-1.5 text-[12px] text-text-subtle">
             {upCount} up · {downCount} down · {totalCount} total
           </div>
         </div>
-        <div className="iface-hero-card iface-hero-actions">
-          <div className="iface-hero-title">Filter</div>
-          <div className="iface-chips">
-            <button
-              className={`iface-chip ${filter === "all" ? "active" : ""}`}
-              onClick={() => setFilter("all")}
-              type="button"
-            >
-              All ({totalCount})
-            </button>
-            <button
-              className={`iface-chip ${filter === "up" ? "active" : ""}`}
-              onClick={() => setFilter("up")}
-              type="button"
-            >
-              Up ({upCount})
-            </button>
-            <button
-              className={`iface-chip ${filter === "down" ? "active" : ""}`}
-              onClick={() => setFilter("down")}
-              type="button"
-            >
-              Down ({downCount})
-            </button>
+        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-[18px] py-4 shadow-lg flex flex-col justify-center">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
+            Filter
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {(["all", "up", "down"] as const).map((f) => {
+              const count =
+                f === "all" ? totalCount : f === "up" ? upCount : downCount;
+              return (
+                <button
+                  key={f}
+                  className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px hover:border-accent-border hover:text-accent-strong ${
+                    filter === f
+                      ? "bg-accent-soft text-accent-strong border-accent-border"
+                      : "bg-accent-soft-2 text-text-subtle border-border"
+                  }`}
+                  onClick={() => setFilter(f)}
+                  type="button"
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)} ({count})
+                </button>
+              );
+            })}
           </div>
           <button
             type="button"
-            className="btn-retry"
             onClick={loadInterfaces}
-            style={{ marginTop: 8, fontSize: 11 }}
+            className="mt-2 text-[11px] bg-accent-soft text-accent border border-accent-border rounded-[7px] px-3.5 py-1.5 cursor-pointer font-sans hover:bg-accent-soft-2"
           >
             ↻ Refresh now
           </button>
         </div>
       </div>
 
-      <div className="chart-card">
+      {/* Interface List */}
+      <div className="bg-panel border border-border rounded-lg p-5">
         {error ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">⚠️</div>
-            <div className="empty-state-text">
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
+            <div className="text-[32px] mb-3 opacity-40">⚠️</div>
+            <div className="text-[13px]">
               Failed to load interfaces: {error}
             </div>
             <button
               type="button"
-              className="btn-retry"
               onClick={() => {
                 setError(null);
                 loadInterfaces();
               }}
+              className="mt-3 bg-accent-soft text-accent border border-accent-border rounded-[7px] px-3.5 py-1.5 text-[12px] cursor-pointer font-sans hover:bg-accent-soft-2"
             >
               Retry
             </button>
           </div>
         ) : visibleInterfaces.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">⚡</div>
-            <div className="empty-state-text">
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
+            <div className="text-[32px] mb-3 opacity-40">⚡</div>
+            <div className="text-[13px]">
               {interfaces.length === 0
                 ? "Loading interfaces…"
                 : "No interfaces match this filter."}
             </div>
           </div>
         ) : (
-          <div className="iface-list">
+          <div className="flex flex-col gap-2.5">
             {visibleInterfaces.map((iface) => {
               const isActive = iface.name === data.interfaceName;
               const isPending = selecting === iface.name;
-              const statusLower = iface.status.toLowerCase();
-              const isUp = statusLower === "up";
+              const isUp = iface.status.toLowerCase() === "up";
               const isSelectable = isUp && !isActive && !isPending;
               const statusLabel = iface.status || "Unknown";
               const badgeLabel = isPending
@@ -231,13 +225,6 @@ export function InterfacesPage() {
                 : isActive
                   ? "Active"
                   : statusLabel;
-              const badgeClass = isActive
-                ? "active"
-                : isPending
-                  ? "selected"
-                  : isUp
-                    ? "connected"
-                    : "disconnected";
               const linkSpeedLabel = formatLinkSpeed(iface.link_speed_bps);
               const macLabel = iface.mac || "—";
               const icon = getInterfaceIcon(iface.interface_type, isUp);
@@ -246,7 +233,15 @@ export function InterfacesPage() {
                 <button
                   key={iface.name}
                   type="button"
-                  className={`iface-row ${!isSelectable ? "disabled" : ""} ${isActive ? "highlight" : ""}`}
+                  className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-[linear-gradient(135deg,rgba(124,111,247,0.08),transparent_55%),var(--panel)] cursor-pointer transition-all font-sans text-left text-inherit w-full ${
+                    isActive
+                      ? "border-[rgba(34,217,125,0.4)] shadow-[0_12px_30px_rgba(34,217,125,0.12)]"
+                      : "border-border"
+                  } ${
+                    !isSelectable
+                      ? "cursor-default opacity-60"
+                      : "hover:border-accent-border hover:shadow-md hover:-translate-y-px"
+                  }`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
                   }
@@ -254,33 +249,56 @@ export function InterfacesPage() {
                   aria-label={`${iface.name} — ${statusLabel}${isActive ? " (active)" : ""}`}
                 >
                   <div
-                    className={`iface-icon ${isUp ? "up" : "down"} ${!isActive && !isPending ? "inactive" : ""}`}
-                    aria-hidden="true"
+                    className={`w-[38px] h-[38px] rounded-[10px] flex items-center justify-center shrink-0 ${
+                      isUp && (isActive || isPending)
+                        ? "bg-success-bg text-net-upload"
+                        : isUp
+                          ? "bg-accent-soft-2 text-text-muted"
+                          : "bg-[#f1f4f8] text-net-download"
+                    }`}
                   >
                     {icon}
                   </div>
-                  <div className="iface-main">
-                    <div className="iface-name" title={iface.name}>
+                  <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+                    <div className="text-[15px] font-semibold text-text transition-colors overflow-hidden text-ellipsis whitespace-nowrap">
                       {iface.name}
                     </div>
-                    <div className="iface-addr" title={iface.description || ""}>
+                    <div className="text-[12px] text-text-subtle mt-0.5 line-clamp-2 overflow-hidden">
                       {iface.description || "—"}
                     </div>
-                    <div className="iface-meta">
+                    <div className="text-[11px] text-text-muted tracking-[0.02em] overflow-hidden text-ellipsis whitespace-nowrap">
                       IF {iface.if_index} · {macLabel} · {iface.interface_type}
                     </div>
                   </div>
-                  <div className="iface-details">
-                    <div className="iface-stat">
-                      <div className="iface-stat-label">Link</div>
-                      <div className="iface-stat-value">{linkSpeedLabel}</div>
+                  <div className="flex items-center gap-4 ml-auto mr-3 shrink-0">
+                    <div className="flex flex-col gap-0.5 min-w-[88px]">
+                      <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
+                        Link
+                      </div>
+                      <div className="text-[12px] text-text font-semibold">
+                        {linkSpeedLabel}
+                      </div>
                     </div>
-                    <div className="iface-stat">
-                      <div className="iface-stat-label">Status</div>
-                      <div className="iface-stat-value">{statusLabel}</div>
+                    <div className="flex flex-col gap-0.5 min-w-[88px]">
+                      <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
+                        Status
+                      </div>
+                      <div className="text-[12px] text-text font-semibold">
+                        {statusLabel}
+                      </div>
                     </div>
                   </div>
-                  <span className={`iface-badge ${badgeClass}`}>
+                  <span
+                    className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end ${
+                      isActive
+                        ? "bg-success-bg text-net-upload"
+                        : isPending
+                          ? "bg-accent-soft text-accent-strong"
+                          : isUp
+                            ? "bg-[#e0f4ff] text-net-download"
+                            : "bg-[#f1f4f8] text-[#6b7280]"
+                    }`}
+                  >
                     {badgeLabel}
                   </span>
                 </button>

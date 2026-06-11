@@ -26,7 +26,6 @@ import type {
 
 type Tab = "hourly" | "daily" | "monthly";
 
-/** Joins a { value, unit } result into a single display string */
 function fmt(result: { value: string; unit: string }): string {
   return `${result.value} ${result.unit}`;
 }
@@ -47,7 +46,6 @@ export function HistoryPage() {
   const [monthly, setMonthly] = useState<MonthlyUsage[]>([]);
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const displayUnits = useSettingsStore((s) => s.displayUnits);
 
   useEffect(() => {
@@ -76,13 +74,11 @@ export function HistoryPage() {
         setInitialLoad(false);
       }
     }
-
     void load(false);
     const id = setInterval(() => load(true), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  // ─── Hourly chart: total bytes transferred per hour ─────────────────────────
   const hourlyChart = useMemo(() => {
     const sorted = [...hourly].sort((a, b) => a.hourStart - b.hourStart);
     return sorted.map((point) => ({
@@ -103,7 +99,6 @@ export function HistoryPage() {
     }));
   }, [hourly]);
 
-  // Adaptive unit for hourly chart
   const hourlyMaxBytes = useMemo(
     () =>
       hourlyChart.reduce(
@@ -126,7 +121,6 @@ export function HistoryPage() {
     [hourlyChart, hourlyUnit.divisor],
   );
 
-  // ─── Daily chart: total bytes per day ───────────────────────────────────────
   const dailyChart = useMemo(() => {
     const sorted = [...daily].sort((a, b) => a.day.localeCompare(b.day));
     return sorted.map((point) => ({
@@ -159,21 +153,20 @@ export function HistoryPage() {
     [dailyChart, dailyUnit.divisor],
   );
 
-  // ─── Monthly chart: total bytes per month ───────────────────────────────────
   const sortedMonthly = useMemo(
     () => [...monthly].sort((a, b) => a.month.localeCompare(b.month)),
     [monthly],
   );
-
-  const monthlyChart = useMemo(() => {
-    return sortedMonthly.map((point) => ({
-      label: formatMonthLabel(point.month),
-      fullLabel: point.month,
-      downloadRaw: point.totalDownloadBytes,
-      uploadRaw: point.totalUploadBytes,
-    }));
-  }, [sortedMonthly]);
-
+  const monthlyChart = useMemo(
+    () =>
+      sortedMonthly.map((point) => ({
+        label: formatMonthLabel(point.month),
+        fullLabel: point.month,
+        downloadRaw: point.totalDownloadBytes,
+        uploadRaw: point.totalUploadBytes,
+      })),
+    [sortedMonthly],
+  );
   const monthlyMaxBytes = useMemo(
     () =>
       monthlyChart.reduce(
@@ -196,18 +189,11 @@ export function HistoryPage() {
     [monthlyChart, monthlyUnit.divisor],
   );
 
-  // ─── Summary cards ──────────────────────────────────────────────────────────
   const summaryCards = useMemo(() => {
     if (!stats) return [];
     return [
-      {
-        label: "Today ↓",
-        value: fmt(formatBytes(stats.todayDownloadBytes)),
-      },
-      {
-        label: "Today ↑",
-        value: fmt(formatBytes(stats.todayUploadBytes)),
-      },
+      { label: "Today ↓", value: fmt(formatBytes(stats.todayDownloadBytes)) },
+      { label: "Today ↑", value: fmt(formatBytes(stats.todayUploadBytes)) },
       {
         label: "This week ↓",
         value: fmt(formatBytes(stats.weekDownloadBytes)),
@@ -228,14 +214,12 @@ export function HistoryPage() {
   }, [stats, displayUnits]);
 
   const currentMonthly = sortedMonthly.at(-1) ?? null;
-
   const tabs: { id: Tab; label: string }[] = [
     { id: "hourly", label: "Last 48 hours" },
     { id: "daily", label: "Last 30 days" },
     { id: "monthly", label: "Monthly" },
   ];
 
-  // ─── Shared tooltip formatter factories ─────────────────────────────────────
   const makeFormatter =
     (unitLabel: string) =>
     (value: unknown, name: unknown): [string, string] => {
@@ -248,41 +232,37 @@ export function HistoryPage() {
     };
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">History</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+            History
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             Bandwidth usage over time — total data transferred per period
           </div>
         </div>
       </div>
 
       {initialLoad && (
-        <div
-          className="page-subtitle"
-          style={{ padding: "40px 0", textAlign: "center" }}
-        >
+        <div className="text-[12px] text-text-muted text-center py-10">
           Loading history…
         </div>
       )}
 
       {error && !initialLoad && (
-        <div className="error-banner" role="alert">
-          <span className="error-banner-text">⚠️ {error}</span>
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-bg border border-danger-border rounded-md text-danger-text text-[12px] mb-4"
+          role="alert"
+        >
+          <span className="flex-1">⚠️ {error}</span>
         </div>
       )}
 
       {!initialLoad && !error && (
         <>
-          {/* Summary stats */}
           {stats && (
-            <div
-              className="stat-grid"
-              style={{
-                gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
-              }}
-            >
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(155px,1fr))] gap-3 mb-6">
               {summaryCards.map((card) => (
                 <StatCard
                   key={card.label}
@@ -293,27 +273,29 @@ export function HistoryPage() {
             </div>
           )}
 
-          {/* Tab selector */}
-          <div className="iface-chips" style={{ marginBottom: 20 }}>
+          <div className="flex flex-wrap gap-2 mb-5">
             {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`iface-chip ${tab === item.id ? "active" : ""}`}
+                className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px hover:border-accent-border hover:text-accent-strong ${
+                  tab === item.id
+                    ? "bg-accent-soft text-accent-strong border-accent-border"
+                    : "bg-accent-soft-2 text-text-subtle border-border"
+                }`}
               >
                 {item.label}
               </button>
             ))}
           </div>
 
-          {/* ═══════ HOURLY TAB ═══════ */}
           {tab === "hourly" && (
-            <div className="chart-section">
-              <div className="chart-section-title">
+            <div className="mb-6">
+              <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
                 Data transferred per hour ({hourlyUnit.unitLabel})
               </div>
-              <div className="chart-card">
+              <div className="bg-panel border border-border rounded-lg p-5">
                 {hourlyChartData.length === 0 ? (
                   <EmptyMessage text="No hourly data yet. Data appears after the first completed hour of monitoring." />
                 ) : (
@@ -350,10 +332,9 @@ export function HistoryPage() {
                           contentStyle={TOOLTIP_STYLE}
                           labelStyle={{ color: "var(--text-muted)" }}
                           itemStyle={{ color: "var(--text)" }}
-                          labelFormatter={(_, payload) => {
-                            const p = payload?.[0]?.payload;
-                            return p?.fullLabel ?? "";
-                          }}
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.fullLabel ?? ""
+                          }
                           formatter={makeFormatter(hourlyUnit.unitLabel)}
                         />
                         <Bar
@@ -379,13 +360,12 @@ export function HistoryPage() {
             </div>
           )}
 
-          {/* ═══════ DAILY TAB ═══════ */}
           {tab === "daily" && (
-            <div className="chart-section">
-              <div className="chart-section-title">
+            <div className="mb-6">
+              <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
                 Data transferred per day ({dailyUnit.unitLabel})
               </div>
-              <div className="chart-card">
+              <div className="bg-panel border border-border rounded-lg p-5">
                 {dailyChartData.length === 0 ? (
                   <EmptyMessage text="No daily data yet. Data appears after the first full day of monitoring." />
                 ) : (
@@ -422,10 +402,9 @@ export function HistoryPage() {
                           contentStyle={TOOLTIP_STYLE}
                           labelStyle={{ color: "var(--text-muted)" }}
                           itemStyle={{ color: "var(--text)" }}
-                          labelFormatter={(_, payload) => {
-                            const p = payload?.[0]?.payload;
-                            return p?.fullLabel ?? "";
-                          }}
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.fullLabel ?? ""
+                          }
                           formatter={makeFormatter(dailyUnit.unitLabel)}
                         />
                         <Bar
@@ -451,16 +430,9 @@ export function HistoryPage() {
             </div>
           )}
 
-          {/* ═══════ MONTHLY TAB ═══════ */}
           {tab === "monthly" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {/* Monthly summary cards */}
-              <div
-                className="stat-grid"
-                style={{
-                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                }}
-              >
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
                 <StatCard
                   label="Latest month ↓"
                   value={
@@ -504,12 +476,11 @@ export function HistoryPage() {
                   }
                 />
               </div>
-
-              <div className="chart-section">
-                <div className="chart-section-title">
+              <div className="mb-6">
+                <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
                   Total data per month ({monthlyUnit.unitLabel})
                 </div>
-                <div className="chart-card">
+                <div className="bg-panel border border-border rounded-lg p-5">
                   {monthlyChartData.length === 0 ? (
                     <EmptyMessage text="No monthly data yet. Monthly summaries are generated at the start of each new month." />
                   ) : (
@@ -543,10 +514,9 @@ export function HistoryPage() {
                             contentStyle={TOOLTIP_STYLE}
                             labelStyle={{ color: "var(--text-muted)" }}
                             itemStyle={{ color: "var(--text)" }}
-                            labelFormatter={(_, payload) => {
-                              const p = payload?.[0]?.payload;
-                              return p?.fullLabel ?? "";
-                            }}
+                            labelFormatter={(_, payload) =>
+                              payload?.[0]?.payload?.fullLabel ?? ""
+                            }
                             formatter={makeFormatter(monthlyUnit.unitLabel)}
                           />
                           <Bar
@@ -578,41 +548,22 @@ export function HistoryPage() {
   );
 }
 
-// ─── Helper Components ────────────────────────────────────────────────────────
-
 function ChartLegend({ unitLabel }: { unitLabel: string }) {
   return (
-    <div className="chart-legend">
-      <div className="legend-item">
-        <div
-          className="legend-dot"
-          style={{ background: "var(--net-download)" }}
-        />
+    <div className="flex items-center gap-4 mt-3">
+      <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+        <div className="w-2 h-2 rounded-full bg-net-download" />
         Downloaded
       </div>
-      <div className="legend-item">
-        <div
-          className="legend-dot"
-          style={{ background: "var(--net-upload)" }}
-        />
+      <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+        <div className="w-2 h-2 rounded-full bg-net-upload" />
         Uploaded
       </div>
-      <span
-        style={{
-          marginLeft: "auto",
-          fontSize: 10,
-          color: "var(--text-muted)",
-        }}
-      >
-        {unitLabel}
-      </span>
+      <span className="ml-auto text-[10px] text-text-muted">{unitLabel}</span>
     </div>
   );
 }
 
-// ─── Formatting Helpers ───────────────────────────────────────────────────────
-
-/** Format "2025-01-15" into "Jan 15" */
 function formatDayLabel(day: string): string {
   const [, month, dayNum] = day.split("-");
   const months = [
@@ -629,11 +580,9 @@ function formatDayLabel(day: string): string {
     "Nov",
     "Dec",
   ];
-  const m = parseInt(month, 10) - 1;
-  return `${months[m]} ${parseInt(dayNum, 10)}`;
+  return `${months[parseInt(month, 10) - 1]} ${parseInt(dayNum, 10)}`;
 }
 
-/** Format "2025-01" into "Jan '25" */
 function formatMonthLabel(month: string): string {
   const [year, m] = month.split("-");
   const months = [
@@ -650,11 +599,9 @@ function formatMonthLabel(month: string): string {
     "Nov",
     "Dec",
   ];
-  const mi = parseInt(m, 10) - 1;
-  return `${months[mi]} '${year.slice(2)}`;
+  return `${months[parseInt(m, 10) - 1]} '${year.slice(2)}`;
 }
 
-/** Compact Y-axis value formatter */
 function formatAxisValue(v: number): string {
   if (v >= 1000) return `${(v / 1000).toFixed(0)}K`;
   if (v >= 100) return v.toFixed(0);

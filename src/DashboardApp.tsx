@@ -16,14 +16,8 @@ import { AlertsPage } from "@/pages";
 import { SettingsPage } from "@/pages";
 import { WidgetSettingsPage } from "@/pages";
 import { getStorageItem } from "@/utils";
-import "./styles/dashboard/layout.css";
-import "./styles/dashboard/components.css";
-import "./styles/dashboard/pages.css";
 import { AppProviders } from "./AppProviders";
 
-/**
- * Detects if this is the user's first launch and redirects to Interfaces page.
- */
 function FirstRunRedirect() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,13 +40,19 @@ function DashboardContent() {
   useThemeSync();
 
   return (
-    <div className="app-shell">
-      <a href="#main-content" className="skip-link">
+    <div className="flex w-screen h-screen overflow-hidden">
+      <a
+        href="#main-content"
+        className="absolute -top-full left-0 z-9999 px-4 py-2 bg-accent text-white text-sm font-medium no-underline rounded-br-md focus:top-0 transition-[top] duration-200"
+      >
         Skip to main content
       </a>
 
       <Sidebar />
-      <main id="main-content" className="app-content">
+      <main
+        id="main-content"
+        className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-bg scrollbar-none"
+      >
         <FirstRunRedirect />
         <Routes>
           <Route path="/" element={<DashboardPage />} />

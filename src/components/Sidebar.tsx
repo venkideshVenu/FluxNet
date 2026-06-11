@@ -10,43 +10,72 @@ const NAV = [
 
 export function Sidebar() {
   return (
-    <aside className="sidebar" aria-label="Main navigation">
-      <div className="sidebar-brand" aria-label="FluxNet">
+    <aside
+      className="w-[200px] min-w-[200px] shrink-0 bg-panel border-r border-border flex flex-col h-screen"
+      aria-label="Main navigation"
+    >
+      <div className="flex items-center justify-center px-4 pt-4 pb-3.5 border-b border-border">
         <img
-          className="sidebar-brand-image"
+          className="w-full max-w-[160px] h-auto block"
           src="/branding/logo-horizontal.png"
           alt="FluxNet"
         />
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="flex-1 px-2 py-2.5 flex flex-col gap-px overflow-y-auto scrollbar-none">
         {NAV.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === "/"}
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] no-underline transition-colors duration-150 cursor-pointer font-[450] ${
+                isActive
+                  ? "bg-accent-soft text-accent-strong font-[550]"
+                  : "text-text-subtle hover:bg-accent-soft-2 hover:text-accent-strong"
+              }`
+            }
           >
-            {item.icon}
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <span
+                  className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="sidebar-footer">
+      <div className="px-2 pb-4 pt-2.5 border-t border-border">
         <NavLink
           to="/settings"
-          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+          className={({ isActive }) =>
+            `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] no-underline transition-colors duration-150 cursor-pointer font-[450] ${
+              isActive
+                ? "bg-accent-soft text-accent-strong font-[550]"
+                : "text-text-subtle hover:bg-accent-soft-2 hover:text-accent-strong"
+            }`
+          }
         >
-          <IconSettings />
-          Settings
+          {({ isActive }) => (
+            <>
+              <span
+                className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}
+              >
+                <IconSettings />
+              </span>
+              Settings
+            </>
+          )}
         </NavLink>
       </div>
     </aside>
   );
 }
-
-// All icons have aria-hidden="true" since the adjacent text label provides meaning
 
 function IconDashboard() {
   return (

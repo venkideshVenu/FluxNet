@@ -23,7 +23,6 @@ interface PillViewConfig {
     intervalMs: number,
   ) => PillPresentationProps;
 }
-
 interface CompactViewConfig {
   entry: WidgetRegistryEntry;
   previewComponent: typeof CompactPresentation;
@@ -33,7 +32,6 @@ interface CompactViewConfig {
     intervalMs: number,
   ) => CompactPresentationProps;
 }
-
 interface HudViewConfig {
   entry: WidgetRegistryEntry;
   previewComponent: typeof HudPresentation;
@@ -43,7 +41,6 @@ interface HudViewConfig {
     intervalMs: number,
   ) => HudPresentationProps;
 }
-
 type WidgetViewConfig = PillViewConfig | CompactViewConfig | HudViewConfig;
 
 const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
@@ -109,10 +106,12 @@ function WidgetBehaviorSettings({
 }) {
   return (
     <>
-      <div className="settings-row">
+      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
         <div>
-          <div className="settings-label">Always on top</div>
-          <div className="settings-sub">Float above all windows</div>
+          <div className="text-[13px] text-text font-[450]">Always on top</div>
+          <div className="text-[11px] text-text-muted mt-0.5">
+            Float above all windows
+          </div>
         </div>
         <Toggle
           checked={alwaysOnTop}
@@ -120,10 +119,12 @@ function WidgetBehaviorSettings({
           label="Always on top"
         />
       </div>
-      <div className="settings-row">
+      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
         <div>
-          <div className="settings-label">Dark mode</div>
-          <div className="settings-sub">Use a dark theme</div>
+          <div className="text-[13px] text-text font-[450]">Dark mode</div>
+          <div className="text-[11px] text-text-muted mt-0.5">
+            Use a dark theme
+          </div>
         </div>
         <Toggle
           checked={colorMode === "dark"}
@@ -133,13 +134,17 @@ function WidgetBehaviorSettings({
           label="Dark mode"
         />
       </div>
-      <div className="settings-row">
+      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
         <div>
-          <div className="settings-label">Refresh interval</div>
-          <div className="settings-sub">How often the widget updates</div>
+          <div className="text-[13px] text-text font-[450]">
+            Refresh interval
+          </div>
+          <div className="text-[11px] text-text-muted mt-0.5">
+            How often the widget updates
+          </div>
         </div>
         <select
-          className="fn-select"
+          className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
           value={String(intervalMs / 1000)}
           onChange={(e) => onIntervalChange(e.target.value)}
         >
@@ -164,14 +169,14 @@ function WidgetAppearanceSettings({
   onOpacityCommit: (value: number) => void;
 }) {
   return (
-    <div className="settings-row">
+    <div className="flex items-center justify-between px-[18px] py-[13px]">
       <div>
-        <div className="settings-label">Opacity</div>
-        <div className="settings-sub">{opacity}%</div>
+        <div className="text-[13px] text-text font-[450]">Opacity</div>
+        <div className="text-[11px] text-text-muted mt-0.5">{opacity}%</div>
       </div>
       <input
         type="range"
-        className="fn-slider"
+        className="w-[120px] h-1 rounded-sm bg-accent-soft outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-accent"
         min={40}
         max={100}
         value={opacity}
@@ -200,8 +205,6 @@ function WidgetPreview({
 }) {
   const Preview = view.previewComponent;
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
-
-  // Apply the widget's own color mode to the preview container
   const bgStyle =
     colorMode === "light"
       ? { background: "rgba(255, 255, 255, 0.96)" }
@@ -209,11 +212,14 @@ function WidgetPreview({
 
   return (
     <div
-      className="widget-preview-panel"
+      className="flex flex-col col-start-2 row-start-1"
       style={bgStyle}
       data-theme={colorMode}
     >
-      <div className="preview-content" style={{ opacity: opacity / 100 }}>
+      <div
+        className="flex-1 flex items-center justify-center min-h-[220px]"
+        style={{ opacity: opacity / 100 }}
+      >
         {/* @ts-expect-error — Preview and previewProps are correctly matched */}
         <Preview {...previewProps} />
       </div>
@@ -227,17 +233,17 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const state = useWidgetPanelState(config);
 
   return (
-    <div className="widget-section">
+    <div className="mb-10 last:mb-0">
       <div
-        className="settings-section-title"
+        className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3"
         style={{ color: config.accentColor }}
       >
         {config.displayName}
       </div>
-      <div className="widget-section-body">
-        <div className="widget-settings-panel">
+      <div className="grid grid-cols-[1fr_280px] grid-rows-[auto_auto] gap-0 rounded-[14px] border border-border overflow-hidden bg-panel max-[760px]:grid-cols-1">
+        <div className="flex flex-col gap-2.5 p-5 border-r border-border col-start-1 row-start-1 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:border-border">
           <div
-            className="settings-card"
+            className="bg-panel border border-border rounded-lg overflow-hidden"
             style={{ borderTop: `2px solid ${config.accentColor}22` }}
           >
             <WidgetBehaviorSettings
@@ -264,14 +270,17 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
         />
 
         <button
-          className={`visibility-btn ${state.visible ? "visible" : "hidden"}`}
+          className={`px-4 py-3 border-none bg-transparent text-[12px] font-semibold cursor-pointer font-sans tracking-[0.01em] uppercase border-t border-border col-span-full row-start-2 text-text transition-colors hover:bg-accent-soft-2 disabled:opacity-50 disabled:cursor-not-allowed`}
           onClick={state.toggleVisible}
           disabled={state.visible === null}
           style={{ color: config.accentColor }}
         >
           <span
-            className="visibility-btn-dot"
-            style={{ background: config.accentColor }}
+            className="w-[7px] h-[7px] rounded-full inline-block mr-1"
+            style={{
+              background: config.accentColor,
+              boxShadow: state.visible ? "0 0 5px currentColor" : "none",
+            }}
           />
           {state.visible === null
             ? "Loading…"
@@ -286,11 +295,13 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
 
 export function WidgetSettingsPage() {
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">Widget Settings</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+            Widget Settings
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             Configure Pill, Compact, and HUD widget behavior — preview updates
             live
           </div>

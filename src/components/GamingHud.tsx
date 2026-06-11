@@ -21,6 +21,7 @@ export function GamingHud() {
       onKeyDown={handleKeyNudge}
       tabIndex={0}
       title="Drag to move · Arrow keys to nudge"
+      className="w-full h-full"
     >
       <HudPresentation
         downloadValue={dn.value}

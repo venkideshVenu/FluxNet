@@ -39,7 +39,6 @@ export function DashboardPage() {
   const pkDl = formatSpeed(peakDownload, displayUnits);
   const pkUl = formatSpeed(peakUpload, displayUnits);
 
-  // Determine adaptive chart unit based on max raw value AND display unit preference
   const maxRawValue = useMemo(
     () =>
       history.reduce(
@@ -79,7 +78,6 @@ export function DashboardPage() {
   );
 
   const intervalLabel = `${pollIntervalMs / 1000}s`;
-
   const isFirstRun = !getStorageItem("fluxnet_configured", "");
   const hasNoInterface = !data.interfaceName;
 
@@ -91,68 +89,76 @@ export function DashboardPage() {
 
   if (!isInitialized) {
     return (
-      <div className="page">
-        <div className="page-header">
+      <div className="p-7 px-8 w-full max-w-full">
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <div className="page-title">Dashboard</div>
-            <div className="page-subtitle">Connecting to network monitor…</div>
+            <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+              Dashboard
+            </div>
+            <div className="text-[12px] text-text-muted font-normal">
+              Connecting to network monitor…
+            </div>
           </div>
         </div>
-        <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-label">Download</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
+        <div className="grid grid-cols-4 gap-3 mb-6">
+          {["Download", "Upload", "Peak ↓", "Peak ↑"].map((label) => (
+            <div
+              key={label}
+              className="bg-panel border border-border rounded-lg px-[18px] py-4"
+            >
+              <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+                {label}
+              </div>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+                  —
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Upload</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Peak ↓</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Peak ↑</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">Dashboard</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+            Dashboard
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             {data.interfaceName || "—"} · updating every {intervalLabel}
           </div>
         </div>
-        <span className={`live-badge ${!isConnected ? "disconnected" : ""}`}>
-          <span className={`live-dot ${!isConnected ? "dead" : ""}`} />
+        <span
+          className={`inline-flex items-center gap-1.5 text-[11px] font-medium rounded-[20px] px-2.5 py-1 ${
+            !isConnected
+              ? "bg-danger-bg text-danger-text"
+              : "text-net-upload bg-success-bg"
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              !isConnected ? "bg-danger" : "bg-net-upload animate-pulse"
+            }`}
+          />
           {connectionLabel}
         </span>
       </div>
 
       {lastError && (
-        <div className="error-banner" role="alert">
-          <span className="error-banner-text">
-            ⚠️ Monitoring error: {lastError}
-          </span>
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-bg border border-danger-border rounded-md text-danger-text text-[12px] mb-4"
+          role="alert"
+        >
+          <span className="flex-1">⚠️ Monitoring error: {lastError}</span>
           <button
             type="button"
-            className="error-banner-dismiss"
             onClick={dismissError}
             aria-label="Dismiss error"
+            className="bg-transparent border-none text-danger-text cursor-pointer text-base px-1 leading-none"
           >
             ×
           </button>
@@ -160,69 +166,92 @@ export function DashboardPage() {
       )}
 
       {isFirstRun && hasNoInterface && (
-        <div className="first-run-banner">
-          <span className="first-run-banner-icon">👋</span>
-          <div className="first-run-banner-text">
-            <strong>Welcome to FluxNet!</strong>
+        <div className="flex items-center gap-3 px-[18px] py-3.5 bg-accent-soft border border-accent-border rounded-lg mb-4">
+          <span className="text-xl shrink-0">👋</span>
+          <div className="flex-1 text-[13px] text-text">
+            <strong className="block mb-0.5 text-sm">
+              Welcome to FluxNet!
+            </strong>
             Select a network interface to begin monitoring your bandwidth.
           </div>
           <button
             type="button"
-            className="first-run-banner-action"
             onClick={() => navigate("/interfaces")}
+            className="bg-accent text-white border-none rounded-sm px-3.5 py-1.5 text-[12px] font-medium cursor-pointer whitespace-nowrap hover:opacity-90"
           >
             Select Interface
           </button>
         </div>
       )}
 
-      <div
-        className="stat-grid"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
-      >
-        <div className="stat-card">
-          <div className="stat-label">Download</div>
-          <div className="stat-value">
-            <span className="stat-num">{dn.value}</span>
-            <span className="stat-unit">{dn.unit}</span>
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Download
           </div>
-          <span className="stat-badge down">↓ Live</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {dn.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{dn.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-[#e0f4ff] text-net-download">
+            ↓ Live
+          </span>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">Upload</div>
-          <div className="stat-value">
-            <span className="stat-num">{up.value}</span>
-            <span className="stat-unit">{up.unit}</span>
+        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Upload
           </div>
-          <span className="stat-badge up">↑ Live</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {up.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{up.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-[#dcfbee] text-net-upload">
+            ↑ Live
+          </span>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">Peak Download</div>
-          <div className="stat-value">
-            <span className="stat-num">{pkDl.value}</span>
-            <span className="stat-unit">{pkDl.unit}</span>
+        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Peak Download
           </div>
-          <span className="stat-badge peak">↓ Session</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {pkDl.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{pkDl.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-accent-soft-2 text-accent-strong">
+            ↓ Session
+          </span>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">Peak Upload</div>
-          <div className="stat-value">
-            <span className="stat-num">{pkUl.value}</span>
-            <span className="stat-unit">{pkUl.unit}</span>
+        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Peak Upload
           </div>
-          <span className="stat-badge peak">↑ Session</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {pkUl.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{pkUl.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-accent-soft-2 text-accent-strong">
+            ↑ Session
+          </span>
         </div>
       </div>
 
-      {/* Chart with adaptive units */}
-      <div className="chart-section">
-        <div className="chart-section-title">
+      {/* Chart */}
+      <div className="mb-6">
+        <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
           Bandwidth history — last {history.length} samples
         </div>
-        <div className="chart-card">
+        <div className="bg-panel border border-border rounded-lg p-5">
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart
               data={chartData}
@@ -308,28 +337,16 @@ export function DashboardPage() {
             </AreaChart>
           </ResponsiveContainer>
 
-          <div className="chart-legend">
-            <div className="legend-item">
-              <div
-                className="legend-dot"
-                style={{ background: "var(--net-upload)" }}
-              />
+          <div className="flex items-center gap-4 mt-3">
+            <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+              <div className="w-2 h-2 rounded-full bg-net-upload" />
               Upload
             </div>
-            <div className="legend-item">
-              <div
-                className="legend-dot"
-                style={{ background: "var(--net-download)" }}
-              />
+            <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+              <div className="w-2 h-2 rounded-full bg-net-download" />
               Download
             </div>
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: 10,
-                color: "var(--text-muted)",
-              }}
-            >
+            <span className="ml-auto text-[10px] text-text-muted">
               {chartUnitLabel}
             </span>
           </div>

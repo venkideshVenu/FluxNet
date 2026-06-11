@@ -62,6 +62,7 @@ export function CompactWidget() {
       role="status"
       tabIndex={0}
       title="Drag to move · Arrow keys to nudge"
+      className="focus-visible:outline-2 focus-visible:outline-[rgba(124,111,247,0.8)] focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
     >
       <CompactPresentation
         interfaceName={data.interfaceName}

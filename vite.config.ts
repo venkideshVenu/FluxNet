@@ -1,7 +1,7 @@
-/// <reference types="vitest" />
 import { defineConfig } from "vitest/config";
 import { resolve } from "path";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   resolve: {
@@ -9,7 +9,7 @@ export default defineConfig({
       { find: /^@\/(.*)/, replacement: resolve(__dirname, "src") + "/$1" },
     ],
   },
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   clearScreen: false,
   server: {
     port: 1420,
