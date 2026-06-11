@@ -1,16 +1,14 @@
 html[data-app="compact"] body {
   background: transparent;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 html[data-app="compact"] #root {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   padding: 0;
+  margin: 0;
   box-sizing: border-box;
   overflow: visible;
 }

@@ -1,6 +1,6 @@
 :root {
   color-scheme: dark;
-  --pill-bg: rgba(18, 16, 32, 0.94);
+  --pill-bg: rgb(18, 16, 32);
   --pill-border: rgba(124, 111, 247, 0.14);
   --pill-sep: rgba(124, 111, 247, 0.12);
   --pill-text: #e9e8f4;
@@ -8,7 +8,7 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --pill-bg: rgba(252, 252, 255, 0.98);
+  --pill-bg: rgb(252, 252, 255);
   --pill-border: rgba(79, 66, 192, 0.45);
   --pill-sep: rgba(79, 66, 192, 0.35);
   --pill-text: #1a1830;
@@ -25,7 +25,7 @@ html[data-app="pill"] #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
+  padding: 0;
   box-sizing: border-box;
   overflow: visible;
 }
