@@ -4,7 +4,7 @@ import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
 import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
+import { useDragFromHandle, useKeyboardNudge } from "@/hooks/useDragToMove";
 
 export function CompactWidget() {
   const { data, isConnected } = useNetworkStore();
@@ -52,7 +52,7 @@ export function CompactWidget() {
     };
   }, []);
 
-  const handleDrag = useDragToMove();
+  const handleDrag = useDragFromHandle();
   const handleKeyNudge = useKeyboardNudge();
 
   return (
@@ -61,7 +61,7 @@ export function CompactWidget() {
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
-      title="Drag to move · Arrow keys to nudge"
+      title="Drag handle to move · Arrow keys to nudge"
       className="focus-visible:outline-2 focus-visible:outline-[rgba(124,111,247,0.8)] focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
     >
       <CompactPresentation

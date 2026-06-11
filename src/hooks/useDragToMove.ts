@@ -9,10 +9,24 @@ import {
 const NUDGE_AMOUNT = 10;
 
 /**
- * Returns a mouse handler for Tauri window dragging.
+ * Returns a mouse handler for Tauri window dragging (whole widget).
  */
 export function useDragToMove() {
   return useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    await startDragging();
+  }, []);
+}
+
+/**
+ * Returns a mouse handler that only initiates drag when
+ * the click target (or an ancestor) has `data-drag-handle="true"`.
+ */
+export function useDragFromHandle() {
+  return useCallback(async (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const handle = target.closest("[data-drag-handle]");
+    if (!handle) return;
     e.preventDefault();
     await startDragging();
   }, []);
