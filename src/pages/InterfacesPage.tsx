@@ -1,6 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNetworkStore } from "@/store";
 import { formatLinkSpeed, invokeWithTimeout, setStorageItem } from "@/utils";
+import {
+  Wifi,
+  Network,
+  Cable,
+  Bluetooth,
+  Smartphone,
+  Shield,
+  Monitor,
+  Route,
+  CircleOff,
+} from "lucide-react";
+
 
 type InterfaceInfo = {
   name: string;
@@ -12,27 +24,39 @@ type InterfaceInfo = {
   interface_type: string;
 };
 
-function getInterfaceIcon(interfaceType: string, isUp: boolean): string {
-  if (!isUp) return "◌";
+function getInterfaceIcon(
+  interfaceType: string,
+  isUp: boolean,
+): React.ReactNode {
+  if (!isUp) return <CircleOff size={18} />;
+
   switch (interfaceType) {
     case "wifi":
-      return "📶";
+      return <Wifi size={18} />;
+
     case "ethernet":
-      return "🔌";
+      return <Cable size={18} />;
+
     case "usb":
-      return "🔗";
+      return <Cable size={18} />;
+
     case "bluetooth":
-      return "🔵";
+      return <Bluetooth size={18} />;
+
     case "cellular":
-      return "📱";
+      return <Smartphone size={18} />;
+
     case "vpn":
-      return "🔒";
+      return <Shield size={18} />;
+
     case "virtual":
-      return "💻";
+      return <Monitor size={18} />;
+
     case "tunnel":
-      return "🚇";
+      return <Route size={18} />;
+
     default:
-      return "⌘";
+      return <Network size={18} />;
   }
 }
 
