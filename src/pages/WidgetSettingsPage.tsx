@@ -168,7 +168,17 @@ const PREVIEW_THEME_VARS: Record<"light" | "dark", React.CSSProperties> = {
 
 function IconMonitor() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <path d="M8 21h8" />
       <path d="M12 17v4" />
@@ -178,7 +188,17 @@ function IconMonitor() {
 
 function IconMoon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
     </svg>
   );
@@ -186,7 +206,17 @@ function IconMoon() {
 
 function IconSun() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
@@ -195,7 +225,17 @@ function IconSun() {
 
 function IconSliders() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <line x1="4" y1="6" x2="20" y2="6" />
       <line x1="4" y1="12" x2="20" y2="12" />
       <line x1="4" y1="18" x2="20" y2="18" />
@@ -208,7 +248,17 @@ function IconSliders() {
 
 function IconPalette() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M12 22a9.5 9.5 0 1 1 0-19 8.5 8.5 0 0 1 8.5 8.5c0 2-1.5 3-3 3h-2.3a1.7 1.7 0 0 0-1 3.1A1.9 1.9 0 0 1 13 21a1.9 1.9 0 0 1-1 1Z" />
       <circle cx="7.5" cy="10.5" r="1" fill="currentColor" />
       <circle cx="11" cy="6.5" r="1" fill="currentColor" />
@@ -219,7 +269,17 @@ function IconPalette() {
 
 function IconEye() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
@@ -228,7 +288,17 @@ function IconEye() {
 
 function IconEyeOff() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 7 11 7a13.2 13.2 0 0 1-2.16 2.94" />
       <path d="M6.1 6.1A13.6 13.6 0 0 0 1 11s4 7 11 7a9.2 9.2 0 0 0 4.9-1.4" />
       <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
@@ -239,7 +309,18 @@ function IconEyeOff() {
 
 function IconChevronDown({ className }: { className?: string }) {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
@@ -262,41 +343,23 @@ function WidgetPreview({
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
   const effectiveTheme = resolveColorMode(colorMode);
 
-  const wallpaper =
-    effectiveTheme === "dark"
-      ? "radial-gradient(circle at 25% 15%, rgba(124,111,247,0.22), transparent 55%), radial-gradient(circle at 85% 85%, rgba(56,189,248,0.14), transparent 50%), linear-gradient(160deg, #1a1730 0%, #0c0b18 100%)"
-      : "radial-gradient(circle at 25% 15%, rgba(124,111,247,0.12), transparent 55%), radial-gradient(circle at 85% 85%, rgba(12,96,144,0.10), transparent 50%), linear-gradient(160deg, #fbfaff 0%, #ece9fb 100%)";
-
   return (
     <div
-      className="relative rounded-2xl overflow-hidden border border-border"
-      style={{ background: wallpaper, ...PREVIEW_THEME_VARS[effectiveTheme] }}
+      className="flex items-center justify-center py-5 px-4"
+      style={{ ...PREVIEW_THEME_VARS[effectiveTheme], opacity: opacity / 100 }}
       data-theme={effectiveTheme}
     >
-      {/* Decorative grid */}
-      <div
-        className="absolute inset-0 opacity-[0.05]"
-        style={{
-          backgroundImage: `radial-gradient(circle, var(--text) 1px, transparent 1px)`,
-          backgroundSize: "20px 20px",
-        }}
-      />
-      <div
-        className="relative flex items-center justify-center py-8 sm:py-10 px-4 sm:px-6 min-h-44 sm:min-h-48"
-        style={{ opacity: opacity / 100 }}
-      >
-        {view.entry.label === "hud" ? (
-          <div className="w-full max-w-56 aspect-[6/5] drop-shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
-            {/* @ts-expect-error — Preview and previewProps are correctly matched */}
-            <Preview {...previewProps} />
-          </div>
-        ) : (
-          <div className="drop-shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
-            {/* @ts-expect-error — Preview and previewProps are correctly matched */}
-            <Preview {...previewProps} />
-          </div>
-        )}
-      </div>
+      {view.entry.label === "hud" ? (
+        <div className="w-full max-w-52 aspect-[6/5]">
+          {/* @ts-expect-error — Preview and previewProps are correctly matched */}
+          <Preview {...previewProps} />
+        </div>
+      ) : (
+        <div>
+          {/* @ts-expect-error — Preview and previewProps are correctly matched */}
+          <Preview {...previewProps} />
+        </div>
+      )}
     </div>
   );
 }
@@ -325,7 +388,7 @@ function OpacitySlider({
           onCommit(Number((e.target as HTMLInputElement).value))
         }
         style={{
-          background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${value}%, var(--border) ${value}%, var(--border) 100%)`,
+          background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${((value - 40) / 60) * 100}%, var(--border) ${((value - 40) / 60) * 100}%, var(--border) 100%)`,
         }}
         className="flex-1 min-w-24 h-1.5 rounded-full appearance-none cursor-pointer
           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_var(--accent-soft),0_2px_6px_rgba(0,0,0,0.15)] [&::-webkit-slider-thumb]:transition-shadow [&::-webkit-slider-thumb]:hover:shadow-[0_0_0_4px_var(--accent-soft),0_2px_8px_rgba(0,0,0,0.2)]
@@ -377,7 +440,11 @@ function ColorModeSelector({
   onChange: (mode: ColorMode) => void;
 }) {
   return (
-    <SegmentedControl options={COLOR_MODE_OPTIONS} value={value} onChange={onChange} />
+    <SegmentedControl
+      options={COLOR_MODE_OPTIONS}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -559,9 +626,28 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="border-t border-border px-5 py-5 grid grid-cols-1 min-[820px]:grid-cols-[minmax(0,1fr)_minmax(240px,320px)] gap-5">
-          {/* Settings Column */}
-          <div className="flex flex-col gap-4">
+        <div className="border-t border-border">
+          {/* Preview strip — sits above settings, no fake background */}
+          <div className="flex flex-col items-center border-b border-border bg-surface/40">
+            <WidgetPreview
+              view={view}
+              colorMode={state.colorMode}
+              opacity={state.opacity}
+              intervalMs={state.intervalMs}
+            />
+            <div className="flex items-center gap-3 pb-3 text-[10px] text-text-muted">
+              <span className="font-mono bg-surface border border-border rounded-full px-2 py-0.5">
+                {state.opacity}% opacity
+              </span>
+              <span className="opacity-40">·</span>
+              <span className="font-mono bg-surface border border-border rounded-full px-2 py-0.5">
+                {state.intervalMs / 1000}s refresh
+              </span>
+            </div>
+          </div>
+
+          {/* Settings */}
+          <div className="px-5 py-5 flex flex-col gap-4">
             <SettingsGroup title="Behavior" icon={<IconSliders />}>
               <SettingRow
                 label="Always on top"
@@ -593,45 +679,16 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
                 />
               </SettingRow>
 
-              <div className="py-3.5 px-4">
-                <div className="flex items-center justify-between mb-2.5 gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[13px] text-text font-medium">
-                      Opacity
-                    </div>
-                    <div className="text-[11px] text-text-muted mt-0.5">
-                      {opacityDescription}
-                    </div>
-                  </div>
+              <SettingRow label="Opacity" description={opacityDescription}>
+                <div className="w-48 max-w-full">
+                  <OpacitySlider
+                    value={state.opacity}
+                    onChange={state.handleOpacityChange}
+                    onCommit={state.handleOpacityCommit}
+                  />
                 </div>
-                <OpacitySlider
-                  value={state.opacity}
-                  onChange={state.handleOpacityChange}
-                  onCommit={state.handleOpacityCommit}
-                />
-              </div>
+              </SettingRow>
             </SettingsGroup>
-          </div>
-
-          {/* Preview Column */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                Live Preview
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-text-muted bg-surface border border-border rounded-full px-2 py-0.5">
-                {state.opacity}% · {state.intervalMs / 1000}s
-              </span>
-            </div>
-            <WidgetPreview
-              view={view}
-              colorMode={state.colorMode}
-              opacity={state.opacity}
-              intervalMs={state.intervalMs}
-            />
-            <div className="text-[10px] text-text-muted text-center opacity-60">
-              Drag the widget on your desktop to reposition
-            </div>
           </div>
         </div>
       )}
