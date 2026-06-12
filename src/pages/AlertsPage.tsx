@@ -79,7 +79,7 @@ export function AlertsPage() {
     <div className="p-7 px-8 w-full max-w-full">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
             Alerts
           </div>
           <div className="text-[12px] text-text-muted font-normal">
@@ -94,7 +94,7 @@ export function AlertsPage() {
             key={i}
             className={`bg-panel border border-border border-l-[3px] ${borderColor(a.type)} rounded-[10px] px-4 py-3`}
           >
-            <div className="text-[13px] font-medium text-text mb-[3px]">
+            <div className="text-[13px] font-medium text-text mb-0.75">
               {a.title}
             </div>
             <div className="text-[11px] text-text-muted">{a.body}</div>

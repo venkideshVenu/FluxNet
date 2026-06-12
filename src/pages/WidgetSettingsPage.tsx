@@ -107,7 +107,7 @@ function WidgetBehaviorSettings({
 }) {
   return (
     <>
-      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+      <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
         <div>
           <div className="text-[13px] text-text font-[450]">Always on top</div>
           <div className="text-[11px] text-text-muted mt-0.5">
@@ -120,7 +120,7 @@ function WidgetBehaviorSettings({
           label="Always on top"
         />
       </div>
-      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+      <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
         <div>
           <div className="text-[13px] text-text font-[450]">Theme mode</div>
           <div className="text-[11px] text-text-muted mt-0.5">
@@ -132,7 +132,7 @@ function WidgetBehaviorSettings({
           </div>
         </div>
         <select
-          className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+          className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
           value={colorMode}
           onChange={(e) => onColorModeChange(e.target.value as ColorMode)}
         >
@@ -141,7 +141,7 @@ function WidgetBehaviorSettings({
           <option value="dark">Dark</option>
         </select>
       </div>
-      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+      <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
         <div>
           <div className="text-[13px] text-text font-[450]">
             Refresh interval
@@ -151,7 +151,7 @@ function WidgetBehaviorSettings({
           </div>
         </div>
         <select
-          className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+          className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
           value={String(intervalMs / 1000)}
           onChange={(e) => onIntervalChange(e.target.value)}
         >
@@ -176,14 +176,14 @@ function WidgetAppearanceSettings({
   onOpacityCommit: (value: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between px-[18px] py-[13px]">
+    <div className="flex items-center justify-between px-4.5 py-3.25">
       <div>
         <div className="text-[13px] text-text font-[450]">Opacity</div>
         <div className="text-[11px] text-text-muted mt-0.5">{opacity}%</div>
       </div>
       <input
         type="range"
-        className="w-[120px] h-1 rounded-sm bg-accent-soft outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-accent"
+        className="w-30 h-1 rounded-sm bg-accent-soft outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-accent"
         min={40}
         max={100}
         value={opacity}
@@ -227,7 +227,7 @@ function WidgetPreview({
       data-theme={effectiveTheme}
     >
       <div
-        className="flex-1 flex items-center justify-center min-h-[220px]"
+        className="flex-1 flex items-center justify-center min-h-55"
         style={{ opacity: opacity / 100 }}
       >
         {/* @ts-expect-error — Preview and previewProps are correctly matched */}
@@ -286,7 +286,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
           style={{ color: config.accentColor }}
         >
           <span
-            className="w-[7px] h-[7px] rounded-full inline-block mr-1"
+            className="w-1.75 h-1.75 rounded-full inline-block mr-1"
             style={{
               background: config.accentColor,
               boxShadow: state.visible ? "0 0 5px currentColor" : "none",
@@ -308,7 +308,7 @@ export function WidgetSettingsPage() {
     <div className="p-7 px-8 w-full max-w-full">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
             Widget Settings
           </div>
           <div className="text-[12px] text-text-muted font-normal">

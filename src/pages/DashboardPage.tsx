@@ -92,7 +92,7 @@ export function DashboardPage() {
       <div className="p-7 px-8 w-full max-w-full">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+            <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
               Dashboard
             </div>
             <div className="text-[12px] text-text-muted font-normal">
@@ -104,7 +104,7 @@ export function DashboardPage() {
           {["Download", "Upload", "Peak ↓", "Peak ↑"].map((label) => (
             <div
               key={label}
-              className="bg-panel border border-border rounded-lg px-[18px] py-4"
+              className="bg-panel border border-border rounded-lg px-4.5 py-4"
             >
               <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
                 {label}
@@ -125,7 +125,7 @@ export function DashboardPage() {
     <div className="p-7 px-8 w-full max-w-full">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
             Dashboard
           </div>
           <div className="text-[12px] text-text-muted font-normal">
@@ -166,7 +166,7 @@ export function DashboardPage() {
       )}
 
       {isFirstRun && hasNoInterface && (
-        <div className="flex items-center gap-3 px-[18px] py-3.5 bg-accent-soft border border-accent-border rounded-lg mb-4">
+        <div className="flex items-center gap-3 px-4.5 py-3.5 bg-accent-soft border border-accent-border rounded-lg mb-4">
           <span className="text-xl shrink-0">👋</span>
           <div className="flex-1 text-[13px] text-text">
             <strong className="block mb-0.5 text-sm">
@@ -185,7 +185,7 @@ export function DashboardPage() {
       )}
 
       <div className="grid grid-cols-4 gap-3 mb-6">
-        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Download
           </div>
@@ -195,12 +195,12 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{dn.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-[#e0f4ff] text-net-download">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-[#e0f4ff] text-net-download">
             ↓ Live
           </span>
         </div>
 
-        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Upload
           </div>
@@ -210,12 +210,12 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{up.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-[#dcfbee] text-net-upload">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-[#dcfbee] text-net-upload">
             ↑ Live
           </span>
         </div>
 
-        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Peak Download
           </div>
@@ -225,12 +225,12 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{pkDl.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-accent-soft-2 text-accent-strong">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-accent-soft-2 text-accent-strong">
             ↓ Session
           </span>
         </div>
 
-        <div className="bg-panel border border-border rounded-lg px-[18px] py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Peak Upload
           </div>
@@ -240,7 +240,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{pkUl.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-[3px] text-[10px] font-medium rounded-[20px] px-[7px] py-0.5 bg-accent-soft-2 text-accent-strong">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-accent-soft-2 text-accent-strong">
             ↑ Session
           </span>
         </div>

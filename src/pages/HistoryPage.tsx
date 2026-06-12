@@ -235,7 +235,7 @@ export function HistoryPage() {
     <div className="p-7 px-8 w-full max-w-full">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
             History
           </div>
           <div className="text-[12px] text-text-muted font-normal">

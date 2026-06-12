@@ -11,19 +11,19 @@ const NAV = [
 export function Sidebar() {
   return (
     <aside
-      className="w-[200px] min-w-[200px] shrink-0 bg-panel border-r border-border flex flex-col h-screen"
+      className="w-50 min-w-50 shrink-0 bg-panel border-r border-border flex flex-col h-screen"
       aria-label="Main navigation"
     >
       <div className="flex items-center justify-center px-4 pt-4 pb-3.5 border-b border-border">
         {/* Light mode: dark logo for contrast on white bg */}
         <img
-          className="w-full max-w-[160px] h-auto block [[data-theme='dark']_&]:hidden"
+          className="w-full max-w-40 h-auto block in-data-[theme='dark']_&]:hidden"
           src="/branding/logo-horizontal-dark.png"
           alt="FluxNet"
         />
         {/* Dark mode: light logo for contrast on dark bg */}
         <img
-          className="w-full max-w-[160px] h-auto hidden [[data-theme='dark']_&]:block"
+          className="w-full max-w-40 h-auto hidden in-data-[theme='dark']_&]:block"
           src="/branding/logo-horizontal-light.png"
           alt="FluxNet"
         />

@@ -139,7 +139,7 @@ export function SettingsPage() {
     <div className="p-7 px-8 w-full max-w-full">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
             Settings
           </div>
           <div className="text-[12px] text-text-muted font-normal">
@@ -154,7 +154,7 @@ export function SettingsPage() {
           Monitoring
         </div>
         <div className="bg-panel border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Dashboard refresh interval
@@ -165,7 +165,7 @@ export function SettingsPage() {
               </div>
             </div>
             <select
-              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
               value={String(pollIntervalMs / 1000)}
               onChange={(e) => handleInterval(e.target.value)}
             >
@@ -176,7 +176,7 @@ export function SettingsPage() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Display units
@@ -188,7 +188,7 @@ export function SettingsPage() {
               </div>
             </div>
             <select
-              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
               value={displayUnits}
               onChange={(e) => handleUnits(e.target.value)}
             >
@@ -197,7 +197,7 @@ export function SettingsPage() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Ping target
@@ -208,7 +208,7 @@ export function SettingsPage() {
             </div>
             <input
               type="text"
-              className="text-[12px] font-mono text-text bg-panel border border-border rounded-[7px] px-2.5 py-[5px] outline-none w-40 transition-colors focus:border-accent-border"
+              className="text-[12px] font-mono text-text bg-panel border border-border rounded-[7px] px-2.5 py-1.25 outline-none w-40 transition-colors focus:border-accent-border"
               value={localPingTarget}
               onChange={(e) => handlePingTarget(e.target.value)}
               placeholder="e.g. 1.1.1.1"
@@ -216,7 +216,7 @@ export function SettingsPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between px-[18px] py-[13px]">
+          <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Start with Windows
@@ -231,7 +231,7 @@ export function SettingsPage() {
               </div>
             </div>
             <div
-              className={`w-[38px] h-[21px] rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors shrink-0 ${startWithOS ? "bg-accent" : "bg-accent-muted"} ${!autostartAvailable ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
+              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors shrink-0 ${startWithOS ? "bg-accent" : "bg-accent-muted"} ${!autostartAvailable ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
               onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
@@ -248,7 +248,7 @@ export function SettingsPage() {
               }}
             >
               <div
-                className={`w-[17px] h-[17px] rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-[17px]" : "translate-x-0"}`}
+                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
               />
             </div>
           </div>
@@ -261,7 +261,7 @@ export function SettingsPage() {
           Appearance
         </div>
         <div className="bg-panel border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-accent-soft-2">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">Theme mode</div>
               <div className="text-[11px] text-text-muted mt-0.5">
@@ -273,7 +273,7 @@ export function SettingsPage() {
               </div>
             </div>
             <select
-              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-[5px] cursor-pointer outline-none"
+              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
               value={colorMode}
               onChange={(e) => handleColorMode(e.target.value as ColorMode)}
             >
@@ -283,7 +283,7 @@ export function SettingsPage() {
             </select>
           </div>
 
-          <div className="flex flex-col items-start gap-3 px-[18px] py-[13px]">
+          <div className="flex flex-col items-start gap-3 px-4.5 py-3.25">
             <div className="text-[13px] text-text font-[450]">
               Accent colour
             </div>
@@ -296,7 +296,7 @@ export function SettingsPage() {
                 <button
                   key={i}
                   type="button"
-                  className={`w-[26px] h-[26px] rounded-full cursor-pointer p-0 transition-transform hover:scale-[1.15] ${selectedTheme === i ? "border-2 border-accent" : isLightColor(t.color) ? "border-2 border-transparent" : "border-2 border-[rgba(255,255,255,0.3)]"}`}
+                  className={`w-6.5 h-6.5 rounded-full cursor-pointer p-0 transition-transform hover:scale-[1.15] ${selectedTheme === i ? "border-2 border-accent" : isLightColor(t.color) ? "border-2 border-transparent" : "border-2 border-[rgba(255,255,255,0.3)]"}`}
                   style={{ background: t.color }}
                   title={t.label}
                   aria-label={`${t.label} theme`}
@@ -315,7 +315,7 @@ export function SettingsPage() {
           Data
         </div>
         <div className="bg-panel border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-[18px] py-[13px]">
+          <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Reset session peaks
@@ -327,7 +327,7 @@ export function SettingsPage() {
             <button
               type="button"
               onClick={handleResetPeaks}
-              className="bg-danger-bg text-danger-text border border-danger-border rounded-[7px] px-3 py-[5px] text-[12px] cursor-pointer font-sans transition-opacity hover:opacity-85"
+              className="bg-danger-bg text-danger-text border border-danger-border rounded-[7px] px-3 py-1.25 text-[12px] cursor-pointer font-sans transition-opacity hover:opacity-85"
             >
               Reset
             </button>

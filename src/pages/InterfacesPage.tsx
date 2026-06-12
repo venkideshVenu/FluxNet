@@ -107,7 +107,7 @@ export function InterfacesPage() {
     <div className="p-7 px-8 w-full max-w-full">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-[5px]">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
             Interfaces
           </div>
           <div className="text-[12px] text-text-muted font-normal">
@@ -138,8 +138,8 @@ export function InterfacesPage() {
       )}
 
       {/* Hero */}
-      <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-[18px] max-[900px]:grid-cols-1">
-        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-[18px] py-4 shadow-lg">
+      <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-4.5 max-[900px]:grid-cols-1">
+        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-4.5 py-4 shadow-lg">
           <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
             Active Interface
           </div>
@@ -150,7 +150,7 @@ export function InterfacesPage() {
             {upCount} up · {downCount} down · {totalCount} total
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-[18px] py-4 shadow-lg flex flex-col justify-center">
+        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-4.5 py-4 shadow-lg flex flex-col justify-center">
           <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
             Filter
           </div>
@@ -249,7 +249,7 @@ export function InterfacesPage() {
                   aria-label={`${iface.name} — ${statusLabel}${isActive ? " (active)" : ""}`}
                 >
                   <div
-                    className={`w-[38px] h-[38px] rounded-[10px] flex items-center justify-center shrink-0 ${
+                    className={`w-9.5 h-9.5 rounded-[10px] flex items-center justify-center shrink-0 ${
                       isUp && (isActive || isPending)
                         ? "bg-success-bg text-net-upload"
                         : isUp
@@ -271,7 +271,7 @@ export function InterfacesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 ml-auto mr-3 shrink-0">
-                    <div className="flex flex-col gap-0.5 min-w-[88px]">
+                    <div className="flex flex-col gap-0.5 min-w-22">
                       <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
                         Link
                       </div>
@@ -279,7 +279,7 @@ export function InterfacesPage() {
                         {linkSpeedLabel}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-0.5 min-w-[88px]">
+                    <div className="flex flex-col gap-0.5 min-w-22">
                       <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
                         Status
                       </div>
