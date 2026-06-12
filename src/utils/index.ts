@@ -19,6 +19,7 @@ export {
   getStoredPillMode,
   getStoredCompactMode,
   getStoredHudMode,
+  resolveColorMode,
   LS_THEME,
   LS_MODE,
   LS_PILL_MODE,
@@ -42,3 +43,4 @@ export {
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
 } from "./windowPrefs";
+export { setStorageWithNotify } from "./storageEvents";

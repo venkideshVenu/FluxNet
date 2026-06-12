@@ -1,8 +1,6 @@
 import { useEffect, useRef } from "react";
-import { WINDOW_LABEL } from "@/api/tauri";
-import { useNetworkStore } from "@/store";
-import { useSettingsStore } from "@/store";
-import { pollNetworkData } from "@/api";
+import { WINDOW_LABEL, pollNetworkData } from "@/api";
+import { useNetworkStore, useSettingsStore } from "@/store";
 import {
   getStoredCompactIntervalMs,
   getStoredHudIntervalMs,
@@ -10,9 +8,8 @@ import {
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
-} from "@/utils/polling";
-import { useStoredInterval } from "@/hooks/useStoredInterval";
-import { useDailyUsageAccumulator } from "@/hooks/useDailyUsageAccumulator";
+} from "@/utils";
+import { useStoredInterval, useDailyUsageAccumulator } from "@/hooks";
 
 /**
  * Core polling hook — thin coordinator.

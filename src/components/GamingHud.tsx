@@ -1,8 +1,7 @@
-import { usePingPoller } from "@/hooks";
+import { usePingPoller, useDragFromHandle, useKeyboardNudge } from "@/hooks";
 import { useNetworkStore, usePingStore, useSettingsStore } from "@/store";
 import { formatSpeed } from "@/utils";
 import { HudPresentation } from "./HudPresentation";
-import { useDragFromHandle, useKeyboardNudge } from "@/hooks/useDragToMove";
 
 export function GamingHud() {
   usePingPoller(2000);

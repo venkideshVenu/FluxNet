@@ -1,8 +1,7 @@
 import { useEffect } from "react";
-import { invoke } from "@/api/tauri";
-import { WIDGET_REGISTRY, WidgetLabel } from "@/config/widgetRegistry";
-import { applyColorMode } from "@/utils/theme";
-import { getStorageItem } from "@/utils/storage";
+import { invoke } from "@/api";
+import { WIDGET_REGISTRY, WidgetLabel } from "@/config";
+import { applyColorMode, getStorageItem } from "@/utils";
 
 /**
  * Applies initial widget settings and listens for live changes.

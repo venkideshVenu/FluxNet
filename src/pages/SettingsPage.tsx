@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore, DisplayUnits } from "@/store";
-import { useNetworkStore } from "@/store";
+import { useSettingsStore, DisplayUnits, useNetworkStore } from "@/store";
 import {
   THEMES,
   applyAccent,

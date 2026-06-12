@@ -9,8 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useNetworkStore } from "@/store";
-import { useSettingsStore } from "@/store";
+import { useNetworkStore, useSettingsStore } from "@/store";
 import {
   formatSpeed,
   getAdaptiveChartUnit,

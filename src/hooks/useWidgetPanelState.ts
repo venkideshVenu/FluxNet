@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { invoke, WebviewWindow } from "@/api/tauri";
-import { ColorMode } from "@/utils";
+import { invoke, WebviewWindow } from "@/api";
+import { ColorMode, setStorageWithNotify } from "@/utils";
 import { WidgetRegistryEntry } from "@/config";
-import { setStorageWithNotify } from "@/utils/storageEvents";
 
 /**
  * Manages all local state and side effects for a single widget config panel.

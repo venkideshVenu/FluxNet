@@ -1,9 +1,5 @@
 import { useCallback } from "react";
-import {
-  startDragging,
-  getWindowPosition,
-  setWindowPosition,
-} from "@/api/tauri";
+import { startDragging, getWindowPosition, setWindowPosition } from "@/api";
 
 /** Pixel amount to move on each arrow key press */
 const NUDGE_AMOUNT = 10;

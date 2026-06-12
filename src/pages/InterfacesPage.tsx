@@ -13,7 +13,6 @@ import {
   CircleOff,
 } from "lucide-react";
 
-
 type InterfaceInfo = {
   name: string;
   description: string;

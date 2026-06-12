@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
-import { WINDOW_LABEL } from "@/api/tauri";
+import { WINDOW_LABEL, fetchPingStats } from "@/api";
 import { usePingStore } from "@/store";
-import { fetchPingStats } from "@/api";
 
 /**
  * Polls get_ping_stats every intervalMs.

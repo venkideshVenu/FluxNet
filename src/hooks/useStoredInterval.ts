@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { WINDOW_LABEL } from "@/api/tauri";
+import { WINDOW_LABEL } from "@/api";
 
 /**
  * Syncs a polling interval from localStorage for a specific window label.

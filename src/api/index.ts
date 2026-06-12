@@ -4,7 +4,12 @@ export {
   fetchPingStats,
   pollNetworkData,
 } from "./networkApi";
-export type { RawNetworkStats, RawDashboardSnapshot, NormalizedPollResult } from "./networkApi";
+
+export type {
+  RawNetworkStats,
+  RawDashboardSnapshot,
+  NormalizedPollResult,
+} from "./networkApi";
 
 export {
   fetchUsageStats,

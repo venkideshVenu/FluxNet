@@ -1,20 +1,21 @@
 import { useState } from "react";
-import { ColorMode } from "@/utils";
-import { Toggle } from "@/components";
-import { PillPresentation } from "@/components";
-import { CompactPresentation } from "@/components";
-import { HudPresentation } from "@/components";
-import type { PillPresentationProps } from "@/components/PillPresentation";
-import type { CompactPresentationProps } from "@/components/CompactPresentation";
-import type { HudPresentationProps } from "@/components/HudPresentation";
+import { ColorMode, resolveColorMode } from "@/utils";
+import {
+  Toggle,
+  PillPresentation,
+  CompactPresentation,
+  HudPresentation,
+  PillPresentationProps,
+  CompactPresentationProps,
+  HudPresentationProps,
+} from "@/components";
 import {
   WIDGET_REGISTRY,
   WIDGET_LABELS,
   WidgetLabel,
   WidgetRegistryEntry,
 } from "@/config";
-import { useWidgetPanelState } from "@/hooks/useWidgetPanelState";
-import { resolveColorMode } from "@/utils/theme";
+import { useWidgetPanelState } from "@/hooks";
 
 interface PillViewConfig {
   entry: WidgetRegistryEntry;

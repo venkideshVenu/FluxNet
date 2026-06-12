@@ -1,7 +1,6 @@
-import { useNetworkStore } from "@/store";
-import { useSettingsStore } from "@/store";
+import { useNetworkStore, useSettingsStore } from "@/store";
 import { formatSpeed } from "@/utils";
-import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
+import { useDragToMove, useKeyboardNudge } from "@/hooks";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {

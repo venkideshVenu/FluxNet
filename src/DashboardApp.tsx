@@ -9,14 +9,16 @@ import {
 } from "react-router-dom";
 import { useNetworkPoller, useThemeSync } from "@/hooks";
 import { Sidebar } from "@/components";
-import { DashboardPage } from "@/pages";
-import { HistoryPage } from "@/pages";
-import { InterfacesPage } from "@/pages";
-import { AlertsPage } from "@/pages";
-import { SettingsPage } from "@/pages";
-import { WidgetSettingsPage } from "@/pages";
+import {
+  DashboardPage,
+  HistoryPage,
+  InterfacesPage,
+  AlertsPage,
+  SettingsPage,
+  WidgetSettingsPage,
+} from "@/pages";
 import { getStorageItem } from "@/utils";
-import { AppProviders } from "./AppProviders";
+import { AppProviders } from "@/AppProviders";
 
 function FirstRunRedirect() {
   const navigate = useNavigate();
