@@ -141,11 +141,18 @@ function WidgetPreview({
         }}
       />
       <div
-        className="relative flex items-center justify-center py-10 px-6 min-h-48"
+        className="relative flex items-center justify-center py-6 sm:py-10 px-4 sm:px-6 min-h-40 sm:min-h-48"
         style={{ opacity: opacity / 100 }}
       >
-        {/* @ts-expect-error — Preview and previewProps are correctly matched */}
-        <Preview {...previewProps} />
+        {view.entry.label === "hud" ? (
+          <div className="w-full max-w-60 aspect-[6/5]">
+            {/* @ts-expect-error — Preview and previewProps are correctly matched */}
+            <Preview {...previewProps} />
+          </div>
+        ) : (
+          // @ts-expect-error — Preview and previewProps are correctly matched
+          <Preview {...previewProps} />
+        )}
       </div>
     </div>
   );
@@ -161,10 +168,10 @@ function OpacitySlider({
   onCommit: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <input
         type="range"
-        className="flex-1 h-1.5 rounded-full bg-border appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_var(--accent-soft),0_2px_6px_rgba(0,0,0,0.15)] [&::-webkit-slider-thumb]:transition-shadow [&::-webkit-slider-thumb]:hover:shadow-[0_0_0_4px_var(--accent-soft),0_2px_8px_rgba(0,0,0,0.2)]"
+        className="flex-1 min-w-24 h-1.5 rounded-full bg-border appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_var(--accent-soft),0_2px_6px_rgba(0,0,0,0.15)] [&::-webkit-slider-thumb]:transition-shadow [&::-webkit-slider-thumb]:hover:shadow-[0_0_0_4px_var(--accent-soft),0_2px_8px_rgba(0,0,0,0.2)]"
         min={40}
         max={100}
         value={value}
@@ -191,13 +198,13 @@ function ColorModeSelector({
   onChange: (mode: ColorMode) => void;
 }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       {COLOR_MODE_OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all border ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all border whitespace-nowrap ${
             value === option.value
               ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]"
               : "bg-surface text-text-muted border-border hover:border-accent-border hover:text-text"
@@ -220,13 +227,13 @@ function IntervalSelector({
 }) {
   const currentValue = String(value / 1000);
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       {INTERVAL_OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
-          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-all border ${
+          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-all border whitespace-nowrap ${
             currentValue === option.value
               ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]"
               : "bg-surface text-text-muted border-border hover:border-accent-border hover:text-text"
@@ -249,8 +256,8 @@ function SettingRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5 px-4">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-3 py-3.5 px-4">
+      <div className="min-w-0 flex-1 basis-32">
         <div className="text-[13px] text-text font-medium">{label}</div>
         {description && (
           <div className="text-[11px] text-text-muted mt-0.5">
@@ -258,7 +265,7 @@ function SettingRow({
           </div>
         )}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="shrink-0 max-w-full">{children}</div>
     </div>
   );
 }
@@ -278,10 +285,10 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   return (
     <div className="mb-8 last:mb-0">
       {/* Widget Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[13px] font-bold shadow-md"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[13px] font-bold shadow-md shrink-0"
             style={{
               background: `linear-gradient(135deg, ${config.accentColor}, ${config.accentColor}cc)`,
               boxShadow: `0 4px 12px ${config.accentColor}33`,
@@ -289,13 +296,13 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
           >
             {config.displayName.charAt(0)}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[15px] font-semibold text-text">
                 {config.displayName}
               </span>
               <span
-                className={`w-2 h-2 rounded-full ${statusDot} transition-all`}
+                className={`w-2 h-2 rounded-full ${statusDot} transition-all shrink-0`}
               />
               <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">
                 {state.visible === null
@@ -311,7 +318,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={state.toggleVisible}
@@ -357,7 +364,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="grid grid-cols-[1fr_320px] gap-5 max-[900px]:grid-cols-1">
+        <div className="grid grid-cols-1 min-[820px]:grid-cols-[minmax(0,1fr)_minmax(220px,300px)] gap-5">
           {/* Settings Column */}
           <div className="flex flex-col gap-4">
             {/* Behavior Section */}
@@ -434,7 +441,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
 
           {/* Preview Column */}
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between gap-2 px-1 flex-wrap">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
                 Live Preview
               </span>
@@ -462,7 +469,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
 
 export function WidgetSettingsPage() {
   return (
-    <div className="p-7 px-8 w-full max-w-full">
+    <div className="p-4 sm:p-6 lg:p-8 w-full max-w-full">
       {/* Page Header */}
       <div className="flex items-start justify-between mb-8">
         <div>

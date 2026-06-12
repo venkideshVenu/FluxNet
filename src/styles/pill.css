@@ -8,10 +8,10 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --pill-bg: rgb(252, 252, 255);
-  --pill-border: rgba(79, 66, 192, 0.45);
-  --pill-sep: rgba(79, 66, 192, 0.35);
-  --pill-text: #1a1830;
+  --pill-bg: #f0eff8;
+  --pill-border: rgba(60, 50, 140, 0.25);
+  --pill-sep: rgba(60, 50, 140, 0.18);
+  --pill-text: #131020;
 }
 
 html[data-app="pill"] body {

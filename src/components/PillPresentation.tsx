@@ -18,12 +18,12 @@ export const PillPresentation = memo(function PillPresentation({
   const unitClass = (unit: string) => {
     const u = unit.toLowerCase();
     if (u.startsWith("gb") || u === "gb/s" || u === "gbps")
-      return "text-[#39e48a] bg-[rgba(12,78,52,0.42)] in-data-[theme='light']_&]:text-[#0c6a3a] in-data-[theme='light']_&]:bg-[rgba(12,106,58,0.15)]";
+      return "text-[#39e48a] bg-[rgba(12,78,52,0.42)] in-[[data-theme='light']]:text-[#066a30] in-[[data-theme='light']]:bg-[rgba(10,122,62,0.12)]";
     if (u.startsWith("mb") || u === "mb/s" || u === "mbps")
-      return "text-[#ff9f4a] bg-[rgba(90,54,18,0.45)] in-data-[theme='light']_&]:text-[#8a4a0a] in-data-[theme='light']_&]:bg-[rgba(138,74,10,0.12)]";
+      return "text-[#ff9f4a] bg-[rgba(90,54,18,0.45)] in-[[data-theme='light']]:text-[#7a4200] in-[[data-theme='light']]:bg-[rgba(184,109,0,0.12)]";
     if (u.startsWith("kb") || u === "kb/s" || u === "kbps")
-      return "text-[#4bd4ff] bg-[rgba(12,62,82,0.42)] in-data-[theme='light']_&]:text-[#0a5a78] in-data-[theme='light']_&]:bg-[rgba(10,90,120,0.12)]";
-    return "text-[#c9ccd6] bg-[rgba(86,92,104,0.22)] in-data-[theme='light']_&]:text-[#4a4d5a] in-data-[theme='light']_&]:bg-[rgba(26,24,48,0.1)]";
+      return "text-[#4bd4ff] bg-[rgba(12,62,82,0.42)] in-[[data-theme='light']]:text-[#085070] in-[[data-theme='light']]:bg-[rgba(12,96,144,0.12)]";
+    return "text-[#c9ccd6] bg-[rgba(86,92,104,0.22)] in-[[data-theme='light']]:text-[#3d3760] in-[[data-theme='light']]:bg-[rgba(60,50,100,0.08)]";
   };
 
   return (
@@ -55,8 +55,8 @@ export const PillPresentation = memo(function PillPresentation({
       <div
         className={`w-1.75 h-1.75 ml-0.5 rounded-full ${
           isConnected
-            ? "bg-[#22d97d] shadow-[0_0_6px_rgba(34,217,125,0.7),0_0_10px_rgba(34,217,125,0.2)]"
-            : "bg-[#5c5875] shadow-none"
+            ? "bg-[#0f8c42] shadow-[0_0_6px_rgba(15,140,66,0.6)] in-data-[theme='dark']_&]:bg-[#22d97d] in-data-[theme='dark']_&]:shadow-[0_0_6px_rgba(34,217,125,0.7)]"
+            : "bg-[#8a8590]"
         }`}
         aria-hidden="true"
       />

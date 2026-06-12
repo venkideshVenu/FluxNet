@@ -6,48 +6,48 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces */
-  --bg: #f7f6ff;
-  --panel: #ffffff;
-  --panel-hover: #f5f4fa;
-  --surface: #fafafe;
+  /* Surfaces — warmer, not pure white */
+  --bg: #f0eff8;
+  --panel: #f9f8ff;
+  --panel-hover: #f0eef8;
+  --surface: #f4f3fc;
 
-  /* Borders */
-  --border: #eceaf8;
-  --border-strong: #d4d2e0;
+  /* Borders — more visible */
+  --border: #dddae8;
+  --border-strong: #c4c0d6;
 
-  /* Text */
-  --text: #1a1830;
-  --text-muted: #6e6b9a;
-  --text-subtle: #4d4a80;
+  /* Text — much higher contrast */
+  --text: #131020;
+  --text-muted: #5a5478;
+  --text-subtle: #3d3760;
 
-  /* Accent (base — overridden dynamically by applyAccent()) */
-  --accent: #7c6ff7;
-  --accent-strong: #5b54c4;
-  --accent-soft: #eeedfe;
-  --accent-soft-2: #f3f2fd;
-  --accent-border: #c8c5f5;
-  --accent-muted: #e0def5;
-  --accent-shadow: rgba(124, 111, 247, 0.2);
+  /* Accent */
+  --accent: #6c5ce7;
+  --accent-strong: #4a3db8;
+  --accent-soft: #e8e5fd;
+  --accent-soft-2: #f0effe;
+  --accent-border: #b8b2f0;
+  --accent-muted: #d6d2f0;
+  --accent-shadow: rgba(108, 92, 231, 0.2);
 
-  /* Network */
-  --net-upload: #0d8a48;
-  --net-download: #1572a1;
+  /* Network — darker for light backgrounds */
+  --net-upload: #0a7a3e;
+  --net-download: #0c6090;
 
   /* Status */
-  --success: #16a34a;
-  --success-bg: #dcfbee;
-  --warning: #d97706;
-  --warning-bg: #fffbeb;
-  --danger: #dc2626;
-  --danger-bg: #fef2f2;
-  --danger-text: #b91c1c;
-  --danger-border: #fecaca;
+  --success: #0f8c42;
+  --success-bg: #e0f7ec;
+  --warning: #b86d00;
+  --warning-bg: #fff8e8;
+  --danger: #c62828;
+  --danger-bg: #fde8e8;
+  --danger-text: #991b1b;
+  --danger-border: #f5b8b8;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  /* Shadows — slightly stronger */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
 
   /* Radius */
   --radius-sm: 6px;
@@ -105,15 +105,15 @@
 
 /* ── HUD-specific tokens ─────────────────────────────────────────────────── */
 :root {
+  --hud-good: #0f8c42;
+  --hud-amber: #b86d00;
+  --hud-danger: #c62828;
+  --hud-muted: #6b6890;
+}
+
+:root[data-theme="dark"] {
   --hud-good: #22c55e;
   --hud-amber: #f59e0b;
   --hud-danger: #ef4444;
   --hud-muted: rgba(234, 233, 255, 0.6);
-}
-
-:root[data-theme="light"] {
-  --hud-good: #16a34a;
-  --hud-amber: #c97d00;
-  --hud-danger: #dc2626;
-  --hud-muted: #7a86a5;
 }

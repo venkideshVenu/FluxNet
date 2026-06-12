@@ -11,4 +11,6 @@ html[data-app="compact"] #root {
   margin: 0;
   box-sizing: border-box;
   overflow: visible;
+  width: max-content;
+  height: max-content;
 }

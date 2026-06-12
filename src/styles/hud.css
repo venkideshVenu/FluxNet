@@ -17,16 +17,16 @@
 
 html[data-app="hud"][data-theme="light"] {
   --hud-bg-outer: transparent;
-  --hud-bg-card: rgba(255, 255, 255, 0.96);
-  --hud-border: rgba(24, 33, 61, 0.1);
-  --hud-rule: rgba(24, 33, 61, 0.08);
-  --hud-brand: #18213d;
-  --hud-label: #51607f;
-  --hud-good: #16a34a;
-  --hud-amber: #c97d00;
-  --hud-danger: #dc2626;
-  --hud-neutral: #18213d;
-  --hud-muted: #7a86a5;
+  --hud-bg-card: #f0eff8;
+  --hud-border: rgba(60, 50, 140, 0.18);
+  --hud-rule: rgba(60, 50, 140, 0.12);
+  --hud-brand: #131020;
+  --hud-label: #3d3760;
+  --hud-good: #0f8c42;
+  --hud-amber: #b86d00;
+  --hud-danger: #c62828;
+  --hud-neutral: #131020;
+  --hud-muted: #5a5478;
 }
 
 html[data-app="hud"] body {

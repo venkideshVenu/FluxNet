@@ -114,9 +114,7 @@ export function InterfacesPage() {
             Currently monitoring:{" "}
             <strong className="text-text">{data.interfaceName || "—"}</strong>
             {" · "}
-            <span className="opacity-70">
-              Auto-refreshing every {POLL_INTERVAL_MS / 1000}s
-            </span>
+            <span>Auto-refreshing every {POLL_INTERVAL_MS / 1000}s</span>
           </div>
         </div>
       </div>
@@ -164,7 +162,7 @@ export function InterfacesPage() {
                   key={f}
                   className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${
                     filter === f
-                      ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]"
+                      ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
                       : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"
                   }`}
                   onClick={() => setFilter(f)}
@@ -236,12 +234,14 @@ export function InterfacesPage() {
                   type="button"
                   className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-surface cursor-pointer transition-all font-sans text-left text-inherit w-full ${
                     isActive
-                      ? "border-[#34d399] shadow-[0_0_0_1px_rgba(52,211,153,0.3),0_8px_24px_rgba(52,211,153,0.1)]"
+                      ? "border-success shadow-[0_0_0_1px_rgba(15,140,66,0.2),0_4px_12px_rgba(15,140,66,0.08)]"
                       : "border-border"
                   } ${
-                    !isSelectable
-                      ? "cursor-default opacity-50"
-                      : "hover:border-accent-border hover:shadow-md hover:-translate-y-px"
+                    !isSelectable && !isActive
+                      ? "cursor-default"
+                      : !isSelectable
+                        ? "cursor-default"
+                        : "hover:border-accent-border hover:shadow-md hover:-translate-y-px"
                   }`}
                   onClick={() =>
                     isSelectable ? select(iface.name) : undefined
@@ -252,22 +252,32 @@ export function InterfacesPage() {
                   <div
                     className={`w-9.5 h-9.5 rounded-[10px] flex items-center justify-center shrink-0 text-base ${
                       isUp && (isActive || isPending)
-                        ? "bg-[rgba(52,211,153,0.15)] text-[#34d399]"
+                        ? "bg-success-bg text-success"
                         : isUp
                           ? "bg-accent-soft text-accent-strong"
-                          : "bg-accent-soft-2 text-text-muted"
+                          : "bg-surface text-text-muted"
                     }`}
                   >
                     {icon}
                   </div>
                   <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-                    <div className="text-[15px] font-semibold text-text transition-colors overflow-hidden text-ellipsis whitespace-nowrap">
+                    <div
+                      className={`text-[15px] font-semibold transition-colors overflow-hidden text-ellipsis whitespace-nowrap ${
+                        !isUp && !isActive ? "text-text-muted" : "text-text"
+                      }`}
+                    >
                       {iface.name}
                     </div>
-                    <div className="text-[12px] text-text-muted mt-0.5 line-clamp-2 overflow-hidden">
+                    <div
+                      className={`text-[12px] mt-0.5 line-clamp-2 overflow-hidden ${
+                        !isUp && !isActive
+                          ? "text-text-muted"
+                          : "text-text-subtle"
+                      }`}
+                    >
                       {iface.description || "—"}
                     </div>
-                    <div className="text-[11px] text-text-muted tracking-[0.02em] overflow-hidden text-ellipsis whitespace-nowrap opacity-70">
+                    <div className="text-[11px] text-text-muted tracking-[0.02em] overflow-hidden text-ellipsis whitespace-nowrap">
                       IF {iface.if_index} · {macLabel} · {iface.interface_type}
                     </div>
                   </div>
@@ -276,7 +286,11 @@ export function InterfacesPage() {
                       <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
                         Link
                       </div>
-                      <div className="text-[12px] text-text font-semibold">
+                      <div
+                        className={`text-[12px] font-semibold ${
+                          !isUp && !isActive ? "text-text-muted" : "text-text"
+                        }`}
+                      >
                         {linkSpeedLabel}
                       </div>
                     </div>
@@ -284,20 +298,24 @@ export function InterfacesPage() {
                       <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
                         Status
                       </div>
-                      <div className="text-[12px] text-text font-semibold">
+                      <div
+                        className={`text-[12px] font-semibold ${
+                          isUp ? "text-success" : "text-text-muted"
+                        }`}
+                      >
                         {statusLabel}
                       </div>
                     </div>
                   </div>
                   <span
-                    className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end whitespace-nowrap ${
+                    className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end whitespace-nowrap border ${
                       isActive
-                        ? "bg-[rgba(52,211,153,0.15)] text-[#34d399] border border-[rgba(52,211,153,0.3)]"
+                        ? "bg-success-bg text-success border-success"
                         : isPending
-                          ? "bg-accent-soft text-accent-strong border border-accent-border"
+                          ? "bg-accent-soft text-accent-strong border-accent-border"
                           : isUp
-                            ? "bg-accent-soft text-accent-strong border border-accent-border"
-                            : "bg-accent-soft-2 text-text-muted border border-border"
+                            ? "bg-accent-soft text-accent-strong border-accent-border"
+                            : "bg-surface text-text-muted border-border-strong"
                     }`}
                   >
                     {badgeLabel}
