@@ -89,8 +89,9 @@
     }
   },
   "bundle": {
-    "copyright": "",
+    "copyright": "© 2026 Venkidesh Venu. All rights reserved.",
     "category": "Utility",
+    "publisher": "Venkidesh Venu",
     "shortDescription": "Minimal real-time network meter",
     "targets": "all",
     "icon": [
@@ -99,7 +100,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
   },
   "plugins": {}
 }

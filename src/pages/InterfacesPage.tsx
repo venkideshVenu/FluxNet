@@ -111,9 +111,10 @@ export function InterfacesPage() {
             Interfaces
           </div>
           <div className="text-[12px] text-text-muted font-normal">
-            Currently monitoring: <strong>{data.interfaceName || "—"}</strong>
+            Currently monitoring:{" "}
+            <strong className="text-text">{data.interfaceName || "—"}</strong>
             {" · "}
-            <span className="opacity-60">
+            <span className="opacity-70">
               Auto-refreshing every {POLL_INTERVAL_MS / 1000}s
             </span>
           </div>
@@ -139,18 +140,18 @@ export function InterfacesPage() {
 
       {/* Hero */}
       <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-4.5 max-[900px]:grid-cols-1">
-        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-4.5 py-4 shadow-lg">
+        <div className="rounded-xl border border-border bg-panel px-4.5 py-4 shadow-sm">
           <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
             Active Interface
           </div>
           <div className="text-lg font-bold text-text mt-2 tracking-[-0.01em]">
             {data.interfaceName || "No active interface"}
           </div>
-          <div className="mt-1.5 text-[12px] text-text-subtle">
+          <div className="mt-1.5 text-[12px] text-text-muted">
             {upCount} up · {downCount} down · {totalCount} total
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-[radial-gradient(120%_120%_at_10%_0%,rgba(124,111,247,0.12),transparent_50%),var(--panel)] px-4.5 py-4 shadow-lg flex flex-col justify-center">
+        <div className="rounded-xl border border-border bg-panel px-4.5 py-4 shadow-sm flex flex-col justify-center">
           <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
             Filter
           </div>
@@ -161,10 +162,10 @@ export function InterfacesPage() {
               return (
                 <button
                   key={f}
-                  className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px hover:border-accent-border hover:text-accent-strong ${
+                  className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${
                     filter === f
-                      ? "bg-accent-soft text-accent-strong border-accent-border"
-                      : "bg-accent-soft-2 text-text-subtle border-border"
+                      ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]"
+                      : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"
                   }`}
                   onClick={() => setFilter(f)}
                   type="button"
@@ -177,7 +178,7 @@ export function InterfacesPage() {
           <button
             type="button"
             onClick={loadInterfaces}
-            className="mt-2 text-[11px] bg-accent-soft text-accent border border-accent-border rounded-[7px] px-3.5 py-1.5 cursor-pointer font-sans hover:bg-accent-soft-2"
+            className="mt-2.5 text-[11px] bg-accent-soft text-accent-strong border border-accent-border rounded-[7px] px-3.5 py-1.5 cursor-pointer font-sans font-medium hover:bg-accent-soft-2 transition-colors"
           >
             ↻ Refresh now
           </button>
@@ -198,7 +199,7 @@ export function InterfacesPage() {
                 setError(null);
                 loadInterfaces();
               }}
-              className="mt-3 bg-accent-soft text-accent border border-accent-border rounded-[7px] px-3.5 py-1.5 text-[12px] cursor-pointer font-sans hover:bg-accent-soft-2"
+              className="mt-3 bg-accent-soft text-accent-strong border border-accent-border rounded-[7px] px-3.5 py-1.5 text-[12px] cursor-pointer font-sans hover:bg-accent-soft-2"
             >
               Retry
             </button>
@@ -233,13 +234,13 @@ export function InterfacesPage() {
                 <button
                   key={iface.name}
                   type="button"
-                  className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-panel cursor-pointer transition-all font-sans text-left text-inherit w-full ${
+                  className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-surface cursor-pointer transition-all font-sans text-left text-inherit w-full ${
                     isActive
-                      ? "border-success shadow-[0_12px_30px_rgba(34,217,125,0.12)]"
+                      ? "border-[#34d399] shadow-[0_0_0_1px_rgba(52,211,153,0.3),0_8px_24px_rgba(52,211,153,0.1)]"
                       : "border-border"
                   } ${
                     !isSelectable
-                      ? "cursor-default opacity-60"
+                      ? "cursor-default opacity-50"
                       : "hover:border-accent-border hover:shadow-md hover:-translate-y-px"
                   }`}
                   onClick={() =>
@@ -249,12 +250,12 @@ export function InterfacesPage() {
                   aria-label={`${iface.name} — ${statusLabel}${isActive ? " (active)" : ""}`}
                 >
                   <div
-                    className={`w-9.5 h-9.5 rounded-[10px] flex items-center justify-center shrink-0 ${
+                    className={`w-9.5 h-9.5 rounded-[10px] flex items-center justify-center shrink-0 text-base ${
                       isUp && (isActive || isPending)
-                        ? "bg-success-bg text-success"
+                        ? "bg-[rgba(52,211,153,0.15)] text-[#34d399]"
                         : isUp
-                          ? "bg-accent-soft-2 text-text-muted"
-                          : "bg-accent-soft-2 text-text-muted opacity-60"
+                          ? "bg-accent-soft text-accent-strong"
+                          : "bg-accent-soft-2 text-text-muted"
                     }`}
                   >
                     {icon}
@@ -263,10 +264,10 @@ export function InterfacesPage() {
                     <div className="text-[15px] font-semibold text-text transition-colors overflow-hidden text-ellipsis whitespace-nowrap">
                       {iface.name}
                     </div>
-                    <div className="text-[12px] text-text-subtle mt-0.5 line-clamp-2 overflow-hidden">
+                    <div className="text-[12px] text-text-muted mt-0.5 line-clamp-2 overflow-hidden">
                       {iface.description || "—"}
                     </div>
-                    <div className="text-[11px] text-text-muted tracking-[0.02em] overflow-hidden text-ellipsis whitespace-nowrap">
+                    <div className="text-[11px] text-text-muted tracking-[0.02em] overflow-hidden text-ellipsis whitespace-nowrap opacity-70">
                       IF {iface.if_index} · {macLabel} · {iface.interface_type}
                     </div>
                   </div>
@@ -289,14 +290,14 @@ export function InterfacesPage() {
                     </div>
                   </div>
                   <span
-                    className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end ${
+                    className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end whitespace-nowrap ${
                       isActive
-                        ? "bg-success-bg text-success"
+                        ? "bg-[rgba(52,211,153,0.15)] text-[#34d399] border border-[rgba(52,211,153,0.3)]"
                         : isPending
-                          ? "bg-accent-soft text-accent-strong"
+                          ? "bg-accent-soft text-accent-strong border border-accent-border"
                           : isUp
-                            ? "bg-accent-soft text-accent-strong"
-                            : "bg-accent-soft-2 text-text-muted"
+                            ? "bg-accent-soft text-accent-strong border border-accent-border"
+                            : "bg-accent-soft-2 text-text-muted border border-border"
                     }`}
                   >
                     {badgeLabel}

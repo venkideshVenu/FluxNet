@@ -1,8 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    FLUXNET DESIGN TOKENS
-   
-   Single source of truth for all CSS variables.
-   Imported by index.css → available to all windows.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Light Mode (default) ────────────────────────────────────────────────── */
@@ -21,8 +18,8 @@
 
   /* Text */
   --text: #1a1830;
-  --text-muted: #7a77a8;
-  --text-subtle: #5b589a;
+  --text-muted: #6e6b9a;
+  --text-subtle: #4d4a80;
 
   /* Accent (base — overridden dynamically by applyAccent()) */
   --accent: #7c6ff7;
@@ -73,22 +70,23 @@
   --bg: #0f1016;
   --panel: #161826;
   --panel-hover: #1e2030;
-  --surface: #12141e;
+  --surface: #1a1c2e;
 
-  --border: #27293b;
-  --border-strong: #3d3960;
+  --border: #2a2c40;
+  --border-strong: #4a4670;
 
   --text: #eef0f7;
-  --text-muted: #a09cc0;
-  --text-subtle: #c0bce0;
+  --text-muted: #a8a4c8;
+  --text-subtle: #c8c4e8;
 
-  /* Network — brighter in dark mode for contrast */
+  /* Network — bright and distinct in dark mode */
   --net-upload: #34d399;
   --net-download: #38bdf8;
 
+  --accent-strong: #a78bfa;
   --accent-soft: #1e1a35;
   --accent-soft-2: #16142a;
-  --accent-border: #3d3670;
+  --accent-border: #4a4080;
   --accent-muted: #2a2550;
 
   --success: #34d399;

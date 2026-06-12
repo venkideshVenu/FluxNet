@@ -279,10 +279,10 @@ export function HistoryPage() {
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px hover:border-accent-border hover:text-accent-strong ${
+                className={`border px-3 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${
                   tab === item.id
-                    ? "bg-accent-soft text-accent-strong border-accent-border"
-                    : "bg-accent-soft-2 text-text-subtle border-border"
+                    ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]"
+                    : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"
                 }`}
               >
                 {item.label}

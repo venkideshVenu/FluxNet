@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
@@ -18,6 +18,8 @@ import {
   getStorageItem,
 } from "@/utils";
 
+const DEFAULT_VISIBLE_POINTS = 300;
+
 export function DashboardPage() {
   const {
     data,
@@ -34,18 +36,37 @@ export function DashboardPage() {
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const navigate = useNavigate();
 
+  // Chart viewport state: offset from the end (0 = latest data visible)
+  const [chartOffset, setChartOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; offset: number } | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
   const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
   const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
   const pkDl = formatSpeed(peakDownload, displayUnits);
   const pkUl = formatSpeed(peakUpload, displayUnits);
 
+  // Compute visible window of history
+  const totalPoints = history.length;
+  const maxOffset = Math.max(0, totalPoints - DEFAULT_VISIBLE_POINTS);
+  const clampedOffset = Math.min(chartOffset, maxOffset);
+
+  const visibleHistory = useMemo(() => {
+    const end = totalPoints - clampedOffset;
+    const start = Math.max(0, end - DEFAULT_VISIBLE_POINTS);
+    return history.slice(start, end);
+  }, [history, totalPoints, clampedOffset]);
+
+  const isAtLatest = clampedOffset === 0;
+
   const maxRawValue = useMemo(
     () =>
-      history.reduce(
+      visibleHistory.reduce(
         (max, point) => Math.max(max, point.upload, point.download),
         0,
       ),
-    [history],
+    [visibleHistory],
   );
 
   const { divisor: chartDivisor, unitLabel: chartUnitLabel } = useMemo(
@@ -55,12 +76,12 @@ export function DashboardPage() {
 
   const chartData = useMemo(
     () =>
-      history.map((p, i) => ({
+      visibleHistory.map((p, i) => ({
         t: i,
         upload: +(p.upload / chartDivisor).toFixed(2),
         download: +(p.download / chartDivisor).toFixed(2),
       })),
-    [history, chartDivisor],
+    [visibleHistory, chartDivisor],
   );
 
   const maxChartValue = useMemo(
@@ -77,6 +98,58 @@ export function DashboardPage() {
     [maxChartValue],
   );
 
+  // Chart drag handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (totalPoints <= DEFAULT_VISIBLE_POINTS) return;
+      setIsDragging(true);
+      dragStartRef.current = { x: e.clientX, offset: clampedOffset };
+    },
+    [totalPoints, clampedOffset],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging || !dragStartRef.current) return;
+      const container = chartContainerRef.current;
+      if (!container) return;
+
+      const dx = e.clientX - dragStartRef.current.x;
+      const containerWidth = container.clientWidth;
+      // Convert pixel drag to data points
+      const pointsPerPixel = DEFAULT_VISIBLE_POINTS / containerWidth;
+      const pointsDelta = Math.round(dx * pointsPerPixel);
+      // Dragging right = go back in time (increase offset)
+      const newOffset = Math.max(
+        0,
+        Math.min(maxOffset, dragStartRef.current.offset + pointsDelta),
+      );
+      setChartOffset(newOffset);
+    },
+    [isDragging, maxOffset],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+  }, []);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (totalPoints <= DEFAULT_VISIBLE_POINTS) return;
+      e.preventDefault();
+      const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      const step = Math.max(1, Math.round(Math.abs(delta) / 10));
+      const direction = delta > 0 ? -step : step;
+      setChartOffset((prev) =>
+        Math.max(0, Math.min(maxOffset, prev + direction)),
+      );
+    },
+    [totalPoints, maxOffset],
+  );
+
+  const jumpToLatest = useCallback(() => setChartOffset(0), []);
+
   const intervalLabel = `${pollIntervalMs / 1000}s`;
   const isFirstRun = !getStorageItem("fluxnet_configured", "");
   const hasNoInterface = !data.interfaceName;
@@ -86,6 +159,16 @@ export function DashboardPage() {
     if (!isConnected) return "No signal";
     return "Live";
   }, [data.interfaceName, isConnected]);
+
+  // Time range label for visible window
+  const timeRangeLabel = useMemo(() => {
+    const visibleCount = visibleHistory.length;
+    const intervalSec = pollIntervalMs / 1000;
+    const totalSec = visibleCount * intervalSec;
+    if (totalSec < 60) return `${totalSec.toFixed(0)}s`;
+    if (totalSec < 3600) return `${(totalSec / 60).toFixed(1)} min`;
+    return `${(totalSec / 3600).toFixed(1)} hr`;
+  }, [visibleHistory.length, pollIntervalMs]);
 
   if (!isInitialized) {
     return (
@@ -136,12 +219,12 @@ export function DashboardPage() {
           className={`inline-flex items-center gap-1.5 text-[11px] font-medium rounded-[20px] px-2.5 py-1 ${
             !isConnected
               ? "bg-danger-bg text-danger-text"
-              : "text-net-upload bg-success-bg"
+              : "bg-[rgba(34,209,96,0.15)] text-[#2ee67a]"
           }`}
         >
           <span
             className={`w-1.5 h-1.5 rounded-full ${
-              !isConnected ? "bg-danger" : "bg-net-upload animate-pulse"
+              !isConnected ? "bg-danger" : "bg-[#2ee67a] animate-pulse"
             }`}
           />
           {connectionLabel}
@@ -195,7 +278,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{dn.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-accent-soft text-net-download">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(56,189,248,0.12)] text-[#38bdf8] border border-[rgba(56,189,248,0.25)]">
             ↓ Live
           </span>
         </div>
@@ -210,7 +293,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{up.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-success-bg text-net-upload">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(52,211,153,0.12)] text-[#34d399] border border-[rgba(52,211,153,0.25)]">
             ↑ Live
           </span>
         </div>
@@ -225,7 +308,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{pkDl.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-accent-soft-2 text-accent-strong">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(124,111,247,0.12)] text-[#a78bfa] border border-[rgba(124,111,247,0.25)]">
             ↓ Session
           </span>
         </div>
@@ -240,7 +323,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{pkUl.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-accent-soft-2 text-accent-strong">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(124,111,247,0.12)] text-[#a78bfa] border border-[rgba(124,111,247,0.25)]">
             ↑ Session
           </span>
         </div>
@@ -248,10 +331,41 @@ export function DashboardPage() {
 
       {/* Chart */}
       <div className="mb-6">
-        <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-          Bandwidth history — last {history.length} samples
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em]">
+            Bandwidth history — {visibleHistory.length} samples (
+            {timeRangeLabel})
+            {!isAtLatest && (
+              <span className="ml-2 text-accent opacity-80">
+                · viewing older data
+              </span>
+            )}
+          </div>
+          {!isAtLatest && (
+            <button
+              type="button"
+              onClick={jumpToLatest}
+              className="text-[10px] font-semibold text-accent bg-accent-soft border border-accent-border rounded-full px-2.5 py-1 cursor-pointer hover:bg-accent-soft-2 transition-colors"
+            >
+              ← Jump to latest
+            </button>
+          )}
         </div>
-        <div className="bg-panel border border-border rounded-lg p-5">
+        <div
+          ref={chartContainerRef}
+          className={`bg-panel border border-border rounded-lg p-5 ${
+            totalPoints > DEFAULT_VISIBLE_POINTS
+              ? isDragging
+                ? "cursor-grabbing"
+                : "cursor-grab"
+              : ""
+          }`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+        >
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart
               data={chartData}
@@ -349,7 +463,25 @@ export function DashboardPage() {
             <span className="ml-auto text-[10px] text-text-muted">
               {chartUnitLabel}
             </span>
+            {totalPoints > DEFAULT_VISIBLE_POINTS && (
+              <span className="text-[10px] text-text-muted opacity-70">
+                Drag or scroll to pan
+              </span>
+            )}
           </div>
+
+          {/* Scrollbar indicator */}
+          {totalPoints > DEFAULT_VISIBLE_POINTS && (
+            <div className="mt-3 h-1 bg-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent rounded-full transition-all duration-100"
+                style={{
+                  width: `${Math.max(10, (DEFAULT_VISIBLE_POINTS / totalPoints) * 100)}%`,
+                  marginLeft: `${((maxOffset - clampedOffset) / maxOffset) * (100 - Math.max(10, (DEFAULT_VISIBLE_POINTS / totalPoints) * 100))}%`,
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

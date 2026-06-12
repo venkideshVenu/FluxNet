@@ -17,13 +17,13 @@ export function Sidebar() {
       <div className="flex items-center justify-center px-4 pt-4 pb-3.5 border-b border-border">
         {/* Light mode: dark logo for contrast on white bg */}
         <img
-          className="w-full max-w-40 h-auto block in-data-[theme='dark']_&]:hidden"
+          className="w-full max-w-40 h-auto block in-data-[theme='dark']:hidden"
           src="/branding/logo-horizontal-dark.png"
           alt="FluxNet"
         />
         {/* Dark mode: light logo for contrast on dark bg */}
         <img
-          className="w-full max-w-40 h-auto hidden in-data-[theme='dark']_&]:block"
+          className="w-full max-w-40 h-auto hidden in-data-[theme='dark']:block"
           src="/branding/logo-horizontal-light.png"
           alt="FluxNet"
         />

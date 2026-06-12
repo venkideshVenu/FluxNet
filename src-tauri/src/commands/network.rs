@@ -73,6 +73,8 @@ pub struct MonitorState {
     pub last_nonzero_at: Option<Instant>,
 }
 
+pub const MAX_HISTORY_POINTS: usize = 1800;
+
 impl Default for MonitorState {
     fn default() -> Self {
         Self {
@@ -82,7 +84,7 @@ impl Default for MonitorState {
             interface: String::new(),
             peak_upload: 0.0,
             peak_download: 0.0,
-            history: VecDeque::with_capacity(300),
+            history: VecDeque::with_capacity(MAX_HISTORY_POINTS),
             last_upload: 0.0,
             last_download: 0.0,
             last_nonzero_at: None,
@@ -277,7 +279,7 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
             s.peak_download = download;
         }
 
-        if s.history.len() >= 300 {
+        if s.history.len() >= MAX_HISTORY_POINTS {
             s.history.pop_front();
         }
         s.history.push_back(HistoryPoint {
