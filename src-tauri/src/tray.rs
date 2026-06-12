@@ -25,9 +25,46 @@ fn monotonic_now_ns() -> u64 {
 
 const DEBOUNCE_NS: u64 = 300_000_000; // 300 ms
 
-fn tray_icon() -> tauri::Result<Image<'static>> {
-    // Use the dedicated tray icon (light version for dark taskbar, which is default on Windows)
-    Image::from_bytes(include_bytes!("../icons/tray-light.png"))
+/// Detect if the system is using a light theme (light taskbar).
+/// On Windows, reads the registry key for AppsUseLightTheme.
+fn is_system_light_theme() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        // Query registry: 0 = dark, 1 = light
+        let output = Command::new("reg")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "/v",
+                "SystemUsesLightTheme",
+            ])
+            .output();
+
+        if let Ok(output) = output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // The output contains "0x1" for light or "0x0" for dark
+            if stdout.contains("0x1") {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+fn tray_icon_for_theme(light_system: bool) -> tauri::Result<Image<'static>> {
+    if light_system {
+        // Light taskbar → use dark icon for contrast
+        Image::from_bytes(include_bytes!("../icons/tray-dark.png"))
+    } else {
+        // Dark taskbar → use light icon for contrast
+        Image::from_bytes(include_bytes!("../icons/tray-light.png"))
+    }
 }
 
 // ── Tray builder ──────────────────────────────────────────────────────────────
@@ -35,6 +72,9 @@ fn tray_icon() -> tauri::Result<Image<'static>> {
 pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tauri::Result<()> {
     let app = app_handle.app_handle();
     let store = app_handle.state::<Arc<WidgetStore>>().inner().clone();
+
+    let is_light = is_system_light_theme();
+    let icon = tray_icon_for_theme(is_light)?;
 
     let quit = MenuItem::with_id(app, "quit", "Quit FluxNet", true, None::<&str>)?;
     let show_pill = MenuItem::with_id(app, "show_pill", "Show Pill", true, None::<&str>)?;
@@ -62,8 +102,8 @@ pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tau
     let token = cancel_token.clone();
     let store_clone = store.clone();
 
-    TrayIconBuilder::new()
-        .icon(tray_icon()?)
+    let tray = TrayIconBuilder::new()
+        .icon(icon)
         .icon_as_template(false)
         .menu(&menu)
         .tooltip("FluxNet")
@@ -138,6 +178,32 @@ pub fn build_tray(app_handle: AppHandle, cancel_token: CancellationToken) -> tau
             }
         })
         .build(app)?;
+
+    // Spawn a background task to monitor theme changes and update the tray icon
+    let tray_id = tray.id().clone();
+    let app_for_theme = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut last_light = is_light;
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+            let current_light = is_system_light_theme();
+            if current_light != last_light {
+                last_light = current_light;
+                tracing::info!(
+                    "System theme changed to {} — updating tray icon",
+                    if current_light { "light" } else { "dark" }
+                );
+                if let Ok(new_icon) = tray_icon_for_theme(current_light) {
+                    if let Some(tray) = app_for_theme.tray_by_id(&tray_id) {
+                        let _ = tray.set_icon(Some(new_icon));
+                    }
+                }
+            }
+        }
+    });
 
     Ok(())
 }
