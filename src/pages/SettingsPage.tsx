@@ -11,6 +11,7 @@ import {
   ColorMode,
   setStorageItem,
 } from "@/utils";
+import { FluxSelect } from "@/components";
 
 export function SettingsPage() {
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
@@ -153,7 +154,7 @@ export function SettingsPage() {
         <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
           Monitoring
         </div>
-        <div className="bg-panel border border-border rounded-lg overflow-hidden">
+        <div className="bg-panel border border-border rounded-lg">
           <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">
@@ -164,16 +165,16 @@ export function SettingsPage() {
                 500ms)
               </div>
             </div>
-            <select
-              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
+            <FluxSelect
               value={String(pollIntervalMs / 1000)}
-              onChange={(e) => handleInterval(e.target.value)}
-            >
-              <option value="0.5">0.5 seconds</option>
-              <option value="1">1 second</option>
-              <option value="2">2 seconds</option>
-              <option value="5">5 seconds</option>
-            </select>
+              onChange={handleInterval}
+              options={[
+                { value: "0.5", label: "0.5 seconds" },
+                { value: "1", label: "1 second" },
+                { value: "2", label: "2 seconds" },
+                { value: "5", label: "5 seconds" },
+              ]}
+            />
           </div>
 
           <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
@@ -187,14 +188,21 @@ export function SettingsPage() {
                   : "Bits per second — adaptive (bps, Kbps, Mbps, Gbps)"}
               </div>
             </div>
-            <select
-              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
+            <FluxSelect
               value={displayUnits}
-              onChange={(e) => handleUnits(e.target.value)}
-            >
-              <option value="bytes">Bytes/s (KB/s, MB/s, GB/s)</option>
-              <option value="bits">Bits/s (Kbps, Mbps, Gbps)</option>
-            </select>
+              onChange={handleUnits}
+              width="w-[220px]"
+              options={[
+                {
+                  value: "bytes",
+                  label: "Bytes/s (KB/s, MB/s, GB/s)",
+                },
+                {
+                  value: "bits",
+                  label: "Bits/s (Kbps, Mbps, Gbps)",
+                },
+              ]}
+            />
           </div>
 
           <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
@@ -260,7 +268,7 @@ export function SettingsPage() {
         <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
           Appearance
         </div>
-        <div className="bg-panel border border-border rounded-lg overflow-hidden">
+        <div className="bg-panel border border-border rounded-lg">
           <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">Theme mode</div>
@@ -272,15 +280,15 @@ export function SettingsPage() {
                     : "Always use light theme"}
               </div>
             </div>
-            <select
-              className="text-[12px] font-sans text-accent-strong bg-accent-soft border border-accent-border rounded-[7px] px-2.5 py-1.25 cursor-pointer outline-none"
+            <FluxSelect
               value={colorMode}
-              onChange={(e) => handleColorMode(e.target.value as ColorMode)}
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
+              onChange={(v) => handleColorMode(v as ColorMode)}
+              options={[
+                { value: "system", label: "System" },
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col items-start gap-3 px-4.5 py-3.25">
@@ -314,7 +322,7 @@ export function SettingsPage() {
         <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
           Data
         </div>
-        <div className="bg-panel border border-border rounded-lg overflow-hidden">
+        <div className="bg-panel border border-border rounded-lg">
           <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
               <div className="text-[13px] text-text font-[450]">
