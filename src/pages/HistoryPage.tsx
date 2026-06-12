@@ -75,7 +75,7 @@ export function HistoryPage() {
       }
     }
     void load(false);
-    const id = setInterval(() => load(true), 30_000);
+    const id = setInterval(() => load(true), 10_000);
     return () => clearInterval(id);
   }, []);
 

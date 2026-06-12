@@ -233,9 +233,9 @@ export function InterfacesPage() {
                 <button
                   key={iface.name}
                   type="button"
-                  className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-[linear-gradient(135deg,rgba(124,111,247,0.08),transparent_55%),var(--panel)] cursor-pointer transition-all font-sans text-left text-inherit w-full ${
+                  className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-panel cursor-pointer transition-all font-sans text-left text-inherit w-full ${
                     isActive
-                      ? "border-[rgba(34,217,125,0.4)] shadow-[0_12px_30px_rgba(34,217,125,0.12)]"
+                      ? "border-success shadow-[0_12px_30px_rgba(34,217,125,0.12)]"
                       : "border-border"
                   } ${
                     !isSelectable
@@ -251,10 +251,10 @@ export function InterfacesPage() {
                   <div
                     className={`w-9.5 h-9.5 rounded-[10px] flex items-center justify-center shrink-0 ${
                       isUp && (isActive || isPending)
-                        ? "bg-success-bg text-net-upload"
+                        ? "bg-success-bg text-success"
                         : isUp
                           ? "bg-accent-soft-2 text-text-muted"
-                          : "bg-[#f1f4f8] text-net-download"
+                          : "bg-accent-soft-2 text-text-muted opacity-60"
                     }`}
                   >
                     {icon}
@@ -291,12 +291,12 @@ export function InterfacesPage() {
                   <span
                     className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end ${
                       isActive
-                        ? "bg-success-bg text-net-upload"
+                        ? "bg-success-bg text-success"
                         : isPending
                           ? "bg-accent-soft text-accent-strong"
                           : isUp
-                            ? "bg-[#e0f4ff] text-net-download"
-                            : "bg-[#f1f4f8] text-[#6b7280]"
+                            ? "bg-accent-soft text-accent-strong"
+                            : "bg-accent-soft-2 text-text-muted"
                     }`}
                   >
                     {badgeLabel}

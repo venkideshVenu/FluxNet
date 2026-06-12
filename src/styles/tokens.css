@@ -21,8 +21,8 @@
 
   /* Text */
   --text: #1a1830;
-  --text-muted: #9995cc;
-  --text-subtle: #6b68a0;
+  --text-muted: #7a77a8;
+  --text-subtle: #5b589a;
 
   /* Accent (base — overridden dynamically by applyAccent()) */
   --accent: #7c6ff7;
@@ -34,17 +34,17 @@
   --accent-shadow: rgba(124, 111, 247, 0.2);
 
   /* Network */
-  --net-upload: #119a55;
-  --net-download: #197db4;
+  --net-upload: #0d8a48;
+  --net-download: #1572a1;
 
   /* Status */
-  --success: #22c97a;
+  --success: #16a34a;
   --success-bg: #dcfbee;
-  --warning: #f59e0b;
+  --warning: #d97706;
   --warning-bg: #fffbeb;
-  --danger: #ef4444;
+  --danger: #dc2626;
   --danger-bg: #fef2f2;
-  --danger-text: #dc2626;
+  --danger-text: #b91c1c;
   --danger-border: #fecaca;
 
   /* Shadows */
@@ -79,18 +79,25 @@
   --border-strong: #3d3960;
 
   --text: #eef0f7;
-  --text-muted: #9f9bbb;
-  --text-subtle: #b7b3d6;
+  --text-muted: #a09cc0;
+  --text-subtle: #c0bce0;
+
+  /* Network — brighter in dark mode for contrast */
+  --net-upload: #34d399;
+  --net-download: #38bdf8;
 
   --accent-soft: #1e1a35;
   --accent-soft-2: #16142a;
   --accent-border: #3d3670;
   --accent-muted: #2a2550;
 
+  --success: #34d399;
   --success-bg: #0d2818;
+  --warning: #fbbf24;
   --warning-bg: #2a1f0a;
+  --danger: #f87171;
   --danger-bg: #2a0f0f;
-  --danger-text: #f87171;
+  --danger-text: #fca5a5;
   --danger-border: #7f1d1d;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);

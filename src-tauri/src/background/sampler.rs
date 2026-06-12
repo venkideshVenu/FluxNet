@@ -249,8 +249,8 @@ pub fn start_sampler(
         let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
         cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        // Periodic partial-day rollup (every 30 seconds, update today's daily_usage snapshot)
-        let mut daily_snapshot_interval = tokio::time::interval(Duration::from_secs(30));
+        // Periodic partial-day rollup (every 10 seconds, update today's daily_usage snapshot)
+        let mut daily_snapshot_interval = tokio::time::interval(Duration::from_secs(10));
         daily_snapshot_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut tick_counter = 0u32;

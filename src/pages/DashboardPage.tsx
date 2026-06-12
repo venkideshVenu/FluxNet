@@ -195,7 +195,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{dn.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-[#e0f4ff] text-net-download">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-accent-soft text-net-download">
             ↓ Live
           </span>
         </div>
@@ -210,7 +210,7 @@ export function DashboardPage() {
             </span>
             <span className="text-[12px] text-text-muted">{up.unit}</span>
           </div>
-          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-[#dcfbee] text-net-upload">
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-medium rounded-[20px] px-1.75 py-0.5 bg-success-bg text-net-upload">
             ↑ Live
           </span>
         </div>
