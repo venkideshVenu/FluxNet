@@ -116,7 +116,6 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
             tracing::info!("Showing widget '{label}' (was visible at last quit)");
             let _ = window.show();
         }
-        // If not visible, leave hidden (windows start hidden via tauri.conf.json "visible": false)
     }
 }
 
@@ -140,31 +139,25 @@ fn wire_widget_event_handlers(
         let store = widget_store.clone();
         let sender = pos_sender.0.clone();
 
-        window.on_window_event(move |event| {
-            match event {
-                WindowEvent::CloseRequested { api, .. } => {
-                    // Always prevent actual close — just hide
-                    api.prevent_close();
-                    let _ = window_cl.hide();
+        window.on_window_event(move |event| match event {
+            WindowEvent::CloseRequested { api, .. } => {
+                api.prevent_close();
+                let _ = window_cl.hide();
 
-                    // Save final position via debouncer
-                    if let Ok(pos) = window_cl.outer_position() {
-                        sender.push(label_str.clone(), pos);
-                    }
+                if let Ok(pos) = window_cl.outer_position() {
+                    sender.push(label_str.clone(), pos);
+                }
 
-                    // Only mark as hidden if NOT in app shutdown sequence.
-                    // During shutdown, tray.rs saves the correct visible state first.
-                    if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
-                        store.update(&app_h, |s| s.set_visibility(&label_str, false));
-                    }
+                if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
+                    store.update(&app_h, |s| s.set_visibility(&label_str, false));
                 }
-                WindowEvent::Destroyed => {
-                    if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
-                        store.update(&app_h, |s| s.set_visibility(&label_str, false));
-                    }
-                }
-                _ => {}
             }
+            WindowEvent::Destroyed => {
+                if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
+                    store.update(&app_h, |s| s.set_visibility(&label_str, false));
+                }
+            }
+            _ => {}
         });
     }
 }
@@ -180,6 +173,17 @@ fn wire_main_window(app: &App) {
                 let _ = main_cl.hide();
             }
         });
+
+        // If launched via autostart, keep main window hidden (tray-only start).
+        // Otherwise show it normally.
+        let is_autostart = std::env::args().any(|a| a == "--autostart" || a == "--minimized");
+        if is_autostart {
+            tracing::info!("Autostart launch detected — main window stays hidden");
+            let _ = main_window.hide();
+        } else {
+            let _ = main_window.show();
+            let _ = main_window.set_focus();
+        }
     }
 }
 
@@ -240,9 +244,6 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     app.manage(pos_sender);
 
     // ── Restore widget positions and visibility IMMEDIATELY ───────────────────
-    // This runs synchronously — no page-load event dependency.
-    // Position, always-on-top, and visibility are all native window operations
-    // that work without waiting for WebView content to load.
     restore_widget_states(app, &widget_store);
 
     // ── Wire event handlers ───────────────────────────────────────────────────

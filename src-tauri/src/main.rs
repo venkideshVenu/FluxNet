@@ -44,8 +44,6 @@ fn init_logging() {
     {
         use tracing_subscriber::prelude::*;
 
-        // Derive the log directory without pulling in the `dirs` crate:
-        // %APPDATA%\fluxnet\logs  (Windows) or  ~/.local/share/fluxnet/logs  (future macOS)
         let log_dir = {
             let base = std::env::var("APPDATA")
                 .map(std::path::PathBuf::from)
@@ -60,7 +58,6 @@ fn init_logging() {
 
         let file_appender = tracing_appender::rolling::daily(&log_dir, "fluxnet.log");
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-        // Leak the guard so it lives until process exit and the final log flush completes.
         Box::leak(Box::new(guard));
 
         tracing_subscriber::registry()
@@ -70,26 +67,71 @@ fn init_logging() {
     }
 }
 
+fn install_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown".to_string());
+
+        let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Box<dyn Any>".to_string()
+        };
+
+        tracing::error!("PANIC at {}: {}", location, payload);
+
+        // Also write to a crash file as a last resort
+        let crash_path = std::env::var("APPDATA")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join("fluxnet")
+            .join("logs")
+            .join("last_crash.log");
+
+        let crash_msg = format!(
+            "[{}] PANIC at {}: {}\n",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            location,
+            payload
+        );
+        let _ = std::fs::write(&crash_path, &crash_msg);
+
+        default_hook(info);
+    }));
+}
+
+/// Detect if app was launched via autostart (command-line flag or registry).
+fn is_autostart_launch() -> bool {
+    std::env::args().any(|arg| arg == "--autostart" || arg == "--minimized")
+}
+
 fn main() {
     init_logging();
-    // ─────────────────────────────────────────────────────────────────────────
+    install_panic_hook();
+
+    tracing::info!(
+        "FluxNet {} starting (autostart={})",
+        env!("CARGO_PKG_VERSION"),
+        is_autostart_launch()
+    );
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--autostart"]),
         ))
-        // Core shared state
         .manage(Arc::new(parking_lot::Mutex::new(
             commands::network::MonitorState::default(),
         )))
         .manage(Arc::new(parking_lot::Mutex::new(
             commands::ping::PingState::default(),
         )))
-        // NOTE: SharedInterfacesCache and SamplerHandle are managed inside setup()
-        // after construction so they have access to the AppHandle.
         .invoke_handler(tauri::generate_handler![
-            // Network monitoring
             get_network_stats,
             get_dashboard_snapshot,
             get_interfaces,
@@ -98,9 +140,7 @@ fn main() {
             set_widget_opacity,
             set_widget_always_on_top,
             set_widget_visibility,
-            // Ping
             get_ping_stats,
-            // Storage / history
             get_usage_stats_cmd,
             get_history_range,
             get_hourly_summary,

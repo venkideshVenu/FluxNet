@@ -1,49 +1,76 @@
-import React from "react";
+import React, { Component, ErrorInfo, ReactNode } from "react";
 
-interface ErrorBoundaryState {
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  ErrorBoundaryState
-> {
-  constructor(props: { children: React.ReactNode }) {
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("ErrorBoundary caught:", error, info);
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error(
+      "[FluxNet] React crash caught by ErrorBoundary:",
+      error,
+      errorInfo.componentStack,
+    );
   }
-
-  handleRestart = () => {
-    this.setState({ hasError: false, error: null });
-  };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-screen p-6 font-sans text-center">
-          <h1 className="text-xl mb-2">Something went wrong</h1>
-          <p className="text-sm text-[#666] mb-4">
-            {this.state.error?.message || "An unexpected error occurred."}
-          </p>
+        <div
+          style={{
+            padding: 16,
+            fontFamily: "monospace",
+            fontSize: 12,
+            color: "#f87171",
+            background: "#1a1020",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 24 }}>⚠️</div>
+          <div>Something went wrong</div>
+          <div style={{ color: "#a8a4c8", maxWidth: 300 }}>
+            {this.state.error?.message || "Unknown error"}
+          </div>
           <button
-            onClick={this.handleRestart}
             type="button"
-            className="px-4 py-2 rounded-md border border-[#ccc] bg-[#f5f5f5] cursor-pointer text-sm"
+            onClick={() => this.setState({ hasError: false, error: null })}
+            style={{
+              marginTop: 8,
+              padding: "6px 16px",
+              background: "#6c5ce7",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 11,
+            }}
           >
-            Click to restart
+            Retry
           </button>
         </div>
       );
     }
+
     return this.props.children;
   }
 }
