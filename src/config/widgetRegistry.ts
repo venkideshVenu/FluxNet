@@ -5,16 +5,12 @@ import {
   LS_PILL_INTERVAL,
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
-} from "@/utils";
-import {
   getStoredPillAlwaysOnTop,
   getStoredCompactAlwaysOnTop,
   getStoredHudAlwaysOnTop,
   LS_PILL_ALWAYS_ON_TOP,
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
-} from "@/utils";
-import {
   getStoredPillMode,
   getStoredCompactMode,
   getStoredHudMode,

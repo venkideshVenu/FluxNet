@@ -1,58 +1,63 @@
-/**
- * Converts bytes-per-second to a human-readable string.
- * Returns value and unit separately so the UI can style them independently.
- *
- * Pass `forceUnit` (from the settings store) to override auto-scaling.
- */
 export type SpeedResult = {
   value: string;
   unit: string;
 };
-
-export type DisplayUnits = "auto" | "MB/s" | "KB/s" | "Mbps";
 
 export type BytesResult = {
   value: string;
   unit: string;
 };
 
+export type DisplayUnits = "bytes" | "bits";
+
+// Binary (base 1024) thresholds for Bytes mode
 const KB = 1024;
 const MB = 1024 * KB;
 const GB = 1024 * MB;
 
+// Decimal (base 1000) thresholds for Bits mode
+const Kbit = 1000;
+const Mbit = 1000 * Kbit;
+const Gbit = 1000 * Mbit;
+
+/**
+ * Format a bytes-per-second value into a human-readable speed string.
+ *
+ * - "bytes" mode: adaptive B/s → KB/s → MB/s → GB/s (base 1024)
+ * - "bits" mode:  adaptive bps → Kbps → Mbps → Gbps (base 1000, value × 8)
+ */
 export function formatSpeed(
   bytesPerSec: number,
-  forceUnit: DisplayUnits = "auto",
+  mode: DisplayUnits = "bytes",
 ): SpeedResult {
   if (bytesPerSec <= 0 || !isFinite(bytesPerSec)) {
-    const unit =
-      forceUnit === "auto" ? "B/s" : forceUnit === "Mbps" ? "Mbps" : forceUnit;
-    return { value: "0.0", unit };
+    return { value: "0.0", unit: mode === "bits" ? "bps" : "B/s" };
   }
 
-  switch (forceUnit) {
-    case "MB/s":
-      return { value: (bytesPerSec / MB).toFixed(1), unit: "MB/s" };
-    case "KB/s":
-      return { value: (bytesPerSec / KB).toFixed(1), unit: "KB/s" };
-    case "Mbps":
-      // 1 byte = 8 bits; Mbps = megabits per second
-      return {
-        value: ((bytesPerSec * 8) / (1000 * 1000)).toFixed(1),
-        unit: "Mbps",
-      };
-    default:
-      // auto
-      if (bytesPerSec >= GB)
-        return { value: (bytesPerSec / GB).toFixed(2), unit: "GB/s" };
-      if (bytesPerSec >= MB)
-        return { value: (bytesPerSec / MB).toFixed(1), unit: "MB/s" };
-      if (bytesPerSec >= KB)
-        return { value: (bytesPerSec / KB).toFixed(1), unit: "KB/s" };
-      return { value: bytesPerSec.toFixed(0), unit: "B/s" };
+  if (mode === "bits") {
+    const bitsPerSec = bytesPerSec * 8;
+    if (bitsPerSec >= Gbit)
+      return { value: (bitsPerSec / Gbit).toFixed(2), unit: "Gbps" };
+    if (bitsPerSec >= Mbit)
+      return { value: (bitsPerSec / Mbit).toFixed(1), unit: "Mbps" };
+    if (bitsPerSec >= Kbit)
+      return { value: (bitsPerSec / Kbit).toFixed(1), unit: "Kbps" };
+    return { value: bitsPerSec.toFixed(0), unit: "bps" };
   }
+
+  // Bytes mode (default)
+  if (bytesPerSec >= GB)
+    return { value: (bytesPerSec / GB).toFixed(2), unit: "GB/s" };
+  if (bytesPerSec >= MB)
+    return { value: (bytesPerSec / MB).toFixed(1), unit: "MB/s" };
+  if (bytesPerSec >= KB)
+    return { value: (bytesPerSec / KB).toFixed(1), unit: "KB/s" };
+  return { value: bytesPerSec.toFixed(0), unit: "B/s" };
 }
 
+/**
+ * Format a total byte count into human-readable form (always base 1024).
+ */
 export function formatBytes(bytes: number): BytesResult {
   if (bytes <= 0 || !isFinite(bytes)) {
     return { value: "0", unit: "B" };
@@ -65,16 +70,11 @@ export function formatBytes(bytes: number): BytesResult {
 }
 
 /**
- * Formats a link speed in bits-per-second (bps) to a human-readable string.
- * Uses SI units (1000-based) since link speeds are conventionally SI.
- *
- *
- * @param bps - Link speed in bits per second
- * @returns Formatted string like "1.00 Gbps" or "100 Mbps"
+ * Format a link speed in bps into human-readable form (always base 1000).
  */
 export function formatLinkSpeed(bps: number): string {
   if (!bps || bps <= 0 || !isFinite(bps)) {
-    return "0 bps";
+    return "—";
   }
 
   const units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"];
@@ -93,4 +93,45 @@ export function formatLinkSpeed(bps: number): string {
         ? value.toFixed(1)
         : value.toFixed(2);
   return `${rounded} ${units[i]}`;
+}
+
+/**
+ * Adaptive chart unit selection based on the max value (in bytes/sec).
+ * Returns { divisor, unitLabel } for chart Y-axis.
+ * Adapts to the user's chosen display unit system.
+ */
+export function getAdaptiveChartUnit(
+  maxBytesPerSec: number,
+  mode: DisplayUnits = "bytes",
+): {
+  divisor: number;
+  unitLabel: string;
+} {
+  if (mode === "bits") {
+    const maxBits = maxBytesPerSec * 8;
+    if (maxBits >= Gbit) return { divisor: Gbit / 8, unitLabel: "Gbps" };
+    if (maxBits >= Mbit) return { divisor: Mbit / 8, unitLabel: "Mbps" };
+    if (maxBits >= Kbit) return { divisor: Kbit / 8, unitLabel: "Kbps" };
+    return { divisor: 1 / 8, unitLabel: "bps" };
+  }
+
+  // Bytes mode
+  if (maxBytesPerSec >= GB) return { divisor: GB, unitLabel: "GB/s" };
+  if (maxBytesPerSec >= MB) return { divisor: MB, unitLabel: "MB/s" };
+  if (maxBytesPerSec >= KB) return { divisor: KB, unitLabel: "KB/s" };
+  return { divisor: 1, unitLabel: "B/s" };
+}
+
+/**
+ * Get adaptive unit for total bytes (used in history charts).
+ * Always uses base 1024.
+ */
+export function getAdaptiveBytesUnit(maxBytes: number): {
+  divisor: number;
+  unitLabel: string;
+} {
+  if (maxBytes >= GB) return { divisor: GB, unitLabel: "GB" };
+  if (maxBytes >= MB) return { divisor: MB, unitLabel: "MB" };
+  if (maxBytes >= KB) return { divisor: KB, unitLabel: "KB" };
+  return { divisor: 1, unitLabel: "B" };
 }

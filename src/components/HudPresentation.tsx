@@ -5,7 +5,6 @@ export interface HudPresentationProps {
   downloadUnit: string;
   uploadValue: string;
   uploadUnit: string;
-  /** Ping latency in ms. `null` means no data / timeout. */
   latencyMs: number | null;
   lossPercent: number;
 }
@@ -31,48 +30,79 @@ export const HudPresentation = memo(function HudPresentation({
           : "var(--hud-danger)";
 
   return (
-    <div className="hud-root">
-      <div className="hud-card">
-        <div className="hud-header">
-          <span className="hud-title">FLUXNET HUD</span>
+    <div className="w-full h-full p-2 flex items-center justify-center">
+      <div className="w-full h-full bg-(--hud-bg-card) border border-(--hud-border) rounded-xl grid grid-rows-[auto_1px_1fr_1px_1fr] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2.25 cursor-default">
+          <span className="text-[8px] font-semibold tracking-[0.15em] text-(--hud-brand) uppercase">
+            FLUXNET HUD
+          </span>
           <button
             type="button"
-            className="hud-drag-handle"
+            data-drag-handle="true"
+            className="w-5.5 h-3.75 border-0 rounded-sm bg-transparent cursor-grab shrink-0 flex items-center justify-center transition-opacity p-0 hover:opacity-85 active:cursor-grabbing active:opacity-100 focus-visible:outline-2 focus-visible:outline-(--hud-amber) focus-visible:outline-offset-2 before:content-[''] before:w-3 before:h-0.5 before:rounded-sm before:bg-(--hud-brand)"
             title="Drag to move"
             aria-label="Drag HUD widget"
           />
         </div>
-        <div className="hud-rule" />
-        <div className="hud-rows">
-          <div className="hud-row">
-            <span className="hud-row-label">
-              <span className="hud-arrow">↓</span> DOWNLOAD
+
+        {/* Rule */}
+        <div className="h-px bg-(--hud-rule) shrink-0" />
+
+        {/* Speed rows */}
+        <div className="flex flex-col p-0 min-h-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-2.5 py-1 min-h-0 flex-1">
+            <span className="text-[7px] font-semibold tracking-[0.11em] uppercase text-(--hud-label) flex items-center gap-1.25 min-w-0 whitespace-nowrap">
+              <span className="opacity-70 text-[7px]">↓</span> DOWNLOAD
             </span>
-            <span className="hud-row-value dn">
-              {downloadValue} <span className="hud-unit">{downloadUnit}</span>
+            <span className="text-[14px] font-medium font-mono tabular-nums tracking-[-0.005em] leading-none flex items-baseline gap-0.5 min-w-[11ch] justify-end whitespace-nowrap text-right text-(--hud-dn)">
+              {downloadValue}{" "}
+              <span className="text-[9px] font-normal text-(--hud-muted)">
+                {downloadUnit}
+              </span>
             </span>
           </div>
-          <div className="hud-row">
-            <span className="hud-row-label">
-              <span className="hud-arrow">↑</span> UPLOAD
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-2.5 py-1 min-h-0 flex-1">
+            <span className="text-[7px] font-semibold tracking-[0.11em] uppercase text-(--hud-label) flex items-center gap-1.25 min-w-0 whitespace-nowrap">
+              <span className="opacity-70 text-[7px]">↑</span> UPLOAD
             </span>
-            <span className="hud-row-value up">
-              {uploadValue} <span className="hud-unit">{uploadUnit}</span>
+            <span className="text-[14px] font-medium font-mono tabular-nums tracking-[-0.005em] leading-none flex items-baseline gap-0.5 min-w-[11ch] justify-end whitespace-nowrap text-right text-(--hud-up)">
+              {uploadValue}{" "}
+              <span className="text-[9px] font-normal text-(--hud-muted)">
+                {uploadUnit}
+              </span>
             </span>
           </div>
         </div>
-        <div className="hud-rule" />
-        <div className="hud-rows">
-          <div className="hud-row">
-            <span className="hud-row-label">PING</span>
-            <span className="hud-row-value" style={{ color: pingColour }}>
+
+        {/* Rule */}
+        <div className="h-px bg-(--hud-rule) shrink-0" />
+
+        {/* Ping/Loss rows */}
+        <div className="flex flex-col p-0 min-h-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-2.5 py-1 min-h-0 flex-1">
+            <span className="text-[7px] font-semibold tracking-[0.11em] uppercase text-(--hud-label) flex items-center gap-1.25 min-w-0 whitespace-nowrap">
+              PING
+            </span>
+            <span
+              className="text-[14px] font-medium font-mono tabular-nums tracking-[-0.005em] leading-none flex items-baseline gap-0.5 min-w-[11ch] justify-end whitespace-nowrap text-right"
+              style={{ color: pingColour }}
+            >
               {latencyText}
-              {latencyMs !== null && <span className="hud-unit">ms</span>}
+              {latencyMs !== null && (
+                <span className="text-[9px] font-normal text-(--hud-muted)">
+                  ms
+                </span>
+              )}
             </span>
           </div>
-          <div className="hud-row">
-            <span className="hud-row-label">LOSS</span>
-            <span className="hud-row-value loss">{lossText}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-2.5 py-1 min-h-0 flex-1">
+            <span className="text-[7px] font-semibold tracking-[0.11em] uppercase text-(--hud-label) flex items-center gap-1.25 min-w-0 whitespace-nowrap">
+              LOSS
+            </span>
+            <span className="text-[14px] font-medium font-mono tabular-nums tracking-[-0.005em] leading-none flex items-baseline gap-0.5 min-w-[11ch] justify-end whitespace-nowrap text-right text-(--hud-neutral)">
+              {lossText}
+            </span>
           </div>
         </div>
       </div>

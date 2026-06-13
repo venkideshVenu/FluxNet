@@ -26,7 +26,21 @@ export function useThemeSync() {
       }
     };
 
+    // Listen for OS theme changes (for "system" mode)
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemChange = () => {
+      const mode = getStoredColorMode();
+      if (mode === "system") {
+        applyColorMode("system");
+      }
+    };
+
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    mediaQuery.addEventListener("change", handleSystemChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      mediaQuery.removeEventListener("change", handleSystemChange);
+    };
   }, []);
 }

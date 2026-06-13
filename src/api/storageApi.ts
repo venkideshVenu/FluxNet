@@ -17,7 +17,7 @@ export async function fetchHistoryRange(
   return invokeWithTimeout<BandwidthSample[]>("get_history_range", { minutes });
 }
 
-export async function fetchHourlySummary(hours = 24): Promise<HourlyUsage[]> {
+export async function fetchHourlySummary(hours = 48): Promise<HourlyUsage[]> {
   return invokeWithTimeout<HourlyUsage[]>("get_hourly_summary", { hours });
 }
 

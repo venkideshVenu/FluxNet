@@ -12,15 +12,14 @@ use tauri::State;
 use windows::core::PWSTR;
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
-    GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_SOFTWARE_LOOPBACK,
-    IP_ADAPTER_ADDRESSES_LH,
+    GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_ETHERNET_CSMACD,
+    IF_TYPE_IEEE80211, IF_TYPE_SOFTWARE_LOOPBACK, IF_TYPE_TUNNEL, IP_ADAPTER_ADDRESSES_LH,
 };
 use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
 
-// ── Centralised widget-label list (A7) ───────────────────────────────────────
+// ── Centralised widget-label list ────────────────────────────────────────────
 
-/// All floating-widget window labels.  Add new widgets here — one place only.
 pub const WIDGET_LABELS: &[&str] = &["pill", "compact", "hud"];
 
 pub fn is_widget_label(label: &str) -> bool {
@@ -33,7 +32,7 @@ pub type SharedMonitorState = Arc<Mutex<MonitorState>>;
 
 pub struct InterfacesCache {
     pub data: Vec<InterfaceInfo>,
-    pub fetched_at: Option<Instant>, // FIX S4: Instant, not SystemTime
+    pub fetched_at: Option<Instant>,
 }
 
 impl Default for InterfacesCache {
@@ -47,9 +46,12 @@ impl Default for InterfacesCache {
 
 pub type SharedInterfacesCache = Arc<Mutex<InterfacesCache>>;
 
-const INTERFACES_CACHE_TTL: Duration = Duration::from_secs(10);
+const INTERFACES_CACHE_TTL: Duration = Duration::from_secs(3);
 
 pub static INTERFACE_DIRTY: AtomicBool = AtomicBool::new(false);
+
+/// Global shutdown flag — prevents CloseRequested from overwriting widget visibility on exit.
+pub static APP_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 pub struct HistoryPoint {
     pub upload: f64,
@@ -67,8 +69,11 @@ pub struct MonitorState {
     pub history: VecDeque<HistoryPoint>,
     pub last_upload: f64,
     pub last_download: f64,
-    // interfaces_cache REMOVED from here — now lives in SharedInterfacesCache (FIX R2)
+    /// Tracks if interface has received any data recently (connectivity indicator)
+    pub last_nonzero_at: Option<Instant>,
 }
+
+pub const MAX_HISTORY_POINTS: usize = 1800;
 
 impl Default for MonitorState {
     fn default() -> Self {
@@ -79,64 +84,184 @@ impl Default for MonitorState {
             interface: String::new(),
             peak_upload: 0.0,
             peak_download: 0.0,
-            history: VecDeque::with_capacity(120),
+            history: VecDeque::with_capacity(MAX_HISTORY_POINTS),
             last_upload: 0.0,
             last_download: 0.0,
+            last_nonzero_at: None,
         }
     }
+}
+
+// ── Interface type classification ─────────────────────────────────────────────
+
+fn classify_interface_type(if_type: u32, name: &str, description: &str) -> String {
+    let name_lower = name.to_lowercase();
+    let desc_lower = description.to_lowercase();
+
+    // VPN adapters
+    if desc_lower.contains("tap-windows")
+        || desc_lower.contains("openvpn")
+        || desc_lower.contains("wireguard")
+        || desc_lower.contains("nordlynx")
+        || name_lower.contains("vpn")
+    {
+        return "vpn".to_string();
+    }
+
+    // Virtual machine adapters
+    if desc_lower.contains("hyper-v")
+        || desc_lower.contains("vmware")
+        || desc_lower.contains("virtualbox")
+        || desc_lower.contains("vethernet")
+        || desc_lower.contains("docker")
+        || desc_lower.contains("wsl")
+    {
+        return "virtual".to_string();
+    }
+
+    // Bluetooth
+    if desc_lower.contains("bluetooth") || name_lower.contains("bluetooth") {
+        return "bluetooth".to_string();
+    }
+
+    // Cellular
+    if desc_lower.contains("cellular")
+        || desc_lower.contains("mobile broadband")
+        || desc_lower.contains("wwanpp")
+    {
+        return "cellular".to_string();
+    }
+
+    // USB tethering / USB ethernet
+    if desc_lower.contains("rndis")
+        || desc_lower.contains("remote ndis")
+        || desc_lower.contains("usb ethernet")
+        || desc_lower.contains("android")
+        || desc_lower.contains("iphone")
+    {
+        return "usb".to_string();
+    }
+
+    // By IF_TYPE
+    match if_type {
+        t if t == IF_TYPE_IEEE80211 => "wifi".to_string(),
+        t if t == IF_TYPE_ETHERNET_CSMACD => "ethernet".to_string(),
+        t if t == IF_TYPE_TUNNEL => "tunnel".to_string(),
+        _ => "other".to_string(),
+    }
+}
+
+// ── Interface filtering — should this adapter be shown? ───────────────────────
+
+fn is_noise_interface(name: &str, description: &str, if_type: u32) -> bool {
+    let name_lower = name.to_lowercase();
+    let desc_lower = description.to_lowercase();
+
+    // Always filter loopback
+    if if_type == IF_TYPE_SOFTWARE_LOOPBACK {
+        return true;
+    }
+
+    // Filter known noise interfaces
+    let noise_patterns_name = [
+        "local area connection*",
+        "wi-fi direct",
+        "wifi direct",
+        "kernel debugger",
+        "native wifi filter",
+        "virtual wifi filter",
+        "microsoft wi-fi direct",
+    ];
+
+    let noise_patterns_desc = [
+        "kernel debug",
+        "lightweight filter",
+        "wfp ",
+        "qos packet scheduler",
+        "teredo",
+        "ip-https",
+        "isatap",
+        "6to4",
+        "wan miniport",
+        "microsoft kernel debug",
+        "ndis bridge",
+        "wi-fi filter driver",
+        "wifi filter driver",
+        "npcap",
+        "winpcap",
+        "packet scheduler miniport",
+    ];
+
+    for pattern in &noise_patterns_name {
+        if name_lower.contains(pattern) {
+            return true;
+        }
+    }
+
+    for pattern in &noise_patterns_desc {
+        if desc_lower.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Check if an interface name exists in sysinfo's network list.
+/// This validates that we can actually read counters for it.
+fn interface_exists_in_sysinfo(networks: &Networks, name: &str) -> bool {
+    networks.iter().any(|(n, _)| n == name)
 }
 
 // ── Interface auto-selection ──────────────────────────────────────────────────
 
 fn auto_select_interface() -> String {
     let detailed = read_interfaces_from_windows();
-    // Prefer Ethernet
+    // Prefer Ethernet that is Up
     for iface in &detailed {
-        if iface.status == "Up" {
-            let n = iface.name.to_lowercase();
-            let d = iface.description.to_lowercase();
-            if n.contains("ethernet") || d.contains("ethernet") {
-                return iface.name.clone();
-            }
+        if iface.status == "Up" && iface.interface_type == "ethernet" {
+            return iface.name.clone();
         }
     }
-    // Fall back to Wi-Fi
+    // Then Wi-Fi
     for iface in &detailed {
-        if iface.status == "Up" {
-            let n = iface.name.to_lowercase();
-            let d = iface.description.to_lowercase();
-            if n.contains("wi-fi") || n.contains("wlan") || d.contains("wireless") {
-                return iface.name.clone();
-            }
+        if iface.status == "Up" && iface.interface_type == "wifi" {
+            return iface.name.clone();
         }
     }
-    // Any UP adapter
-    detailed
-        .iter()
-        .find(|i| i.status == "Up")
-        .map(|i| i.name.clone())
-        .unwrap_or_default()
+    // Then USB (tethering)
+    for iface in &detailed {
+        if iface.status == "Up" && iface.interface_type == "usb" {
+            return iface.name.clone();
+        }
+    }
+    // Any UP physical adapter (not virtual/vpn/tunnel)
+    for iface in &detailed {
+        if iface.status == "Up"
+            && !matches!(
+                iface.interface_type.as_str(),
+                "virtual" | "tunnel" | "bluetooth"
+            )
+        {
+            return iface.name.clone();
+        }
+    }
+    String::new()
 }
 
 // ── Sampling ──────────────────────────────────────────────────────────────────
 
-/// Called by the sampler every tick.  The caller has already released all other
-/// locks; `s` is the only lock held during this function.
 pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_ts: i64) {
-    // FIX R8: if set_interface() fired, discard stale prev counters so the first
-    // tick after a switch does not produce a false speed reading.
     if INTERFACE_DIRTY.swap(false, Ordering::Relaxed) {
         s.prev_tx = 0;
         s.prev_rx = 0;
         s.last_sample = None;
     }
 
-    // the MonitorState lock is held.
     let now = Instant::now();
 
     if let Some((tx, rx)) = read_total_counters(networks, &s.interface) {
         if s.last_sample.is_none() {
-            // Priming tick — record baseline counters only
             s.prev_tx = tx;
             s.prev_rx = rx;
             s.last_sample = Some(now);
@@ -154,7 +279,7 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
             s.peak_download = download;
         }
 
-        if s.history.len() >= 120 {
+        if s.history.len() >= MAX_HISTORY_POINTS {
             s.history.pop_front();
         }
         s.history.push_back(HistoryPoint {
@@ -162,6 +287,11 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
             download,
             timestamp: now_ts,
         });
+
+        // Track connectivity — if any traffic in last 30s, consider connected
+        if upload > 0.0 || download > 0.0 {
+            s.last_nonzero_at = Some(now);
+        }
 
         s.prev_tx = tx;
         s.prev_rx = rx;
@@ -176,7 +306,23 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
         s.last_sample = None;
         s.last_upload = 0.0;
         s.last_download = 0.0;
+        s.last_nonzero_at = None;
     }
+}
+
+/// Determine if the monitored interface is "connected" (has recent traffic or is operationally up)
+fn is_interface_connected(state: &MonitorState) -> bool {
+    if state.interface.is_empty() {
+        return false;
+    }
+    // If we received any traffic in the last 30 seconds, consider connected
+    if let Some(last) = state.last_nonzero_at {
+        if last.elapsed() < Duration::from_secs(30) {
+            return true;
+        }
+    }
+    // If we have a valid sample (interface exists), consider it up
+    state.last_sample.is_some()
 }
 
 // ── Tauri commands ────────────────────────────────────────────────────────────
@@ -192,45 +338,33 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
 }
 
 #[tauri::command]
-pub fn get_dashboard_snapshot(
-    state: State<SharedMonitorState>,
-    since_ts: Option<i64>,
-) -> DashboardSnapshot {
+pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
     let s = state.lock();
-    let history: Vec<HistorySnapshotPoint> = match since_ts {
-        Some(since) => s
-            .history
-            .iter()
-            .filter(|p| p.timestamp > since)
-            .map(|p| HistorySnapshotPoint {
-                upload: p.upload,
-                download: p.download,
-                t: p.timestamp as u64,
-            })
-            .collect(),
-        None => s
-            .history
-            .iter()
-            .map(|p| HistorySnapshotPoint {
-                upload: p.upload,
-                download: p.download,
-                t: p.timestamp as u64,
-            })
-            .collect(),
-    };
+    let history: Vec<HistorySnapshotPoint> = s
+        .history
+        .iter()
+        .map(|p| HistorySnapshotPoint {
+            upload: p.upload,
+            download: p.download,
+            t: p.timestamp as u64,
+        })
+        .collect();
+
+    let connected = is_interface_connected(&s);
+
     DashboardSnapshot {
         current_upload: s.last_upload,
         current_download: s.last_download,
         peak_upload: s.peak_upload,
         peak_download: s.peak_download,
         interface_name: s.interface.clone(),
+        is_connected: connected,
         history,
     }
 }
 
 #[tauri::command]
 pub fn get_interfaces(cache: State<SharedInterfacesCache>) -> Vec<InterfaceInfo> {
-    // Fast path — check under lock
     {
         let c = cache.lock();
         if let Some(at) = c.fetched_at {
@@ -240,16 +374,14 @@ pub fn get_interfaces(cache: State<SharedInterfacesCache>) -> Vec<InterfaceInfo>
         }
     }
 
-    // Slow path — fetch outside the lock (Windows API can take 5–50 ms)
     let fresh = read_interfaces_from_windows();
 
-    // Write back under lock, with a second-check to avoid double-fetch races
     let mut c = cache.lock();
     if c.fetched_at
         .map_or(true, |at| at.elapsed() >= INTERFACES_CACHE_TTL)
     {
         c.data = fresh.clone();
-        c.fetched_at = Some(Instant::now()); // FIX S4: Instant, not SystemTime
+        c.fetched_at = Some(Instant::now());
     }
     c.data.clone()
 }
@@ -260,28 +392,39 @@ pub fn set_interface(
     net_state: State<SharedMonitorState>,
     ping_state: State<SharedPingState>,
     cache: State<SharedInterfacesCache>,
-) {
+) -> Result<(), String> {
+    // Validate the interface exists and is Up
+    {
+        let c = cache.lock();
+        if let Some(iface) = c.data.iter().find(|i| i.name == name) {
+            if iface.status != "Up" {
+                return Err(format!(
+                    "Interface '{}' is not Up (status: {})",
+                    name, iface.status
+                ));
+            }
+        }
+    }
+
     {
         let mut s = net_state.lock();
         s.interface = name;
-        // prev_tx/rx and last_sample are reset via the INTERFACE_DIRTY flag on the
-        // next sampler tick so we don't hold the lock across two state objects.
         s.peak_upload = 0.0;
         s.peak_download = 0.0;
         s.last_upload = 0.0;
         s.last_download = 0.0;
         s.history.clear();
+        s.last_nonzero_at = None;
     }
 
-    // FIX R8: signal the sampler to discard stale counters on the next tick
     INTERFACE_DIRTY.store(true, Ordering::Relaxed);
 
-    // Reset ping state
     let mut ps = ping_state.lock();
     *ps = PingState::default();
 
-    // Invalidate the interfaces cache
     cache.lock().fetched_at = None;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -328,32 +471,14 @@ pub fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
     let mut current = adapter_ptr;
     while !current.is_null() {
         let adapter = unsafe { &*current };
-        if adapter.IfType == IF_TYPE_SOFTWARE_LOOPBACK {
-            current = adapter.Next;
-            continue;
-        }
         let name = pwstr_to_string(adapter.FriendlyName);
         if name.is_empty() {
             current = adapter.Next;
             continue;
         }
         let description = pwstr_to_string(adapter.Description);
-        let name_lower = name.to_lowercase();
-        let desc_lower = description.to_lowercase();
 
-        let is_noise = name_lower.contains("local area connection*")
-            || name_lower.contains("wi-fi direct")
-            || name_lower.contains("wifi direct")
-            || name_lower.contains("kernel debugger")
-            || name_lower.contains("native wifi filter")
-            || desc_lower.contains("kernel debug")
-            || desc_lower.contains("lightweight filter")
-            || desc_lower.contains("wfp")
-            || desc_lower.contains("qos packet scheduler")
-            || desc_lower.contains("teredo")
-            || desc_lower.contains("ip-https");
-
-        if is_noise {
+        if is_noise_interface(&name, &description, adapter.IfType) {
             current = adapter.Next;
             continue;
         }
@@ -362,6 +487,8 @@ pub fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
         let status = oper_status_to_string(adapter.OperStatus);
         let mac = format_mac(&adapter.PhysicalAddress, adapter.PhysicalAddressLength);
         let link_speed_bps = adapter.TransmitLinkSpeed.max(adapter.ReceiveLinkSpeed);
+        let interface_type = classify_interface_type(adapter.IfType, &name, &description);
+
         interfaces.push(InterfaceInfo {
             name,
             description,
@@ -369,6 +496,7 @@ pub fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
             status,
             mac,
             link_speed_bps,
+            interface_type,
         });
         current = adapter.Next;
     }
@@ -410,15 +538,15 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
         .join("-")
 }
 
-// ── Interface auto-select helper exposed for the sampler ─────────────────────
-
-/// Called by the sampler OUTSIDE any MonitorState lock (FIX N2).
 pub fn select_interface_outside_lock(networks: &Networks) -> String {
     let selected = auto_select_interface();
     if !selected.is_empty() {
-        return selected;
+        // Verify it actually exists in sysinfo
+        if interface_exists_in_sysinfo(networks, &selected) {
+            return selected;
+        }
     }
-    // Last resort: use whatever sysinfo exposes (non-loopback)
+    // Last resort
     for (name, _) in networks {
         if name != "lo" && name != "Loopback Pseudo-Interface 1" {
             return name.clone();

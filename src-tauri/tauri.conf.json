@@ -14,12 +14,13 @@
       {
         "label": "main",
         "title": "FluxNet",
-        "width": 900,
-        "height": 600,
-        "minWidth": 720,
+        "width": 1200,
+        "height": 700,
+        "minWidth": 900,
         "minHeight": 500,
         "resizable": true,
         "decorations": true,
+        "visible": false,
         "url": "index.html"
       },
       {
@@ -45,14 +46,14 @@
       {
         "label": "compact",
         "title": "FluxNet",
-        "width": 240,
-        "height": 240,
+        "width": 225,
+        "height": 185,
         "x": 1680,
         "y": 420,
-        "minWidth": 240,
-        "minHeight": 240,
-        "maxWidth": 240,
-        "maxHeight": 240,
+        "minWidth": 225,
+        "minHeight": 185,
+        "maxWidth": 225,
+        "maxHeight": 185,
         "resizable": false,
         "decorations": false,
         "transparent": true,
@@ -66,11 +67,11 @@
         "label": "hud",
         "title": "FluxNet HUD",
         "width": 240,
-        "height": 190,
+        "height": 200,
         "minWidth": 240,
-        "minHeight": 190,
+        "minHeight": 200,
         "maxWidth": 240,
-        "maxHeight": 190,
+        "maxHeight": 200,
         "resizable": false,
         "decorations": false,
         "transparent": true,
@@ -84,18 +85,14 @@
         "url": "index.html"
       }
     ],
-    "trayIcon": {
-      "iconPath": "icons/32x32.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false
-    },
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
     }
   },
   "bundle": {
-    "copyright": "",
+    "copyright": "© 2026 Venkidesh Venu. All rights reserved.",
     "category": "Utility",
+    "publisher": "Venkidesh Venu",
     "shortDescription": "Minimal real-time network meter",
     "targets": "all",
     "icon": [
@@ -104,7 +101,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
   },
   "plugins": {}
 }

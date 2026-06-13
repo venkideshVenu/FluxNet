@@ -282,47 +282,40 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
     };
     let today_end = today_start + 86_400;
 
-    // Today: first try daily_usage, fallback to accurate sum of raw samples
+    /// Each raw sample represents 0.5 seconds of data (500ms sampler interval).
+    const SAMPLE_DURATION_SECS: f64 = 0.5;
+
+    // Today: first try daily_usage, fallback to SUM(bps) * sample_duration from raw samples
     let today: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(total_download_bytes, 0),
                     COALESCE(total_upload_bytes,   0)
              FROM daily_usage WHERE day = ?1",
-            [&today_str], // Borrow instead of move
+            [&today_str],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or_else(|_| {
-            // Accurate fallback using LAG
-            let mut stmt = conn
-                .prepare(
-                    r#"
-                WITH time_deltas AS (
-                    SELECT
-                        download_bps,
-                        upload_bps,
-                        timestamp - LAG(timestamp) OVER (ORDER BY timestamp) AS delta_secs
-                    FROM bandwidth_samples
-                    WHERE timestamp >= ?1 AND timestamp < ?2
-                )
-                SELECT
-                    COALESCE(SUM(download_bps * delta_secs), 0),
-                    COALESCE(SUM(upload_bps   * delta_secs), 0)
-                FROM time_deltas
-                "#,
-                )
-                .unwrap();
-            stmt.query_row([today_start, today_end], |r| Ok((r.get(0)?, r.get(1)?)))
-                .unwrap_or((0, 0))
+            // Compute from raw samples: total_bytes = SUM(rate_bps) × sample_duration
+            conn.query_row(
+                "SELECT
+                    COALESCE(CAST(SUM(download_bps) * ?3 AS INTEGER), 0),
+                    COALESCE(CAST(SUM(upload_bps)   * ?3 AS INTEGER), 0)
+                 FROM bandwidth_samples
+                 WHERE timestamp >= ?1 AND timestamp < ?2",
+                rusqlite::params![today_start, today_end, SAMPLE_DURATION_SECS],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap_or((0, 0))
         });
 
-    // Week: completed days from daily_usage + today's partial (already accurate)
+    // Week: completed days from daily_usage + today's partial
     let week_from_daily: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(SUM(total_download_bytes), 0),
                     COALESCE(SUM(total_upload_bytes),   0)
              FROM daily_usage
              WHERE day >= ?1 AND day < ?2",
-            [&week_start_date, &today_str], // Borrow both
+            [&week_start_date, &today_str],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0, 0));
@@ -330,8 +323,8 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
     // Week total = completed days + today's partial
     let week = (week_from_daily.0 + today.0, week_from_daily.1 + today.1);
 
-    // Month: sum daily_usage rows (already accurate because daily_usage is built from accurate hourly)
-    let month: (i64, i64) = conn
+    // Month: sum daily_usage rows for this month + today's partial if not in daily_usage yet
+    let month_from_daily: (i64, i64) = conn
         .query_row(
             "SELECT COALESCE(SUM(total_download_bytes), 0),
                     COALESCE(SUM(total_upload_bytes),   0)
@@ -341,7 +334,22 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
         )
         .unwrap_or((0, 0));
 
-    // All-time peaks: max across hourly_usage (now accurate)
+    // Check if today is already in daily_usage (to avoid double-counting)
+    let today_in_daily: bool = conn
+        .query_row(
+            "SELECT 1 FROM daily_usage WHERE day = ?1",
+            [&today_str],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+
+    let month = if today_in_daily {
+        month_from_daily
+    } else {
+        (month_from_daily.0 + today.0, month_from_daily.1 + today.1)
+    };
+
+    // All-time peaks: max across hourly_usage, fallback to raw samples
     let peaks: (f64, f64) = conn
         .query_row(
             "SELECT COALESCE(MAX(peak_download_bps), 0.0),
@@ -351,6 +359,20 @@ pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or((0.0, 0.0));
+
+    // If hourly_usage is empty, fallback to raw samples for peaks
+    let peaks = if peaks.0 == 0.0 && peaks.1 == 0.0 {
+        conn.query_row(
+            "SELECT COALESCE(MAX(download_bps), 0.0),
+                    COALESCE(MAX(upload_bps),   0.0)
+             FROM bandwidth_samples",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap_or((0.0, 0.0))
+    } else {
+        peaks
+    };
 
     Ok(UsageStats {
         today_download_bytes: today.0,

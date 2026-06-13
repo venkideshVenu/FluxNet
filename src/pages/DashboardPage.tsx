@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
@@ -9,9 +9,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useNetworkStore } from "@/store";
-import { useSettingsStore } from "@/store";
-import { formatSpeed, computeChartScale, getStorageItem } from "@/utils";
+import { useNetworkStore, useSettingsStore } from "@/store";
+import {
+  formatSpeed,
+  getAdaptiveChartUnit,
+  computeChartScale,
+  getStorageItem,
+} from "@/utils";
+
+const DEFAULT_VISIBLE_POINTS = 300;
 
 export function DashboardPage() {
   const {
@@ -20,28 +26,64 @@ export function DashboardPage() {
     isInitialized,
     lastError,
     peakDownload,
+    peakUpload,
     history,
     dismissError,
   } = useNetworkStore();
 
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
   const navigate = useNavigate();
 
-  const up = formatSpeed(data.uploadBytesPerSec);
-  const dn = formatSpeed(data.downloadBytesPerSec);
-  const pk = formatSpeed(peakDownload);
+  // Chart viewport state: offset from the end (0 = latest data visible)
+  const [chartOffset, setChartOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; offset: number } | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
+  const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
+  const pkDl = formatSpeed(peakDownload, displayUnits);
+  const pkUl = formatSpeed(peakUpload, displayUnits);
+
+  // Compute visible window of history
+  const totalPoints = history.length;
+  const maxOffset = Math.max(0, totalPoints - DEFAULT_VISIBLE_POINTS);
+  const clampedOffset = Math.min(chartOffset, maxOffset);
+
+  const visibleHistory = useMemo(() => {
+    const end = totalPoints - clampedOffset;
+    const start = Math.max(0, end - DEFAULT_VISIBLE_POINTS);
+    return history.slice(start, end);
+  }, [history, totalPoints, clampedOffset]);
+
+  const isAtLatest = clampedOffset === 0;
+
+  const maxRawValue = useMemo(
+    () =>
+      visibleHistory.reduce(
+        (max, point) => Math.max(max, point.upload, point.download),
+        0,
+      ),
+    [visibleHistory],
+  );
+
+  const { divisor: chartDivisor, unitLabel: chartUnitLabel } = useMemo(
+    () => getAdaptiveChartUnit(maxRawValue, displayUnits),
+    [maxRawValue, displayUnits],
+  );
 
   const chartData = useMemo(
     () =>
-      history.map((p, i) => ({
+      visibleHistory.map((p, i) => ({
         t: i,
-        upload: +(p.upload / 1_048_576).toFixed(2),
-        download: +(p.download / 1_048_576).toFixed(2),
+        upload: +(p.upload / chartDivisor).toFixed(2),
+        download: +(p.download / chartDivisor).toFixed(2),
       })),
-    [history],
+    [visibleHistory, chartDivisor],
   );
 
-  const maxValue = useMemo(
+  const maxChartValue = useMemo(
     () =>
       chartData.reduce(
         (max, point) => Math.max(max, point.upload, point.download),
@@ -51,73 +93,154 @@ export function DashboardPage() {
   );
 
   const { yMax, precision } = useMemo(
-    () => computeChartScale(maxValue),
-    [maxValue],
+    () => computeChartScale(maxChartValue),
+    [maxChartValue],
   );
 
-  const intervalLabel = `${pollIntervalMs / 1000}s`;
+  // Chart drag handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (totalPoints <= DEFAULT_VISIBLE_POINTS) return;
+      setIsDragging(true);
+      dragStartRef.current = { x: e.clientX, offset: clampedOffset };
+    },
+    [totalPoints, clampedOffset],
+  );
 
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging || !dragStartRef.current) return;
+      const container = chartContainerRef.current;
+      if (!container) return;
+
+      const dx = e.clientX - dragStartRef.current.x;
+      const containerWidth = container.clientWidth;
+      // Convert pixel drag to data points
+      const pointsPerPixel = DEFAULT_VISIBLE_POINTS / containerWidth;
+      const pointsDelta = Math.round(dx * pointsPerPixel);
+      // Dragging right = go back in time (increase offset)
+      const newOffset = Math.max(
+        0,
+        Math.min(maxOffset, dragStartRef.current.offset + pointsDelta),
+      );
+      setChartOffset(newOffset);
+    },
+    [isDragging, maxOffset],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+  }, []);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (totalPoints <= DEFAULT_VISIBLE_POINTS) return;
+      e.preventDefault();
+      const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      const step = Math.max(1, Math.round(Math.abs(delta) / 10));
+      const direction = delta > 0 ? -step : step;
+      setChartOffset((prev) =>
+        Math.max(0, Math.min(maxOffset, prev + direction)),
+      );
+    },
+    [totalPoints, maxOffset],
+  );
+
+  const jumpToLatest = useCallback(() => setChartOffset(0), []);
+
+  const intervalLabel = `${pollIntervalMs / 1000}s`;
   const isFirstRun = !getStorageItem("fluxnet_configured", "");
   const hasNoInterface = !data.interfaceName;
 
+  const connectionLabel = useMemo(() => {
+    if (!data.interfaceName) return "No interface";
+    if (!isConnected) return "No signal";
+    return "Live";
+  }, [data.interfaceName, isConnected]);
+
+  // Time range label for visible window
+  const timeRangeLabel = useMemo(() => {
+    const visibleCount = visibleHistory.length;
+    const intervalSec = pollIntervalMs / 1000;
+    const totalSec = visibleCount * intervalSec;
+    if (totalSec < 60) return `${totalSec.toFixed(0)}s`;
+    if (totalSec < 3600) return `${(totalSec / 60).toFixed(1)} min`;
+    return `${(totalSec / 3600).toFixed(1)} hr`;
+  }, [visibleHistory.length, pollIntervalMs]);
+
   if (!isInitialized) {
     return (
-      <div className="page">
-        <div className="page-header">
+      <div className="p-7 px-8 w-full max-w-full">
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <div className="page-title">Dashboard</div>
-            <div className="page-subtitle">Connecting to network monitor…</div>
+            <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
+              Dashboard
+            </div>
+            <div className="text-[12px] text-text-muted font-normal">
+              Connecting to network monitor…
+            </div>
           </div>
         </div>
-        <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-label">Download</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
+        <div className="grid grid-cols-4 gap-3 mb-6">
+          {["Download", "Upload", "Peak ↓", "Peak ↑"].map((label) => (
+            <div
+              key={label}
+              className="bg-panel border border-border rounded-lg px-4.5 py-4"
+            >
+              <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+                {label}
+              </div>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+                  —
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Upload</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Peak today</div>
-            <div className="stat-value">
-              <span className="stat-num">—</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">Dashboard</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
+            Dashboard
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             {data.interfaceName || "—"} · updating every {intervalLabel}
           </div>
         </div>
-        <span className="live-badge">
-          <span className="live-dot" />
-          {isConnected ? "Live" : "No signal"}
+        <span
+          className={`inline-flex items-center gap-1.5 text-[11px] font-medium rounded-[20px] px-2.5 py-1 ${
+            !isConnected
+              ? "bg-danger-bg text-danger-text"
+              : "bg-[rgba(34,209,96,0.15)] text-[#2ee67a]"
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              !isConnected ? "bg-danger" : "bg-[#2ee67a] animate-pulse"
+            }`}
+          />
+          {connectionLabel}
         </span>
       </div>
 
       {lastError && (
-        <div className="error-banner" role="alert">
-          <span className="error-banner-text">
-            ⚠️ Monitoring error: {lastError}
-          </span>
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-bg border border-danger-border rounded-md text-danger-text text-[12px] mb-4"
+          role="alert"
+        >
+          <span className="flex-1">⚠️ Monitoring error: {lastError}</span>
           <button
             type="button"
-            className="error-banner-dismiss"
             onClick={dismissError}
             aria-label="Dismiss error"
+            className="bg-transparent border-none text-danger-text cursor-pointer text-base px-1 leading-none"
           >
             ×
           </button>
@@ -125,58 +248,123 @@ export function DashboardPage() {
       )}
 
       {isFirstRun && hasNoInterface && (
-        <div className="first-run-banner">
-          <span className="first-run-banner-icon">👋</span>
-          <div className="first-run-banner-text">
-            <strong>Welcome to FluxNet!</strong>
+        <div className="flex items-center gap-3 px-4.5 py-3.5 bg-accent-soft border border-accent-border rounded-lg mb-4">
+          <span className="text-xl shrink-0">👋</span>
+          <div className="flex-1 text-[13px] text-text">
+            <strong className="block mb-0.5 text-sm">
+              Welcome to FluxNet!
+            </strong>
             Select a network interface to begin monitoring your bandwidth.
           </div>
           <button
             type="button"
-            className="first-run-banner-action"
             onClick={() => navigate("/interfaces")}
+            className="bg-accent text-white border-none rounded-sm px-3.5 py-1.5 text-[12px] font-medium cursor-pointer whitespace-nowrap hover:opacity-90"
           >
             Select Interface
           </button>
         </div>
       )}
 
-      {/* Stat cards */}
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-label">Download</div>
-          <div className="stat-value">
-            <span className="stat-num">{dn.value}</span>
-            <span className="stat-unit">{dn.unit}</span>
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Download
           </div>
-          <span className="stat-badge down">↓ Live</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {dn.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{dn.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(56,189,248,0.12)] text-[#38bdf8] border border-[rgba(56,189,248,0.25)]">
+            ↓ Live
+          </span>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">Upload</div>
-          <div className="stat-value">
-            <span className="stat-num">{up.value}</span>
-            <span className="stat-unit">{up.unit}</span>
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Upload
           </div>
-          <span className="stat-badge up">↑ Live</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {up.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{up.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(52,211,153,0.12)] text-[#34d399] border border-[rgba(52,211,153,0.25)]">
+            ↑ Live
+          </span>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">Peak today</div>
-          <div className="stat-value">
-            <span className="stat-num">{pk.value}</span>
-            <span className="stat-unit">{pk.unit}</span>
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Peak Download
           </div>
-          <span className="stat-badge peak">↓ Download</span>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {pkDl.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{pkDl.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(124,111,247,0.12)] text-[#a78bfa] border border-[rgba(124,111,247,0.25)]">
+            ↓ Session
+          </span>
+        </div>
+
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
+            Peak Upload
+          </div>
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className="text-[26px] font-semibold text-text tracking-[-0.02em] tabular-nums">
+              {pkUl.value}
+            </span>
+            <span className="text-[12px] text-text-muted">{pkUl.unit}</span>
+          </div>
+          <span className="inline-flex items-center gap-0.75 text-[10px] font-semibold rounded-[20px] px-1.75 py-0.5 bg-[rgba(124,111,247,0.12)] text-[#a78bfa] border border-[rgba(124,111,247,0.25)]">
+            ↑ Session
+          </span>
         </div>
       </div>
 
       {/* Chart */}
-      <div className="chart-section">
-        <div className="chart-section-title">
-          Bandwidth history — last {history.length}s
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em]">
+            Bandwidth history — {visibleHistory.length} samples (
+            {timeRangeLabel})
+            {!isAtLatest && (
+              <span className="ml-2 text-accent opacity-80">
+                · viewing older data
+              </span>
+            )}
+          </div>
+          {!isAtLatest && (
+            <button
+              type="button"
+              onClick={jumpToLatest}
+              className="text-[10px] font-semibold text-accent bg-accent-soft border border-accent-border rounded-full px-2.5 py-1 cursor-pointer hover:bg-accent-soft-2 transition-colors"
+            >
+              ← Jump to latest
+            </button>
+          )}
         </div>
-        <div className="chart-card">
+        <div
+          ref={chartContainerRef}
+          className={`bg-panel border border-border rounded-lg p-5 ${
+            totalPoints > DEFAULT_VISIBLE_POINTS
+              ? isDragging
+                ? "cursor-grabbing"
+                : "cursor-grab"
+              : ""
+          }`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+        >
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart
               data={chartData}
@@ -210,15 +398,15 @@ export function DashboardPage() {
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#ECEAF8"
+                stroke="var(--border)"
                 vertical={false}
               />
               <XAxis dataKey="t" hide />
               <YAxis
-                tick={{ fontSize: 10, fill: "#C8C5F5" }}
+                tick={{ fontSize: 10, fill: "var(--text-muted)" }}
                 axisLine={false}
                 tickLine={false}
-                width={32}
+                width={38}
                 domain={[0, yMax]}
                 tickCount={5}
                 tickFormatter={(v) => Number(v).toFixed(precision)}
@@ -235,7 +423,7 @@ export function DashboardPage() {
                 itemStyle={{ color: "var(--text)" }}
                 cursor={{ stroke: "var(--accent-border)", strokeWidth: 1 }}
                 formatter={(val, name) => [
-                  `${val ?? 0} MB/s`,
+                  `${val ?? 0} ${chartUnitLabel}`,
                   name === "upload" ? "Upload" : "Download",
                 ]}
               />
@@ -262,27 +450,37 @@ export function DashboardPage() {
             </AreaChart>
           </ResponsiveContainer>
 
-          <div className="chart-legend">
-            <div className="legend-item">
-              <div
-                className="legend-dot"
-                style={{ background: "var(--net-upload)" }}
-              />
+          <div className="flex items-center gap-4 mt-3">
+            <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+              <div className="w-2 h-2 rounded-full bg-net-upload" />
               Upload
             </div>
-            <div className="legend-item">
-              <div
-                className="legend-dot"
-                style={{ background: "var(--net-download)" }}
-              />
+            <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+              <div className="w-2 h-2 rounded-full bg-net-download" />
               Download
             </div>
-            <span
-              style={{ marginLeft: "auto", fontSize: 10, color: "#C8C5F5" }}
-            >
-              MB/s
+            <span className="ml-auto text-[10px] text-text-muted">
+              {chartUnitLabel}
             </span>
+            {totalPoints > DEFAULT_VISIBLE_POINTS && (
+              <span className="text-[10px] text-text-muted opacity-70">
+                Drag or scroll to pan
+              </span>
+            )}
           </div>
+
+          {/* Scrollbar indicator */}
+          {totalPoints > DEFAULT_VISIBLE_POINTS && (
+            <div className="mt-3 h-1 bg-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent rounded-full transition-all duration-100"
+                style={{
+                  width: `${Math.max(10, (DEFAULT_VISIBLE_POINTS / totalPoints) * 100)}%`,
+                  marginLeft: `${((maxOffset - clampedOffset) / maxOffset) * (100 - Math.max(10, (DEFAULT_VISIBLE_POINTS / totalPoints) * 100))}%`,
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

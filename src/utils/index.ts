@@ -1,18 +1,15 @@
-export { computeChartScale } from "./chartScale";
-export { formatSpeed, formatBytes, formatLinkSpeed } from "./formatSpeed";
-export type { SpeedResult, BytesResult, DisplayUnits } from "./formatSpeed";
-export { invokeWithTimeout } from "./invokeWithTimeout";
 export {
-  getStoredPillIntervalMs,
-  getStoredCompactIntervalMs,
-  getStoredHudIntervalMs,
-  LS_PILL_INTERVAL,
-  LS_COMPACT_INTERVAL,
-  LS_HUD_INTERVAL,
-} from "./polling";
+  formatSpeed,
+  formatBytes,
+  formatLinkSpeed,
+  getAdaptiveChartUnit,
+  getAdaptiveBytesUnit,
+} from "./formatSpeed";
+export type { SpeedResult, BytesResult, DisplayUnits } from "./formatSpeed";
+export { computeChartScale } from "./chartScale";
+export { invokeWithTimeout } from "./invokeWithTimeout";
 export { getStorageItem, setStorageItem } from "./storage";
 export type { StorageSchema } from "./storage";
-export { setStorageWithNotify, removeStorageWithNotify } from "./storageEvents";
 export {
   THEMES,
   applyAccent,
@@ -22,6 +19,7 @@ export {
   getStoredPillMode,
   getStoredCompactMode,
   getStoredHudMode,
+  resolveColorMode,
   LS_THEME,
   LS_MODE,
   LS_PILL_MODE,
@@ -30,6 +28,14 @@ export {
 } from "./theme";
 export type { ColorMode } from "./theme";
 export {
+  getStoredPillIntervalMs,
+  getStoredCompactIntervalMs,
+  getStoredHudIntervalMs,
+  LS_PILL_INTERVAL,
+  LS_COMPACT_INTERVAL,
+  LS_HUD_INTERVAL,
+} from "./polling";
+export {
   getStoredPillAlwaysOnTop,
   getStoredCompactAlwaysOnTop,
   getStoredHudAlwaysOnTop,
@@ -37,3 +43,4 @@ export {
   LS_COMPACT_ALWAYS_ON_TOP,
   LS_HUD_ALWAYS_ON_TOP,
 } from "./windowPrefs";
+export { setStorageWithNotify } from "./storageEvents";

@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore, DisplayUnits } from "@/store";
-import { useNetworkStore } from "@/store";
+import { useSettingsStore, DisplayUnits, useNetworkStore } from "@/store";
 import {
   THEMES,
   applyAccent,
@@ -11,6 +10,7 @@ import {
   ColorMode,
   setStorageItem,
 } from "@/utils";
+import { FluxSelect } from "@/components";
 
 export function SettingsPage() {
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
@@ -19,17 +19,14 @@ export function SettingsPage() {
   const setPollInterval = useSettingsStore((s) => s.setPollInterval);
   const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
   const setPingTarget = useSettingsStore((s) => s.setPingTarget);
-
   const resetPeaks = useNetworkStore((s) => s.resetPeaks);
 
   const [startWithOS, setStartWithOS] = useState(false);
   const [autostartAvailable, setAutostartAvailable] = useState(true);
   const [autostartError, setAutostartError] = useState<string | null>(null);
-
   const [selectedTheme, setSelectedTheme] = useState(getStoredAccentIndex);
   const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
   const [localPingTarget, setLocalPingTarget] = useState(pingTarget);
-
   const pingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -42,7 +39,7 @@ export function SettingsPage() {
         setLocalPingTarget(target);
       })
       .catch(console.warn);
-    invoke<boolean>("autostart:is-enabled")
+    invoke<boolean>("plugin:autostart|is_enabled")
       .then((enabled) => {
         setStartWithOS(enabled);
         setAutostartAvailable(true);
@@ -58,12 +55,23 @@ export function SettingsPage() {
   useEffect(() => {
     setLocalPingTarget(pingTarget);
   }, [pingTarget]);
-
   useEffect(() => {
     applyAccent(THEMES[selectedTheme]?.color ?? THEMES[0].color);
   }, [selectedTheme]);
   useEffect(() => {
     applyColorMode(colorMode);
+  }, [colorMode]);
+
+  // Listen to system theme changes when in "system" mode
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => {
+      if (colorMode === "system") {
+        applyColorMode("system");
+      }
+    };
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [colorMode]);
 
   const handleInterval = async (raw: string) => {
@@ -82,8 +90,8 @@ export function SettingsPage() {
     setStartWithOS(value);
     setAutostartError(null);
     try {
-      if (value) await invoke("autostart:enable");
-      else await invoke("autostart:disable");
+      if (value) await invoke("plugin:autostart|enable");
+      else await invoke("plugin:autostart|disable");
     } catch (err) {
       setAutostartError(
         "Failed to change autostart setting. Please try again.",
@@ -96,9 +104,7 @@ export function SettingsPage() {
   const handlePingTarget = useCallback(
     (target: string) => {
       setLocalPingTarget(target);
-      if (pingDebounceRef.current) {
-        clearTimeout(pingDebounceRef.current);
-      }
+      if (pingDebounceRef.current) clearTimeout(pingDebounceRef.current);
       const isValid = /^[a-zA-Z0-9.\-:]+$/.test(target) && target.length > 0;
       if (isValid) {
         pingDebounceRef.current = setTimeout(() => {
@@ -120,104 +126,119 @@ export function SettingsPage() {
     setSelectedTheme(index);
     setStorageItem("fluxnet_accent_index", index);
   };
-
   const handleColorMode = (mode: ColorMode) => {
     setColorMode(mode);
     setStorageItem("fluxnet_color_mode", mode);
   };
-
   const handleResetPeaks = () => {
     resetPeaks();
     invoke("reset_peaks").catch(console.warn);
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="p-7 px-8 w-full max-w-full">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="page-title">Settings</div>
-          <div className="page-subtitle">
+          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
+            Settings
+          </div>
+          <div className="text-[12px] text-text-muted font-normal">
             Customize FluxNet behavior and appearance
           </div>
         </div>
       </div>
 
-      <div className="settings-section">
-        <div className="settings-section-title">Monitoring</div>
-        <div className="settings-card">
-          <div className="settings-row">
+      {/* Monitoring */}
+      <div className="mb-6">
+        <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
+          Monitoring
+        </div>
+        <div className="bg-panel border border-border rounded-lg">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
-              <div className="settings-label">Refresh interval</div>
-              <div className="settings-sub">How often to poll network data</div>
+              <div className="text-[13px] text-text font-[450]">
+                Dashboard refresh interval
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                How often the dashboard UI updates (backend always samples at
+                500ms)
+              </div>
             </div>
-            <select
-              className="fn-select"
+            <FluxSelect
               value={String(pollIntervalMs / 1000)}
-              onChange={(e) => handleInterval(e.target.value)}
-            >
-              <option value="0.5">0.5 seconds</option>
-              <option value="1">1 second</option>
-              <option value="2">2 seconds</option>
-              <option value="5">5 seconds</option>
-            </select>
+              onChange={handleInterval}
+              options={[
+                { value: "0.5", label: "0.5 seconds" },
+                { value: "1", label: "1 second" },
+                { value: "2", label: "2 seconds" },
+                { value: "5", label: "5 seconds" },
+              ]}
+            />
           </div>
 
-          <div className="settings-row">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
-              <div className="settings-label">Display units</div>
-              <div className="settings-sub">How speeds are formatted</div>
+              <div className="text-[13px] text-text font-[450]">
+                Display units
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                {displayUnits === "bytes"
+                  ? "Bytes per second — adaptive (B/s, KB/s, MB/s, GB/s)"
+                  : "Bits per second — adaptive (bps, Kbps, Mbps, Gbps)"}
+              </div>
             </div>
-            <select
-              className="fn-select"
+            <FluxSelect
               value={displayUnits}
-              onChange={(e) => handleUnits(e.target.value)}
-            >
-              <option value="auto">Auto</option>
-              <option value="MB/s">MB/s</option>
-              <option value="KB/s">KB/s</option>
-              <option value="Mbps">Mbps</option>
-            </select>
+              onChange={handleUnits}
+              width="w-[220px]"
+              options={[
+                {
+                  value: "bytes",
+                  label: "Bytes/s (KB/s, MB/s, GB/s)",
+                },
+                {
+                  value: "bits",
+                  label: "Bits/s (Kbps, Mbps, Gbps)",
+                },
+              ]}
+            />
           </div>
 
-          <div className="settings-row">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
-              <div className="settings-label">Ping target</div>
-              <div className="settings-sub">
+              <div className="text-[13px] text-text font-[450]">
+                Ping target
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
                 IP or hostname to ping for latency
               </div>
             </div>
             <input
               type="text"
-              className="fn-input"
+              className="text-[12px] font-mono text-text bg-panel border border-border rounded-[7px] px-2.5 py-1.25 outline-none w-40 transition-colors focus:border-accent-border"
               value={localPingTarget}
               onChange={(e) => handlePingTarget(e.target.value)}
               placeholder="e.g. 1.1.1.1"
               pattern="[a-zA-Z0-9.\-:]+"
-              style={{ width: 160, fontFamily: "monospace" }}
             />
           </div>
 
-          <div className="settings-row">
+          <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
-              <div className="settings-label">Start with Windows</div>
-              <div className="settings-sub">
+              <div className="text-[13px] text-text font-[450]">
+                Start with Windows
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
                 Launch FluxNet at login
                 {autostartError && (
-                  <span
-                    style={{
-                      display: "block",
-                      color: "var(--danger, #c33)",
-                      fontSize: 11,
-                      marginTop: 4,
-                    }}
-                  >
+                  <span className="block text-danger-text text-[11px] mt-1">
                     {autostartError}
                   </span>
                 )}
               </div>
             </div>
             <div
-              className={`toggle ${startWithOS ? "on" : "off"} ${!autostartAvailable ? "disabled" : ""}`}
+              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors shrink-0 ${startWithOS ? "bg-accent" : "bg-accent-muted"} ${!autostartAvailable ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
               onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
@@ -233,50 +254,48 @@ export function SettingsPage() {
                 }
               }}
             >
-              <div className="toggle-thumb" />
+              <div
+                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="settings-section">
-        <div className="settings-section-title">Appearance</div>
-        <div className="settings-card">
-          <div className="settings-row">
+      {/* Appearance */}
+      <div className="mb-6">
+        <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
+          Appearance
+        </div>
+        <div className="bg-panel border border-border rounded-lg">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
-              <div className="settings-label">Dark mode</div>
-              <div className="settings-sub">Switch between light and dark</div>
+              <div className="text-[13px] text-text font-[450]">Theme mode</div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                {colorMode === "system"
+                  ? "Follows Windows personalization setting"
+                  : colorMode === "dark"
+                    ? "Always use dark theme"
+                    : "Always use light theme"}
+              </div>
             </div>
-            <div
-              className={`toggle ${colorMode === "dark" ? "on" : "off"}`}
-              onClick={() =>
-                handleColorMode(colorMode === "dark" ? "light" : "dark")
-              }
-              role="switch"
-              aria-checked={colorMode === "dark"}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
-                  e.preventDefault();
-                  handleColorMode(colorMode === "dark" ? "light" : "dark");
-                }
-              }}
-            >
-              <div className="toggle-thumb" />
-            </div>
+            <FluxSelect
+              value={colorMode}
+              onChange={(v) => handleColorMode(v as ColorMode)}
+              options={[
+                { value: "system", label: "System" },
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
+            />
           </div>
 
-          <div
-            className="settings-row"
-            style={{
-              alignItems: "flex-start",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            <div className="settings-label">Accent colour</div>
+          <div className="flex flex-col items-start gap-3 px-4.5 py-3.25">
+            <div className="text-[13px] text-text font-[450]">
+              Accent colour
+            </div>
             <div
-              className="theme-chips"
+              className="flex gap-2 flex-wrap"
               role="radiogroup"
               aria-label="Accent colour"
             >
@@ -284,7 +303,7 @@ export function SettingsPage() {
                 <button
                   key={i}
                   type="button"
-                  className={`theme-chip ${selectedTheme === i ? "selected" : ""}`}
+                  className={`w-6.5 h-6.5 rounded-full cursor-pointer p-0 transition-transform hover:scale-[1.15] ${selectedTheme === i ? "border-2 border-accent" : isLightColor(t.color) ? "border-2 border-transparent" : "border-2 border-[rgba(255,255,255,0.3)]"}`}
                   style={{ background: t.color }}
                   title={t.label}
                   aria-label={`${t.label} theme`}
@@ -297,26 +316,39 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="settings-section">
-        <div className="settings-section-title">Data</div>
-        <div className="settings-card">
-          <div className="settings-row">
+      {/* Data */}
+      <div className="mb-6">
+        <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
+          Data
+        </div>
+        <div className="bg-panel border border-border rounded-lg">
+          <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
-              <div className="settings-label">Reset peak values</div>
-              <div className="settings-sub">
-                Clear session peak upload and download
+              <div className="text-[13px] text-text font-[450]">
+                Reset session peaks
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                Clear peak upload/download for this session
               </div>
             </div>
             <button
               type="button"
               onClick={handleResetPeaks}
-              className="btn-danger"
+              className="bg-danger-bg text-danger-text border border-danger-border rounded-[7px] px-3 py-1.25 text-[12px] cursor-pointer font-sans transition-opacity hover:opacity-85"
             >
-              Reset peaks
+              Reset
             </button>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function isLightColor(hex: string): boolean {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return r * 0.299 + g * 0.587 + b * 0.114 > 80;
 }

@@ -1,12 +1,4 @@
 export {
-  fetchUsageStats,
-  fetchHistoryRange,
-  fetchHourlySummary,
-  fetchDailySummary,
-  fetchMonthlySummary,
-} from "./storageApi";
-
-export {
   fetchNetworkStats,
   fetchDashboardSnapshot,
   fetchPingStats,
@@ -16,9 +8,16 @@ export {
 export type {
   RawNetworkStats,
   RawDashboardSnapshot,
-  RawPingStats,
   NormalizedPollResult,
 } from "./networkApi";
+
+export {
+  fetchUsageStats,
+  fetchHistoryRange,
+  fetchHourlySummary,
+  fetchDailySummary,
+  fetchMonthlySummary,
+} from "./storageApi";
 
 export {
   invoke,

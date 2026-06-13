@@ -16,3 +16,4 @@ export { EmptyMessage } from "./ui/EmptyMessage";
 export { ChartCard } from "./ui/ChartCard";
 export { StatCard } from "./ui/StatCard";
 export { Toggle } from "./ui/Toggle";
+export { FluxSelect } from "./FluxSelect";

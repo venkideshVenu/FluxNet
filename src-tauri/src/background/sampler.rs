@@ -4,11 +4,15 @@ use crate::commands::network::{
 use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
 use crate::persistence::app_settings::SettingsStore;
-use crate::storage::aggregation::{rollup_daily, rollup_hourly, rollup_monthly};
+use crate::storage::aggregation::{
+    rollup_daily, rollup_daily_at, rollup_hourly, rollup_hourly_at, rollup_monthly,
+    rollup_monthly_for,
+};
 use crate::storage::repository::{cleanup_old_samples, insert_sample};
 use crate::storage::DbState;
-use chrono::{Datelike, Duration as ChronoDuration, Local, Timelike};
+use chrono::{Datelike, Duration as ChronoDuration, Local, TimeZone, Timelike};
 use parking_lot::Mutex;
+use std::collections::HashSet;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,67 +21,208 @@ use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio_util::sync::CancellationToken;
 
-const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500 ms = 5 s
+/// Fixed backend sampling interval — always 500ms for accurate measurements.
+/// Frontend display refresh is controlled independently per window.
+const SAMPLER_INTERVAL_MS: u64 = 500;
+
+const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500ms = 5s
 
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
-// ── Startup catch-up: fill missing monthly rows (FIX R6) ─────────────────────
+// ── Startup backfill: compute all missing rollups ─────────────────────────────
 
-fn backfill_missing_months(db: &DbState) {
+/// Backfills all missing hourly, daily, and monthly rollups from raw samples.
+/// This is critical because the app may be restarted before crossing time boundaries.
+fn backfill_all_rollups(db: &DbState) {
     let conn = db.0.lock();
+
     let now = Local::now();
-    let current_month_str = now.format("%Y-%m").to_string();
+    let current_hour_start = Local
+        .with_ymd_and_hms(now.year(), now.month(), now.day(), now.hour(), 0, 0)
+        .unwrap()
+        .timestamp();
 
-    // Find the most-recent month already in monthly_usage
-    let last_stored: Option<String> = conn
-        .query_row(
-            "SELECT month FROM monthly_usage ORDER BY month DESC LIMIT 1",
-            [],
-            |r| r.get(0),
-        )
-        .ok();
+    // ── Step 1: Backfill hourly ──────────────────────────────────────────────
 
-    let Some(last_str) = last_stored else {
-        return; // no rows at all — nothing to back-fill
+    // Get earliest sample timestamp
+    let earliest_ts: Option<i64> = conn
+        .query_row("SELECT MIN(timestamp) FROM bandwidth_samples", [], |r| {
+            r.get(0)
+        })
+        .ok()
+        .flatten();
+
+    let Some(earliest_ts) = earliest_ts else {
+        tracing::debug!("No samples in DB — skipping backfill");
+        return;
     };
-    if last_str >= current_month_str {
-        return; // up to date
+
+    // Get set of already-computed hours
+    let existing_hours: HashSet<i64> = {
+        let mut stmt = conn.prepare("SELECT hour_start FROM hourly_usage").unwrap();
+        stmt.query_map([], |r| r.get::<_, i64>(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+
+    // Find the start of the earliest sample's hour (in local time)
+    let earliest_local = Local.timestamp_opt(earliest_ts, 0).single().unwrap_or(now);
+    let mut hour_cursor = Local
+        .with_ymd_and_hms(
+            earliest_local.year(),
+            earliest_local.month(),
+            earliest_local.day(),
+            earliest_local.hour(),
+            0,
+            0,
+        )
+        .unwrap()
+        .timestamp();
+
+    let mut hourly_count = 0u32;
+
+    // Iterate over all completed hours up to (but not including) the current hour
+    while hour_cursor < current_hour_start {
+        if !existing_hours.contains(&hour_cursor) {
+            // Check if there are any samples in this hour before computing
+            let has_samples: bool = conn
+                .query_row(
+                    "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
+                    [hour_cursor, hour_cursor + 3600],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+
+            if has_samples {
+                if rollup_hourly_at(&conn, hour_cursor).is_ok() {
+                    hourly_count += 1;
+                }
+            }
+        }
+        hour_cursor += 3600;
     }
 
-    tracing::info!("Back-filling monthly rollups from {last_str} to {current_month_str}");
+    if hourly_count > 0 {
+        tracing::info!("Backfilled {hourly_count} hourly rollup(s)");
+    }
 
-    // Iterate from (last_stored + 1 month) up to (but not including) the current month
-    let mut cursor: chrono::NaiveDate = {
-        let parts: Vec<&str> = last_str.splitn(2, '-').collect();
-        let y: i32 = parts[0].parse().unwrap_or(now.year());
-        let m: u32 = parts[1].parse().unwrap_or(now.month());
-        // step forward one month
-        let next_m = if m == 12 { 1 } else { m + 1 };
-        let next_y = if m == 12 { y + 1 } else { y };
-        chrono::NaiveDate::from_ymd_opt(next_y, next_m, 1).unwrap_or_default()
+    // ── Step 2: Backfill daily ───────────────────────────────────────────────
+
+    let today_str = now.format("%Y-%m-%d").to_string();
+    let today_start = Local
+        .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
+        .unwrap()
+        .timestamp();
+
+    // Get set of already-computed days
+    let existing_days: HashSet<String> = {
+        let mut stmt = conn.prepare("SELECT day FROM daily_usage").unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect()
     };
 
-    while cursor.format("%Y-%m").to_string() < current_month_str {
-        let dt = cursor
-            .and_hms_opt(0, 0, 0)
-            .and_then(|dt| dt.and_local_timezone(Local).single())
-            .unwrap_or_else(Local::now);
-        let _ = rollup_monthly(&conn, dt);
+    let earliest_day_start = Local
+        .with_ymd_and_hms(
+            earliest_local.year(),
+            earliest_local.month(),
+            earliest_local.day(),
+            0,
+            0,
+            0,
+        )
+        .unwrap();
 
-        // Advance one month
-        let m = cursor.month();
-        let y = cursor.year();
-        let next_m = if m == 12 { 1 } else { m + 1 };
-        let next_y = if m == 12 { y + 1 } else { y };
-        if let Some(nd) = chrono::NaiveDate::from_ymd_opt(next_y, next_m, 1) {
-            cursor = nd;
-        } else {
-            break;
+    let mut day_cursor = earliest_day_start;
+    let mut daily_count = 0u32;
+
+    // Iterate over all completed days (exclude today — it's still in progress)
+    while day_cursor.timestamp() < today_start {
+        let day_str = day_cursor.format("%Y-%m-%d").to_string();
+
+        if !existing_days.contains(&day_str) {
+            // Check if there are samples or hourly data for this day
+            let day_ts = day_cursor.timestamp();
+            let has_data: bool = conn
+                .query_row(
+                    "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
+                    [day_ts, day_ts + 86_400],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+
+            if has_data {
+                if rollup_daily_at(&conn, day_ts, &day_str).is_ok() {
+                    daily_count += 1;
+                }
+            }
+        }
+
+        day_cursor = day_cursor + ChronoDuration::days(1);
+    }
+
+    if daily_count > 0 {
+        tracing::info!("Backfilled {daily_count} daily rollup(s)");
+    }
+
+    // ── Step 3: Backfill monthly ─────────────────────────────────────────────
+
+    let current_month_str = now.format("%Y-%m").to_string();
+
+    // Get all months that have daily_usage entries
+    let months_with_data: HashSet<String> = {
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT SUBSTR(day, 1, 7) FROM daily_usage")
+            .unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+
+    // Get existing monthly entries
+    let existing_months: HashSet<String> = {
+        let mut stmt = conn.prepare("SELECT month FROM monthly_usage").unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+
+    let mut monthly_count = 0u32;
+    for month in &months_with_data {
+        // Only roll up completed months (not the current one)
+        if month < &current_month_str && !existing_months.contains(month) {
+            if rollup_monthly_for(&conn, month).is_ok() {
+                monthly_count += 1;
+            }
+        }
+    }
+
+    if monthly_count > 0 {
+        tracing::info!("Backfilled {monthly_count} monthly rollup(s)");
+    }
+
+    // ── Step 4: Update today's daily_usage as a partial snapshot ──────────────
+    // This ensures the History page and Compact widget can read today's totals
+    // from daily_usage directly (more efficient than re-computing from raw each time).
+    {
+        let has_today_samples: bool = conn
+            .query_row(
+                "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
+                [today_start, today_start + 86_400],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+
+        if has_today_samples {
+            let _ = rollup_daily_at(&conn, today_start, &today_str);
+            tracing::debug!("Updated today's partial daily_usage snapshot");
         }
     }
 }
-
-// ── Any visible window? (PERF-1) ─────────────────────────────────────────────
 
 fn any_window_visible(app: &AppHandle) -> bool {
     app.webview_windows()
@@ -85,9 +230,7 @@ fn any_window_visible(app: &AppHandle) -> bool {
         .any(|w| w.is_visible().unwrap_or(false))
 }
 
-// ── Sampler entry point ───────────────────────────────────────────────────────
-
-/// Starts the background sampling loop and returns a handle for graceful shutdown.
+/// Starts the background sampling loop at a fixed 500ms rate.
 pub fn start_sampler(
     monitor_state: SharedMonitorState,
     db: DbState,
@@ -96,15 +239,19 @@ pub fn start_sampler(
     settings_store: Arc<SettingsStore>,
     app_handle: AppHandle,
 ) -> SamplerHandle {
-    backfill_missing_months(&db);
+    // Run full backfill on startup (synchronous, before async loop starts)
+    backfill_all_rollups(&db);
 
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
-        let initial_ms = settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
-        let mut current_interval_ms = initial_ms;
-        let mut sample_interval = tokio::time::interval(Duration::from_millis(current_interval_ms));
+        let mut sample_interval = tokio::time::interval(Duration::from_millis(SAMPLER_INTERVAL_MS));
+        sample_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
         cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        // Periodic partial-day rollup (every 10 seconds, update today's daily_usage snapshot)
+        let mut daily_snapshot_interval = tokio::time::interval(Duration::from_secs(10));
+        daily_snapshot_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut tick_counter = 0u32;
         let mut last_hour: Option<u32> = None;
@@ -116,7 +263,7 @@ pub fn start_sampler(
             tokio::select! {
                 _ = cancel_token.cancelled() => {
                     tracing::info!("Sampler shutting down – performing final WAL checkpoint");
-                  let db_clone = db.clone();
+                    let db_clone = db.clone();
                     std::thread::spawn(move || {
                         let conn = db_clone.0.lock();
                         let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
@@ -127,21 +274,11 @@ pub fn start_sampler(
                 _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
-                    let desired_ms =
-                        settings_store.read(|s| s.clamped_refresh_interval_ms()) as u64;
-                    if desired_ms != current_interval_ms {
-                        current_interval_ms = desired_ms;
-                        sample_interval =
-                            tokio::time::interval(Duration::from_millis(current_interval_ms));
-                        tracing::info!("Refresh interval changed to {desired_ms} ms");
-                    }
-
                     let now_local = Local::now();
                     let now_ts = now_local.timestamp();
                     let current_hour = now_local.hour();
                     let current_day = now_local.day();
 
-                    // Refresh network counters — outside any lock
                     networks.refresh();
 
                     let needs_selection = {
@@ -158,7 +295,6 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Sample — lock held only for the fast arithmetic, no I/O
                     let (dl, ul, iface, was_uninitialized) = {
                         let mut s = monitor_state.lock();
                         let uninit = s.last_sample.is_none();
@@ -167,7 +303,6 @@ pub fn start_sampler(
                     };
 
                     if !iface.is_empty() && !was_uninitialized {
-                        // Persist sample
                         {
                             let conn = db.0.lock();
                             let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
@@ -185,7 +320,7 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Periodic ping (every ~5 s)
+                    // Periodic ping
                     if tick_counter % PING_INTERVAL_TICKS == 0 {
                         let target_str = settings_store.read(|s| s.ping_target.clone());
                         let target: IpAddr = target_str
@@ -202,7 +337,7 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Rollups
+                    // Rollups at time boundaries
                     let hour_changed =
                         last_hour.map_or(false, |prev| prev != current_hour);
                     let day_changed =
@@ -213,15 +348,21 @@ pub fn start_sampler(
                         let _ = conn.execute("BEGIN IMMEDIATE", []);
 
                         if hour_changed {
-                            let _ = rollup_hourly(&conn, now_local);
+                            if let Err(e) = rollup_hourly(&conn, now_local) {
+                                tracing::warn!("Hourly rollup failed: {e}");
+                            }
                         }
 
                         if day_changed {
-                         let yesterday = now_local - ChronoDuration::days(1);
-                            let _ = rollup_daily(&conn, yesterday);
+                            let yesterday = now_local - ChronoDuration::days(1);
+                            if let Err(e) = rollup_daily(&conn, yesterday) {
+                                tracing::warn!("Daily rollup failed: {e}");
+                            }
 
                             if current_day == 1 {
-                                let _ = rollup_monthly(&conn, now_local);
+                                if let Err(e) = rollup_monthly(&conn, now_local) {
+                                    tracing::warn!("Monthly rollup failed: {e}");
+                                }
                             }
                         }
 
@@ -230,6 +371,25 @@ pub fn start_sampler(
 
                     last_hour = Some(current_hour);
                     last_day = Some(current_day);
+                }
+
+                _ = daily_snapshot_interval.tick() => {
+                    // Periodically update today's partial daily_usage entry
+                    // so that the History page and Compact widget show current totals.
+                    let now_local = Local::now();
+                    let today_str = now_local.format("%Y-%m-%d").to_string();
+                    let today_start = Local
+                        .with_ymd_and_hms(
+                            now_local.year(),
+                            now_local.month(),
+                            now_local.day(),
+                            0, 0, 0,
+                        )
+                        .unwrap()
+                        .timestamp();
+
+                    let conn = db.0.lock();
+                    let _ = rollup_daily_at(&conn, today_start, &today_str);
                 }
 
                 _ = cleanup_interval.tick() => {

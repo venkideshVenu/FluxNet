@@ -12,222 +12,31 @@
   --hud-danger: #ef4444;
   --hud-neutral: #ffffff;
   --hud-muted: rgba(234, 233, 255, 0.6);
-  --hud-dot-live: var(--net-upload);
-  --hud-dot-dead: rgba(90, 80, 180, 0.4);
   --hud-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
 html[data-app="hud"][data-theme="light"] {
   --hud-bg-outer: transparent;
-  --hud-bg-card: rgba(255, 255, 255, 0.96);
-  --hud-border: rgba(24, 33, 61, 0.1);
-  --hud-rule: rgba(24, 33, 61, 0.08);
-  --hud-brand: #18213d;
-  --hud-label: #51607f;
-  --hud-up: var(--net-upload);
-  --hud-dn: var(--net-download);
-  --hud-good: #16a34a;
-  --hud-amber: #c97d00;
-  --hud-danger: #dc2626;
-  --hud-neutral: #18213d;
-  --hud-muted: #7a86a5;
-  --hud-dot-live: var(--net-upload);
-  --hud-dot-dead: rgba(24, 33, 61, 0.25);
+  --hud-bg-card: #f0eff8;
+  --hud-border: rgba(60, 50, 140, 0.18);
+  --hud-rule: rgba(60, 50, 140, 0.12);
+  --hud-brand: #131020;
+  --hud-label: #3d3760;
+  --hud-good: #0f8c42;
+  --hud-amber: #b86d00;
+  --hud-danger: #c62828;
+  --hud-neutral: #131020;
+  --hud-muted: #5a5478;
 }
 
-/* ── Reset ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-html,
-body {
-  width: 100%;
-  height: 100%;
+html[data-app="hud"] body {
   background: transparent;
   overflow: hidden;
   font-family: var(--hud-font);
-  -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  width: 100%;
-  height: 100%;
+html[data-app="hud"] #root {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* ── Outer wrapper (transparent — shows desktop) ── */
-.hud-root {
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ── Card ── */
-.hud-card {
-  width: 100%;
-  height: 100%;
-  background: var(--hud-bg-card);
-  border: 1px solid var(--hud-border);
-  border-radius: 12px;
-  display: grid;
-  grid-template-rows: auto 1px 1fr 1px 1fr;
-  padding: 0;
-  overflow: hidden;
-}
-
-html[data-app="hud"][data-theme="light"] .hud-card {
-  box-shadow:
-    0 10px 30px rgba(15, 23, 42, 0.1),
-    0 3px 10px rgba(15, 23, 42, 0.05);
-}
-
-/* ── Header ── */
-.hud-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 12px;
-  cursor: default;
-}
-
-.hud-header:active {
-  cursor: default;
-}
-
-.hud-title {
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  color: var(--hud-brand);
-  text-transform: uppercase;
-}
-
-.hud-drag-handle {
-  width: 22px;
-  height: 15px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  cursor: grab;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s;
-  padding: 0;
-}
-
-.hud-drag-handle:hover {
-  opacity: 0.85;
-}
-
-.hud-drag-handle:active {
-  cursor: grabbing;
-  opacity: 1;
-}
-
-.hud-drag-handle:focus-visible {
-  outline: 2px solid var(--hud-amber);
-  outline-offset: 2px;
-}
-
-.hud-drag-handle::before {
-  content: "";
-  width: 12px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--hud-brand);
-}
-
-/* ── Divider rule ── */
-.hud-rule {
-  height: 1px;
-  background: var(--hud-rule);
-  flex-shrink: 0;
-}
-
-/* ── Row groups ── */
-.hud-rows {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  min-height: 0;
-}
-
-/* ── Individual row ── */
-.hud-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 8px;
-  padding: 4px 10px;
-  min-height: 0;
-  flex: 1 1 0;
-}
-
-/* ── Label (left side) ── */
-.hud-row-label {
-  font-size: 7px;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--hud-label);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.hud-arrow {
-  opacity: 0.7;
-  font-size: 7px;
-}
-
-/* ── Value (right side) ── */
-.hud-row-value {
-  font-size: 14px;
-  font-weight: 500;
-  font-family: var(--hud-font);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.005em;
-  line-height: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-  min-width: 11ch;
-  justify-content: flex-end;
-  white-space: nowrap;
-  text-align: right;
-}
-
-.hud-row-value.up {
-  color: var(--hud-up);
-}
-.hud-row-value.dn {
-  color: var(--hud-dn);
-}
-.hud-row-value.loss {
-  color: var(--hud-neutral);
-}
-
-.hud-unit {
-  font-size: 9px;
-  font-weight: 400;
-  opacity: 1;
-  color: var(--hud-muted);
-  letter-spacing: 0;
-  white-space: nowrap;
 }

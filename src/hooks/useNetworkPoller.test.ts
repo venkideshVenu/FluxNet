@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useNetworkPoller } from "./useNetworkPoller";
-import { useNetworkStore } from "@/store";
-import { useSettingsStore } from "@/store";
+import { useNetworkStore, useSettingsStore } from "@/store";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -42,11 +41,6 @@ function resetStores() {
     history: [],
     todayUploadBytes: 0,
     todayDownloadBytes: 0,
-  });
-  useSettingsStore.setState({
-    pollIntervalMs: 1000,
-    displayUnits: "auto",
-    pingTarget: "8.8.8.8",
   });
 }
 

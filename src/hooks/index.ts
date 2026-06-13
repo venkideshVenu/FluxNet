@@ -1,8 +1,13 @@
-export { useDragToMove, useKeyboardNudge } from "./useDragToMove";
 export { useNetworkPoller } from "./useNetworkPoller";
 export { usePingPoller } from "./usePingPoller";
 export { useThemeSync } from "./useThemeSync";
-export { useWidgetSettings } from "./useWidgetSettings";
 export { useStoredInterval } from "./useStoredInterval";
+export { useWidgetSettings } from "./useWidgetSettings";
 export { useWidgetPanelState } from "./useWidgetPanelState";
 export { useDailyUsageAccumulator } from "./useDailyUsageAccumulator";
+export {
+  useDragToMove,
+  useKeyboardNudge,
+  useDragFromHandle,
+} from "./useDragToMove";
+export { useSettingsSync } from "./useSettingsSync";

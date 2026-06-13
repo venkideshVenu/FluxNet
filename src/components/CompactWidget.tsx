@@ -1,20 +1,25 @@
-import { fetchUsageStats } from "@/api/storageApi";
-import { useNetworkStore } from "@/store";
-import { getStoredCompactIntervalMs, LS_COMPACT_INTERVAL } from "@/utils";
-import { formatBytes, formatSpeed } from "@/utils/formatSpeed";
+import { fetchUsageStats } from "@/api";
+import { useNetworkStore, useSettingsStore } from "@/store";
+import {
+  getStoredCompactIntervalMs,
+  LS_COMPACT_INTERVAL,
+  formatBytes,
+  formatSpeed,
+} from "@/utils";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { useDragToMove, useKeyboardNudge } from "@/hooks/useDragToMove";
+import { useDragFromHandle, useKeyboardNudge } from "@/hooks";
 
 export function CompactWidget() {
   const { data, isConnected } = useNetworkStore();
+  const displayUnits = useSettingsStore((s) => s.displayUnits);
   const [intervalMs, setIntervalMs] = useState(getStoredCompactIntervalMs);
   const [dbStats, setDbStats] = useState<{ dl: number; ul: number } | null>(
     null,
   );
 
-  const up = formatSpeed(data.uploadBytesPerSec);
-  const dn = formatSpeed(data.downloadBytesPerSec);
+  const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
+  const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
   const upToday = dbStats ? formatBytes(dbStats.ul) : { value: "—", unit: "" };
   const dnToday = dbStats ? formatBytes(dbStats.dl) : { value: "—", unit: "" };
   const intervalLabel = `${intervalMs / 1000}s`;
@@ -29,19 +34,6 @@ export function CompactWidget() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  /**
-   *
-   * The `alive` flag prevents calling `setDbStats` after the component unmounts.
-   * This handles the race condition where:
-   * 1. setInterval fires `syncTodayTotals`
-   * 2. `fetchUsageStats()` starts an async IPC call
-   * 3. Component unmounts (cleanup sets alive = false, clears interval)
-   * 4. The IPC response arrives → `if (alive)` prevents the stale setState
-   *
-   * In React StrictMode (dev only), components mount → unmount → remount.
-   * This could briefly cause two intervals, but the first cleanup fires immediately,
-   * so at most one extra fetch occurs (which is idempotent). This is acceptable.
-   */
   useEffect(() => {
     let alive = true;
     const syncTodayTotals = async () => {
@@ -57,14 +49,14 @@ export function CompactWidget() {
       }
     };
     syncTodayTotals();
-    const id = setInterval(syncTodayTotals, 10_000);
+    const id = setInterval(syncTodayTotals, 5_000);
     return () => {
       alive = false;
       clearInterval(id);
     };
   }, []);
 
-  const handleDrag = useDragToMove();
+  const handleDrag = useDragFromHandle();
   const handleKeyNudge = useKeyboardNudge();
 
   return (
@@ -73,7 +65,8 @@ export function CompactWidget() {
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
-      title="Drag to move · Arrow keys to nudge"
+      title="Drag handle to move · Arrow keys to nudge"
+      className="focus-visible:outline-2 focus-visible:outline-[rgba(124,111,247,0.8)] focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
     >
       <CompactPresentation
         interfaceName={data.interfaceName}

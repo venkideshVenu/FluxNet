@@ -4,49 +4,85 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: <IconDashboard /> },
   { to: "/history", label: "History", icon: <IconHistory /> },
   { to: "/interfaces", label: "Interfaces", icon: <IconWifi /> },
-  { to: "/alerts", label: "Alerts", icon: <IconBell /> },
+  // { to: "/alerts", label: "Alerts", icon: <IconBell /> },
   { to: "/widgets", label: "Widgets", icon: <IconWidgets /> },
 ];
 
 export function Sidebar() {
   return (
-    <aside className="sidebar" aria-label="Main navigation">
-      <div className="sidebar-brand" aria-label="FluxNet">
+    <aside
+      className="w-50 min-w-50 shrink-0 bg-panel border-r border-border flex flex-col h-screen"
+      aria-label="Main navigation"
+    >
+      <div className="flex items-center justify-center px-4 pt-4 pb-3.5 border-b border-border">
+        {/* Light mode: dark logo for contrast on white bg */}
         <img
-          className="sidebar-brand-image"
-          src="/branding/logo-horizontal.png"
+          className="w-full max-w-40 h-auto block in-data-[theme='dark']:hidden"
+          src="/branding/logo-horizontal-dark.png"
+          alt="FluxNet"
+        />
+        {/* Dark mode: light logo for contrast on dark bg */}
+        <img
+          className="w-full max-w-40 h-auto hidden in-data-[theme='dark']:block"
+          src="/branding/logo-horizontal-light.png"
           alt="FluxNet"
         />
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="flex-1 px-2 py-2.5 flex flex-col gap-px overflow-y-auto scrollbar-none">
         {NAV.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === "/"}
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] no-underline transition-colors duration-150 cursor-pointer font-[450] ${
+                isActive
+                  ? "bg-accent-soft text-accent-strong font-[550]"
+                  : "text-text-subtle hover:bg-accent-soft-2 hover:text-accent-strong"
+              }`
+            }
           >
-            {item.icon}
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <span
+                  className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="sidebar-footer">
+      <div className="px-2 pb-4 pt-2.5 border-t border-border">
         <NavLink
           to="/settings"
-          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+          className={({ isActive }) =>
+            `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] no-underline transition-colors duration-150 cursor-pointer font-[450] ${
+              isActive
+                ? "bg-accent-soft text-accent-strong font-[550]"
+                : "text-text-subtle hover:bg-accent-soft-2 hover:text-accent-strong"
+            }`
+          }
         >
-          <IconSettings />
-          Settings
+          {({ isActive }) => (
+            <>
+              <span
+                className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}
+              >
+                <IconSettings />
+              </span>
+              Settings
+            </>
+          )}
         </NavLink>
       </div>
     </aside>
   );
 }
-
-// All icons have aria-hidden="true" since the adjacent text label provides meaning
 
 function IconDashboard() {
   return (
@@ -108,24 +144,24 @@ function IconWifi() {
   );
 }
 
-function IconBell() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  );
-}
+// function IconBell() {
+//   return (
+//     <svg
+//       width="15"
+//       height="15"
+//       viewBox="0 0 24 24"
+//       fill="none"
+//       stroke="currentColor"
+//       strokeWidth="2"
+//       strokeLinecap="round"
+//       strokeLinejoin="round"
+//       aria-hidden="true"
+//     >
+//       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+//       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+//     </svg>
+//   );
+// }
 
 function IconSettings() {
   return (

@@ -1,6 +1,6 @@
 import { getStorageItem } from "./storage";
 
-export type ColorMode = "light" | "dark";
+export type ColorMode = "light" | "dark" | "system";
 
 type Rgb = { r: number; g: number; b: number };
 
@@ -67,17 +67,10 @@ export function applyAccent(color: string) {
   );
 }
 
-export function applyColorMode(mode: ColorMode) {
-  document.documentElement.setAttribute("data-theme", mode);
-}
-
-export function getStoredAccentIndex(fallback = 0): number {
-  return getStorageItem(LS_THEME, fallback);
-}
-
-export function getStoredColorMode(): ColorMode {
-  const saved = getStorageItem(LS_MODE, "system");
-  if (saved === "light" || saved === "dark") return saved;
+/**
+ * Returns the effective theme ("light" or "dark") based on system preference.
+ */
+export function getSystemTheme(): "light" | "dark" {
   if (
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-color-scheme: dark)").matches
@@ -87,20 +80,43 @@ export function getStoredColorMode(): ColorMode {
   return "light";
 }
 
+/**
+ * Resolves a ColorMode to the effective "light" or "dark" value.
+ * If mode is "system", uses the OS preference.
+ */
+export function resolveColorMode(mode: ColorMode): "light" | "dark" {
+  if (mode === "system") return getSystemTheme();
+  return mode;
+}
+
+export function applyColorMode(mode: ColorMode) {
+  document.documentElement.setAttribute("data-theme", resolveColorMode(mode));
+}
+
+export function getStoredAccentIndex(fallback = 0): number {
+  return getStorageItem(LS_THEME, fallback);
+}
+
+export function getStoredColorMode(): ColorMode {
+  const saved = getStorageItem(LS_MODE, "system");
+  if (saved === "light" || saved === "dark" || saved === "system") return saved;
+  return "system";
+}
+
 export function getStoredPillMode(): ColorMode {
   const saved = getStorageItem(LS_PILL_MODE, "dark");
-  if (saved === "light" || saved === "dark") return saved;
+  if (saved === "light" || saved === "dark" || saved === "system") return saved;
   return "dark";
 }
 
 export function getStoredCompactMode(): ColorMode {
   const saved = getStorageItem(LS_COMPACT_MODE, "dark");
-  if (saved === "light" || saved === "dark") return saved;
+  if (saved === "light" || saved === "dark" || saved === "system") return saved;
   return "dark";
 }
 
 export function getStoredHudMode(): ColorMode {
   const saved = getStorageItem(LS_HUD_MODE, "dark");
-  if (saved === "light" || saved === "dark") return saved;
+  if (saved === "light" || saved === "dark" || saved === "system") return saved;
   return "dark";
 }
