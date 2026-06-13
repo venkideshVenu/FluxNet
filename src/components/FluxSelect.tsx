@@ -34,7 +34,7 @@ export function FluxSelect({
     if (!buttonRef.current) return;
 
     const rect = buttonRef.current.getBoundingClientRect();
-    const dropdownHeight = options.length * 44 + 8; // Approximate height
+    const dropdownHeight = options.length * 34 + 8; // Approximate height
     const spaceBelow = window.innerHeight - rect.bottom - 8;
     const spaceAbove = rect.top - 8;
 
@@ -145,7 +145,7 @@ export function FluxSelect({
           style={dropdownStyles}
           className="
             overflow-hidden
-            rounded-2xl
+            rounded-xl
             border
             border-border
             bg-panel
@@ -176,24 +176,23 @@ export function FluxSelect({
                 }}
                 className={`
                   w-full
-                  px-4
-                  py-3
+                  px-3
+                  py-2
                   flex
                   items-center
                   justify-between
                   text-left
-                  text-[13px]
+                  text-[12px]
                   transition-all
                   duration-150
-                  ${focused ? "bg-accent-soft/40" : ""}
-                  ${active ? "text-accent font-medium" : "text-text"}
+                  ${focused ? "bg-accent text-white" : active ? "text-accent font-medium" : "text-text"}
                 `}
               >
                 <span>{option.label}</span>
 
                 {active && (
                   <svg
-                    className="w-4 h-4 text-accent"
+                    className={`w-3.5 h-3.5 ${focused ? "text-white" : "text-accent"}`}
                     viewBox="0 0 20 20"
                     fill="none"
                   >
@@ -229,16 +228,16 @@ export function FluxSelect({
         className="
           group
           w-full
-          h-11
-          px-4
-          rounded-xl
+          h-8.5
+          px-3
+          rounded-lg
           border
           border-border
           bg-panel
           flex
           items-center
           justify-between
-          text-[13px]
+          text-[12px]
           font-medium
           text-text
           transition-all
@@ -255,8 +254,8 @@ export function FluxSelect({
 
         <svg
           className={`
-            w-4
-            h-4
+            w-3.5
+            h-3.5
             opacity-70
             transition-all
             duration-200
