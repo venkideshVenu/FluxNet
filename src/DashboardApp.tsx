@@ -13,7 +13,7 @@ import {
   DashboardPage,
   HistoryPage,
   InterfacesPage,
-  AlertsPage,
+  // AlertsPage,
   SettingsPage,
   WidgetSettingsPage,
 } from "@/pages";
@@ -60,7 +60,7 @@ function DashboardContent() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/interfaces" element={<InterfacesPage />} />
-          <Route path="/alerts" element={<AlertsPage />} />
+          {/* <Route path="/alerts" element={<AlertsPage />} /> */}
           <Route path="/widgets" element={<WidgetSettingsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

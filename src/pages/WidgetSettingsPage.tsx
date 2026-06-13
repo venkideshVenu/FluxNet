@@ -539,15 +539,6 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
       {/* Widget Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[15px] font-bold shrink-0 ring-1 ring-white/10"
-            style={{
-              background: `linear-gradient(135deg, ${config.accentColor}, ${config.accentColor}99)`,
-              boxShadow: `0 6px 16px ${config.accentColor}40`,
-            }}
-          >
-            {config.displayName.charAt(0)}
-          </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[15px] font-semibold text-text">
