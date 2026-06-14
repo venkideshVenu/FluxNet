@@ -16,7 +16,8 @@ use commands::network::{
 };
 use commands::ping::get_ping_stats;
 use commands::settings::{
-    get_ping_target, get_refresh_interval, set_ping_target, set_refresh_interval,
+    get_onboarding_completed, get_ping_target, get_refresh_interval, set_onboarding_completed,
+    set_ping_target, set_refresh_interval,
 };
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
@@ -132,6 +133,7 @@ fn main() {
             commands::ping::PingState::default(),
         )))
         .invoke_handler(tauri::generate_handler![
+            // Network monitoring
             get_network_stats,
             get_dashboard_snapshot,
             get_interfaces,
@@ -140,16 +142,21 @@ fn main() {
             set_widget_opacity,
             set_widget_always_on_top,
             set_widget_visibility,
+            // Ping
             get_ping_stats,
+            // Storage / history
             get_usage_stats_cmd,
             get_history_range,
             get_hourly_summary,
             get_daily_summary,
             get_monthly_summary,
+            // Settings
             get_ping_target,
             set_ping_target,
             get_refresh_interval,
             set_refresh_interval,
+            get_onboarding_completed,
+            set_onboarding_completed,
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Moved(position) = event {

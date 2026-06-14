@@ -61,3 +61,17 @@ pub fn set_refresh_interval(
     store.update(&app, |s| s.refresh_interval_ms = interval_ms);
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_onboarding_completed(store: State<Arc<SettingsStore>>) -> Result<bool, String> {
+    Ok(store.read(|s| s.onboarding_completed))
+}
+
+#[tauri::command]
+pub fn set_onboarding_completed(
+    store: State<Arc<SettingsStore>>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    store.update(&app, |s| s.onboarding_completed = true);
+    Ok(())
+}

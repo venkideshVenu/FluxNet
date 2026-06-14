@@ -4,12 +4,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     /// IP address or hostname to ping for latency measurement.
+    #[serde(default = "AppSettings::default_ping_target")]
     pub ping_target: String,
 
     /// How often the network sampler fires, in milliseconds.
     /// Valid range: 100–5000.  Default: 500.
     #[serde(default = "AppSettings::default_refresh_interval_ms")]
     pub refresh_interval_ms: u32,
+
+    /// Whether the first-launch onboarding wizard has been completed.
+    #[serde(default)]
+    pub onboarding_completed: bool,
 }
 
 impl AppSettings {
@@ -33,6 +38,7 @@ impl Default for AppSettings {
         Self {
             ping_target: Self::default_ping_target(),
             refresh_interval_ms: Self::default_refresh_interval_ms(),
+            onboarding_completed: false
         }
     }
 }
