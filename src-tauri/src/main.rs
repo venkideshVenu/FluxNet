@@ -16,14 +16,15 @@ use commands::network::{
 };
 use commands::ping::get_ping_stats;
 use commands::settings::{
-    get_onboarding_completed, get_ping_target, get_refresh_interval, set_onboarding_completed,
-    set_ping_target, set_refresh_interval,
+    get_minimize_to_tray, get_onboarding_completed, get_ping_target, get_refresh_interval,
+    set_minimize_to_tray, set_onboarding_completed, set_ping_target, set_refresh_interval,
 };
 use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
 };
 use commands::visibility::{set_widget_always_on_top, set_widget_opacity, set_widget_visibility};
+use persistence::app_settings::SettingsStore;
 use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
 
@@ -157,13 +158,37 @@ fn main() {
             set_refresh_interval,
             get_onboarding_completed,
             set_onboarding_completed,
+            get_minimize_to_tray,
+            set_minimize_to_tray,
         ])
         .on_window_event(|window, event| {
-            if let WindowEvent::Moved(position) = event {
-                let app_handle = window.app_handle();
-                if let Some(sender) = app_handle.try_state::<PositionSender>() {
-                    enqueue_position(&sender, window.label(), *position);
+            match event {
+                WindowEvent::Moved(position) => {
+                    let app_handle = window.app_handle();
+                    if let Some(sender) = app_handle.try_state::<PositionSender>() {
+                        enqueue_position(&sender, window.label(), *position);
+                    }
                 }
+                // If minimize_to_tray is enabled, hide instead of closing so
+                // background monitoring and the tray icon remain active.
+                WindowEvent::CloseRequested { api, .. } => {
+                    // Only intercept the main dashboard window, not widget windows
+                    if window.label() == "main" {
+                        let app_handle = window.app_handle();
+                        if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
+                            let minimize = store.read(|s| s.minimize_to_tray);
+                            if minimize {
+                                api.prevent_close();
+                                window.hide().ok();
+                                tracing::debug!(
+                                    "Main window hidden to tray (minimize_to_tray=true)"
+                                );
+                            }
+                            // If minimize_to_tray is false, allow the default close behaviour
+                        }
+                    }
+                }
+                _ => {}
             }
         })
         .setup(setup::setup)

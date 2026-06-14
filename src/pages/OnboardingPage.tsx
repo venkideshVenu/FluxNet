@@ -21,6 +21,7 @@ const STEPS: Step[] = ["welcome", "interface", "widget", "startup", "done"];
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome");
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
+  const [loadingInterfaces, setLoadingInterfaces] = useState(true);
   const [selectedInterface, setSelectedInterface] = useState<string>("");
   const [selectedWidget, setSelectedWidget] = useState<WidgetStyle>("compact");
   const [startWithWindows, setStartWithWindows] = useState(true);
@@ -33,6 +34,7 @@ export function OnboardingPage() {
 
   // Load interfaces
   useEffect(() => {
+    setLoadingInterfaces(true);
     invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
       .then((result) => {
         setInterfaces(result);
@@ -40,7 +42,8 @@ export function OnboardingPage() {
         const up = result.find((i) => i.status === "Up");
         if (up) setSelectedInterface(up.name);
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingInterfaces(false));
   }, []);
 
   const goNext = useCallback(() => {
@@ -76,16 +79,20 @@ export function OnboardingPage() {
         });
       }
 
-      // 4. Mark configured in backend (source of truth)
-      await invoke("set_onboarding_completed").catch(() => {});
+      await invokeWithTimeout("set_minimize_to_tray", {
+        enabled: minimizeToTray,
+      });
 
-      // 5. Also set localStorage as fast-path cache
+      // catch block handle it so the backend retry actually runs.
+      await invoke("set_onboarding_completed");
+
+      // Also set localStorage as fast-path cache for next launch
       setStorageItem("fluxnet_configured", "true");
 
       setStep("done");
     } catch (err) {
       console.error("Onboarding finish error:", err);
-      // Still mark as configured so user isn't stuck
+      // Still mark as configured so user isn't permanently stuck
       await invoke("set_onboarding_completed").catch(() => {});
       setStorageItem("fluxnet_configured", "true");
       setStep("done");
@@ -97,17 +104,20 @@ export function OnboardingPage() {
     selectedWidget,
     startWithWindows,
     showWidgetOnStartup,
+    minimizeToTray,
   ]);
 
   const openDashboard = useCallback(() => {
-    // Force full page reload to re-evaluate the onboarding guard
+    // Force full page reload to re-evaluate the onboarding guard.
+    // In Tauri's WebView this is the correct approach for resetting router state.
     window.location.replace("/");
   }, []);
 
   const recommendedInterface = interfaces.find(
     (i) =>
       i.status === "Up" &&
-      (i.interface_type === "wifi" || i.interface_type === "ethernet"),
+      (i.interface_type.toLowerCase() === "wifi" ||
+        i.interface_type.toLowerCase() === "ethernet"),
   );
 
   return (
@@ -119,6 +129,7 @@ export function OnboardingPage() {
         {step === "interface" && (
           <InterfaceStep
             interfaces={interfaces}
+            loading={loadingInterfaces}
             selected={selectedInterface}
             onSelect={setSelectedInterface}
             recommendedName={recommendedInterface?.name}
@@ -156,6 +167,8 @@ export function OnboardingPage() {
         {step === "done" && (
           <DoneStep
             interfaceName={selectedInterface}
+            widgetActive={showWidgetOnStartup}
+            minimizeToTray={minimizeToTray}
             onOpen={openDashboard}
             stepIndex={stepIndex}
           />
@@ -242,6 +255,7 @@ function WelcomeStep({
 
 function InterfaceStep({
   interfaces,
+  loading,
   selected,
   onSelect,
   recommendedName,
@@ -251,6 +265,7 @@ function InterfaceStep({
   progress,
 }: {
   interfaces: InterfaceInfo[];
+  loading: boolean;
   selected: string;
   onSelect: (name: string) => void;
   recommendedName?: string;
@@ -260,6 +275,7 @@ function InterfaceStep({
   progress: number;
 }) {
   const upInterfaces = interfaces.filter((i) => i.status === "Up");
+  // Only show up to 2 down interfaces — they're un-selectable and just for context
   const downInterfaces = interfaces
     .filter((i) => i.status !== "Up")
     .slice(0, 2);
@@ -276,9 +292,14 @@ function InterfaceStep({
       </p>
 
       <div className="flex flex-col gap-1.5 mb-5 max-h-[220px] overflow-y-auto scrollbar-none">
-        {displayList.length === 0 && (
+        {loading && (
           <div className="text-[12px] text-text-muted text-center py-6">
             Loading interfaces…
+          </div>
+        )}
+        {!loading && displayList.length === 0 && (
+          <div className="text-[12px] text-text-muted text-center py-6">
+            No network interfaces found.
           </div>
         )}
         {displayList.map((iface) => {
@@ -288,7 +309,7 @@ function InterfaceStep({
 
           return (
             <button
-              key={iface.name}
+              key={iface.if_index}
               type="button"
               onClick={() => isUp && onSelect(iface.name)}
               disabled={!isUp}
@@ -683,10 +704,14 @@ function CheckRow({
 
 function DoneStep({
   interfaceName,
+  widgetActive,
+  minimizeToTray,
   onOpen,
   stepIndex,
 }: {
   interfaceName: string;
+  widgetActive: boolean;
+  minimizeToTray: boolean;
   onOpen: () => void;
   stepIndex: number;
 }) {
@@ -711,14 +736,28 @@ function DoneStep({
         FluxNet is ready
       </h1>
       <p className="text-[12px] text-text-muted leading-relaxed max-w-[240px] mb-5">
-        Your widget is active and monitoring{" "}
-        <strong className="text-text">{interfaceName || "your network"}</strong>
-        . It will appear on your desktop now.
+        {widgetActive ? (
+          <>
+            Your widget is active and monitoring{" "}
+            <strong className="text-text">
+              {interfaceName || "your network"}
+            </strong>
+            . It will appear on your desktop now.
+          </>
+        ) : (
+          <>
+            FluxNet is monitoring{" "}
+            <strong className="text-text">
+              {interfaceName || "your network"}
+            </strong>
+            . Open the dashboard to launch a widget.
+          </>
+        )}
       </p>
 
       <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-        <StatusDot label="Widget active" />
-        <StatusDot label="Tray icon running" />
+        {widgetActive && <StatusDot label="Widget active" />}
+        {minimizeToTray && <StatusDot label="Tray icon running" />}
         <StatusDot label={`Monitoring ${interfaceName || "network"}`} />
       </div>
 

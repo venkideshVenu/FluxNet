@@ -75,3 +75,21 @@ pub fn set_onboarding_completed(
     store.update(&app, |s| s.onboarding_completed = true);
     Ok(())
 }
+
+// The main.rs on_window_event handler should read this setting when
+// CloseRequested fires to decide whether to hide or quit.
+
+#[tauri::command]
+pub fn get_minimize_to_tray(store: State<Arc<SettingsStore>>) -> Result<bool, String> {
+    Ok(store.read(|s| s.minimize_to_tray))
+}
+
+#[tauri::command]
+pub fn set_minimize_to_tray(
+    store: State<Arc<SettingsStore>>,
+    enabled: bool,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    store.update(&app, |s| s.minimize_to_tray = enabled);
+    Ok(())
+}
