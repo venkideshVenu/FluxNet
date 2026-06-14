@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { invokeWithTimeout, setStorageItem } from "@/utils";
+import { WIDGET_VIEWS, WidgetPreview } from "@/components";
 
 type InterfaceInfo = {
   name: string;
@@ -392,25 +393,21 @@ function WidgetStep({
     id: WidgetStyle;
     label: string;
     desc: string;
-    preview: React.ReactNode;
   }[] = [
     {
       id: "compact",
       label: "Compact widget",
       desc: "Upload, download and daily totals",
-      preview: <CompactPreview />,
     },
     {
       id: "pill",
       label: "Pill widget",
       desc: "Minimal inline bar",
-      preview: <PillPreview />,
     },
     {
       id: "hud",
       label: "HUD overlay",
       desc: "For gaming and full-screen apps",
-      preview: <HudPreview />,
     },
   ];
 
@@ -455,7 +452,12 @@ function WidgetStep({
                   {opt.desc}
                 </div>
                 <div className="bg-surface border border-border rounded-lg p-3 flex items-center justify-center min-h-[48px]">
-                  {opt.preview}
+                  <WidgetPreview
+                    view={WIDGET_VIEWS[opt.id]}
+                    colorMode="dark"
+                    frameClassName="flex items-center justify-center"
+                    hudFrameClassName="w-full max-w-[180px] aspect-[6/5]"
+                  />
                 </div>
               </div>
             </button>
@@ -480,72 +482,6 @@ function WidgetStep({
         </button>
       </div>
       <StepDots current={stepIndex} />
-    </div>
-  );
-}
-
-// ── Widget Previews ───────────────────────────────────────────────────────────
-
-function CompactPreview() {
-  return (
-    <div className="bg-panel border border-border rounded-[10px] px-2.5 py-2 w-[100px]">
-      <div className="text-[8px] font-medium text-text-muted tracking-widest uppercase mb-1.5">
-        FluxNet
-      </div>
-      <div className="flex items-center gap-1 mb-0.5">
-        <span className="text-[10px] text-net-upload">↑</span>
-        <span className="text-[12px] font-medium text-text tabular-nums">
-          12.4
-        </span>
-        <span className="text-[9px] text-text-muted">MB/s</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-[10px] text-net-download">↓</span>
-        <span className="text-[12px] font-medium text-text tabular-nums">
-          87.2
-        </span>
-        <span className="text-[9px] text-text-muted">MB/s</span>
-      </div>
-    </div>
-  );
-}
-
-function PillPreview() {
-  return (
-    <div className="inline-flex items-center bg-panel border border-border rounded-full px-2.5 py-1 gap-2">
-      <span className="text-[10px] text-net-upload">↑</span>
-      <span className="text-[11px] font-medium text-text tabular-nums">
-        12.4{" "}
-        <span className="text-[9px] text-text-muted font-normal">MB/s</span>
-      </span>
-      <div className="w-px h-3 bg-border" />
-      <span className="text-[10px] text-net-download">↓</span>
-      <span className="text-[11px] font-medium text-text tabular-nums">
-        87.2{" "}
-        <span className="text-[9px] text-text-muted font-normal">MB/s</span>
-      </span>
-    </div>
-  );
-}
-
-function HudPreview() {
-  return (
-    <div className="bg-[#0f0d1a] border border-[rgba(124,111,247,0.3)] rounded-lg px-2.5 py-1.5 w-[100px]">
-      <div className="text-[7px] text-[rgba(180,175,255,0.5)] tracking-widest uppercase mb-1.5">
-        FluxNet HUD
-      </div>
-      <div className="flex justify-between mb-0.5">
-        <span className="text-[8px] text-[rgba(180,175,255,0.5)]">↑ UP</span>
-        <span className="text-[11px] font-medium text-[#22C97A] font-mono tabular-nums">
-          12.4
-        </span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-[8px] text-[rgba(180,175,255,0.5)]">↓ DN</span>
-        <span className="text-[11px] font-medium text-[#4FBBF7] font-mono tabular-nums">
-          87.2
-        </span>
-      </div>
     </div>
   );
 }

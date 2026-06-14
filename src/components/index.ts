@@ -17,3 +17,8 @@ export { ChartCard } from "./ui/ChartCard";
 export { StatCard } from "./ui/StatCard";
 export { Toggle } from "./ui/Toggle";
 export { FluxSelect } from "./FluxSelect";
+export {
+  WidgetPreview,
+  WIDGET_VIEWS,
+  PREVIEW_THEME_VARS,
+} from "./WidgetPreview";
