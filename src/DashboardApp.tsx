@@ -1,40 +1,36 @@
-import { useEffect, useState } from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useNavigate,
-  useLocation,
-} from "react-router-dom";
-import { useNetworkPoller, useThemeSync } from "@/hooks";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useNetworkPoller, useThemeSync, useOnboardingGuard } from "@/hooks";
 import { Sidebar } from "@/components";
 import {
   DashboardPage,
   HistoryPage,
   InterfacesPage,
-  // AlertsPage,
   SettingsPage,
   WidgetSettingsPage,
+  OnboardingPage,
 } from "@/pages";
-import { getStorageItem } from "@/utils";
 import { AppProviders } from "@/AppProviders";
 
-function FirstRunRedirect() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [checked, setChecked] = useState(false);
+function OnboardingRouter() {
+  const completed = useOnboardingGuard();
 
-  useEffect(() => {
-    if (checked) return;
-    const configured = getStorageItem("fluxnet_configured", "");
-    if (!configured && location.pathname === "/") {
-      navigate("/interfaces", { replace: true });
-    }
-    setChecked(true);
-  }, [checked, navigate, location.pathname]);
+  if (completed === null) {
+    return (
+      <div className="w-screen h-screen bg-bg flex items-center justify-center">
+        <div className="text-[12px] text-text-muted">Loading…</div>
+      </div>
+    );
+  }
 
-  return null;
+  if (!completed) {
+    return (
+      <Routes>
+        <Route path="*" element={<OnboardingPage />} />
+      </Routes>
+    );
+  }
+
+  return <DashboardContent />;
 }
 
 function DashboardContent() {
@@ -55,12 +51,10 @@ function DashboardContent() {
         id="main-content"
         className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-bg scrollbar-none"
       >
-        <FirstRunRedirect />
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/interfaces" element={<InterfacesPage />} />
-          {/* <Route path="/alerts" element={<AlertsPage />} /> */}
           <Route path="/widgets" element={<WidgetSettingsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -74,7 +68,7 @@ export default function DashboardApp() {
   return (
     <AppProviders>
       <BrowserRouter>
-        <DashboardContent />
+        <OnboardingRouter />
       </BrowserRouter>
     </AppProviders>
   );
