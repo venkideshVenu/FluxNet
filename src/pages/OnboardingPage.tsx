@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { invokeWithTimeout, setStorageItem } from "@/utils";
 import { WIDGET_VIEWS, WidgetPreview } from "@/components";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type InterfaceInfo = {
   name: string;
@@ -14,538 +15,121 @@ type InterfaceInfo = {
 };
 
 type WidgetStyle = "compact" | "pill" | "hud";
-
 type Step = "welcome" | "interface" | "widget" | "startup" | "done";
+type Direction = "forward" | "back";
 
 const STEPS: Step[] = ["welcome", "interface", "widget", "startup", "done"];
+const ANIM_MS = 320;
 
-export function OnboardingPage() {
-  const [step, setStep] = useState<Step>("welcome");
-  const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
-  const [loadingInterfaces, setLoadingInterfaces] = useState(true);
-  const [selectedInterface, setSelectedInterface] = useState<string>("");
-  const [selectedWidget, setSelectedWidget] = useState<WidgetStyle>("compact");
-  const [startWithWindows, setStartWithWindows] = useState(true);
-  const [showWidgetOnStartup, setShowWidgetOnStartup] = useState(true);
-  const [minimizeToTray, setMinimizeToTray] = useState(true);
-  const [loading, setLoading] = useState(false);
+// ─── Global CSS ───────────────────────────────────────────────────────────────
 
-  const stepIndex = STEPS.indexOf(step);
-  const progress = (stepIndex / (STEPS.length - 1)) * 100;
+const GLOBAL_CSS = `
+  @keyframes ob-slide-enter-right {
+    from { opacity: 0; transform: translateX(40px) scale(0.98); }
+    to   { opacity: 1; transform: translateX(0)   scale(1); }
+  }
+  @keyframes ob-slide-exit-left {
+    from { opacity: 1; transform: translateX(0)    scale(1); }
+    to   { opacity: 0; transform: translateX(-40px) scale(0.98); }
+  }
+  @keyframes ob-slide-enter-left {
+    from { opacity: 0; transform: translateX(-40px) scale(0.98); }
+    to   { opacity: 1; transform: translateX(0)     scale(1); }
+  }
+  @keyframes ob-slide-exit-right {
+    from { opacity: 1; transform: translateX(0)   scale(1); }
+    to   { opacity: 0; transform: translateX(40px) scale(0.98); }
+  }
 
-  // Load interfaces
-  useEffect(() => {
-    setLoadingInterfaces(true);
-    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-      .then((result) => {
-        setInterfaces(result);
-        // Auto-select first Up interface
-        const up = result.find((i) => i.status === "Up");
-        if (up) setSelectedInterface(up.name);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingInterfaces(false));
-  }, []);
+  .ob-enter-forward { animation: ob-slide-enter-right ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; }
+  .ob-exit-forward  { animation: ob-slide-exit-left   ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; pointer-events:none; }
+  .ob-enter-back    { animation: ob-slide-enter-left  ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; }
+  .ob-exit-back     { animation: ob-slide-exit-right  ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; pointer-events:none; }
 
-  const goNext = useCallback(() => {
-    const idx = STEPS.indexOf(step);
-    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
-  }, [step]);
+  @keyframes ob-dot-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+  .ob-dot { animation: ob-dot-in 0.35s cubic-bezier(0.22,1,0.36,1) both; }
 
-  const goBack = useCallback(() => {
-    const idx = STEPS.indexOf(step);
-    if (idx > 0) setStep(STEPS[idx - 1]);
-  }, [step]);
+  @keyframes ob-check-draw {
+    from { stroke-dashoffset: 24; }
+    to   { stroke-dashoffset: 0; }
+  }
+  .ob-check { stroke-dasharray: 24; animation: ob-check-draw 0.3s ease-out 0.1s both; }
 
-  const finish = useCallback(async () => {
-    setLoading(true);
+  @keyframes ob-pop {
+    0%   { transform: scale(0.5);  opacity: 0; }
+    70%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  .ob-pop { animation: ob-pop 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+
+  .ob-progress { transition: width 0.45s cubic-bezier(0.22,1,0.36,1); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ob-enter-forward, .ob-exit-forward, .ob-enter-back, .ob-exit-back,
+    .ob-dot, .ob-check, .ob-pop { animation: none !important; }
+    .ob-progress { transition: none !important; }
+  }
+`;
+
+// ─── Theme Toggle ─────────────────────────────────────────────────────────────
+
+function ThemeToggle() {
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.getAttribute("data-theme") !== "light"
+      : true,
+  );
+
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.setAttribute(
+      "data-theme",
+      next ? "dark" : "light",
+    );
     try {
-      // 1. Set interface
-      if (selectedInterface) {
-        await invokeWithTimeout("set_interface", { name: selectedInterface });
-      }
-
-      // 2. Autostart
-      if (startWithWindows) {
-        await invoke("plugin:autostart|enable").catch(() => {});
-      } else {
-        await invoke("plugin:autostart|disable").catch(() => {});
-      }
-
-      // 3. Show selected widget
-      if (showWidgetOnStartup) {
-        await invokeWithTimeout("set_widget_visibility", {
-          label: selectedWidget,
-          visible: true,
-        });
-      }
-
-      await invokeWithTimeout("set_minimize_to_tray", {
-        enabled: minimizeToTray,
-      });
-
-      // catch block handle it so the backend retry actually runs.
-      await invoke("set_onboarding_completed");
-
-      // Also set localStorage as fast-path cache for next launch
-      setStorageItem("fluxnet_configured", "true");
-
-      setStep("done");
-    } catch (err) {
-      console.error("Onboarding finish error:", err);
-      // Still mark as configured so user isn't permanently stuck
-      await invoke("set_onboarding_completed").catch(() => {});
-      setStorageItem("fluxnet_configured", "true");
-      setStep("done");
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    selectedInterface,
-    selectedWidget,
-    startWithWindows,
-    showWidgetOnStartup,
-    minimizeToTray,
-  ]);
-
-  const openDashboard = useCallback(() => {
-    // Force full page reload to re-evaluate the onboarding guard.
-    // In Tauri's WebView this is the correct approach for resetting router state.
-    window.location.replace("/");
-  }, []);
-
-  const recommendedInterface = interfaces.find(
-    (i) =>
-      i.status === "Up" &&
-      (i.interface_type.toLowerCase() === "wifi" ||
-        i.interface_type.toLowerCase() === "ethernet"),
-  );
+      localStorage.setItem("fluxnet_mode", next ? "dark" : "light");
+    } catch {}
+  };
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-bg overflow-hidden">
-      <div className="w-full max-w-[420px] mx-auto">
-        {step === "welcome" && (
-          <WelcomeStep onNext={goNext} stepIndex={stepIndex} />
-        )}
-        {step === "interface" && (
-          <InterfaceStep
-            interfaces={interfaces}
-            loading={loadingInterfaces}
-            selected={selectedInterface}
-            onSelect={setSelectedInterface}
-            recommendedName={recommendedInterface?.name}
-            onNext={goNext}
-            onBack={goBack}
-            stepIndex={stepIndex}
-            progress={progress}
-          />
-        )}
-        {step === "widget" && (
-          <WidgetStep
-            selected={selectedWidget}
-            onSelect={setSelectedWidget}
-            onNext={goNext}
-            onBack={goBack}
-            stepIndex={stepIndex}
-            progress={progress}
-          />
-        )}
-        {step === "startup" && (
-          <StartupStep
-            startWithWindows={startWithWindows}
-            showWidgetOnStartup={showWidgetOnStartup}
-            minimizeToTray={minimizeToTray}
-            onToggleStart={() => setStartWithWindows(!startWithWindows)}
-            onToggleWidget={() => setShowWidgetOnStartup(!showWidgetOnStartup)}
-            onToggleTray={() => setMinimizeToTray(!minimizeToTray)}
-            onFinish={finish}
-            onBack={goBack}
-            stepIndex={stepIndex}
-            progress={progress}
-            loading={loading}
-          />
-        )}
-        {step === "done" && (
-          <DoneStep
-            interfaceName={selectedInterface}
-            widgetActive={showWidgetOnStartup}
-            minimizeToTray={minimizeToTray}
-            onOpen={openDashboard}
-            stepIndex={stepIndex}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Step Indicator ────────────────────────────────────────────────────────────
-
-function StepDots({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-1.5 justify-center mt-5">
-      {STEPS.map((_, i) => (
-        <div
-          key={i}
-          className={
-            i === current
-              ? "w-5 h-1.5 rounded-full bg-accent transition-all duration-300"
-              : "w-1.5 h-1.5 rounded-full bg-border-strong transition-all duration-300"
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-function ProgressBar({ progress }: { progress: number }) {
-  return (
-    <div className="w-full h-0.5 bg-border rounded-full mb-6 overflow-hidden">
-      <div
-        className="h-full bg-accent rounded-full transition-all duration-500 ease-out"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  );
-}
-
-// ── Screen 1: Welcome ─────────────────────────────────────────────────────────
-
-function WelcomeStep({
-  onNext,
-  stepIndex,
-}: {
-  onNext: () => void;
-  stepIndex: number;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center px-7 py-10">
-      <div className="w-13 h-13 bg-accent rounded-[14px] flex items-center justify-center mb-5 shadow-[0_4px_16px_var(--accent-shadow)]">
-        <svg
-          width="26"
-          height="26"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      </div>
-      <h1 className="text-[20px] font-medium text-text tracking-[-0.02em] mb-1.5">
-        Welcome to FluxNet
-      </h1>
-      <p className="text-[12px] text-text-muted leading-relaxed max-w-[220px] mb-7">
-        Real-time network monitoring, floating right on your desktop.
-      </p>
-      <button
-        type="button"
-        onClick={onNext}
-        className="bg-accent text-white border-none rounded-lg px-6 py-2.5 text-[12px] font-medium cursor-pointer hover:opacity-90 transition-opacity"
-      >
-        Get started
-      </button>
-      <StepDots current={stepIndex} />
-    </div>
-  );
-}
-
-// ── Screen 2: Interface ───────────────────────────────────────────────────────
-
-function InterfaceStep({
-  interfaces,
-  loading,
-  selected,
-  onSelect,
-  recommendedName,
-  onNext,
-  onBack,
-  stepIndex,
-  progress,
-}: {
-  interfaces: InterfaceInfo[];
-  loading: boolean;
-  selected: string;
-  onSelect: (name: string) => void;
-  recommendedName?: string;
-  onNext: () => void;
-  onBack: () => void;
-  stepIndex: number;
-  progress: number;
-}) {
-  const upInterfaces = interfaces.filter((i) => i.status === "Up");
-  // Only show up to 2 down interfaces — they're un-selectable and just for context
-  const downInterfaces = interfaces
-    .filter((i) => i.status !== "Up")
-    .slice(0, 2);
-  const displayList = [...upInterfaces, ...downInterfaces];
-
-  return (
-    <div className="flex flex-col px-6 py-6">
-      <ProgressBar progress={progress} />
-      <h2 className="text-[15px] font-medium text-text mb-1">
-        Select network interface
-      </h2>
-      <p className="text-[11px] text-text-muted mb-5">
-        Choose the adapter FluxNet will monitor
-      </p>
-
-      <div className="flex flex-col gap-1.5 mb-5 max-h-[220px] overflow-y-auto scrollbar-none">
-        {loading && (
-          <div className="text-[12px] text-text-muted text-center py-6">
-            Loading interfaces…
-          </div>
-        )}
-        {!loading && displayList.length === 0 && (
-          <div className="text-[12px] text-text-muted text-center py-6">
-            No network interfaces found.
-          </div>
-        )}
-        {displayList.map((iface) => {
-          const isSelected = iface.name === selected;
-          const isUp = iface.status === "Up";
-          const isRecommended = iface.name === recommendedName;
-
-          return (
-            <button
-              key={iface.if_index}
-              type="button"
-              onClick={() => isUp && onSelect(iface.name)}
-              disabled={!isUp}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all w-full ${
-                isSelected
-                  ? "bg-accent-soft border-accent-border"
-                  : "border-transparent hover:bg-panel-hover"
-              } ${!isUp ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              <div
-                className={`w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center shrink-0 ${
-                  isSelected ? "border-accent" : "border-border-strong"
-                }`}
-              >
-                {isSelected && (
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div
-                  className={`text-[12px] font-medium ${isUp ? "text-text" : "text-text-muted"}`}
-                >
-                  {iface.name}
-                </div>
-                <div className="text-[10px] text-text-muted">
-                  {iface.description || iface.interface_type}
-                  {!isUp && " · Not connected"}
-                </div>
-              </div>
-              {isRecommended && isUp && (
-                <span className="text-[9px] font-medium bg-success-bg text-success rounded-full px-2 py-0.5 shrink-0">
-                  Recommended
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex gap-2 mt-auto pt-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="border border-border-strong bg-transparent text-accent rounded-lg px-5 py-2.5 text-[12px] font-medium cursor-pointer hover:bg-panel-hover transition-colors"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!selected}
-          className="bg-accent text-white border-none rounded-lg px-5 py-2.5 text-[12px] font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Next
-        </button>
-      </div>
-      <StepDots current={stepIndex} />
-    </div>
-  );
-}
-
-// ── Screen 3: Widget Style ────────────────────────────────────────────────────
-
-function WidgetStep({
-  selected,
-  onSelect,
-  onNext,
-  onBack,
-  stepIndex,
-  progress,
-}: {
-  selected: WidgetStyle;
-  onSelect: (s: WidgetStyle) => void;
-  onNext: () => void;
-  onBack: () => void;
-  stepIndex: number;
-  progress: number;
-}) {
-  const options: {
-    id: WidgetStyle;
-    label: string;
-    desc: string;
-  }[] = [
-    {
-      id: "compact",
-      label: "Compact widget",
-      desc: "Upload, download and daily totals",
-    },
-    {
-      id: "pill",
-      label: "Pill widget",
-      desc: "Minimal inline bar",
-    },
-    {
-      id: "hud",
-      label: "HUD overlay",
-      desc: "For gaming and full-screen apps",
-    },
-  ];
-
-  return (
-    <div className="flex flex-col px-6 py-6">
-      <ProgressBar progress={progress} />
-      <h2 className="text-[15px] font-medium text-text mb-1">
-        Choose widget style
-      </h2>
-      <p className="text-[11px] text-text-muted mb-5">
-        How FluxNet appears on your desktop
-      </p>
-
-      <div className="flex flex-col gap-2 mb-5 max-h-[340px] overflow-y-auto scrollbar-none">
-        {options.map((opt) => {
-          const isSelected = opt.id === selected;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onSelect(opt.id)}
-              className={`flex items-start gap-2.5 px-3 py-3 rounded-lg border text-left transition-all w-full cursor-pointer ${
-                isSelected
-                  ? "bg-accent-soft border-accent-border"
-                  : "border-transparent hover:bg-panel-hover"
-              }`}
-            >
-              <div
-                className={`w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center shrink-0 mt-0.5 ${
-                  isSelected ? "border-accent" : "border-border-strong"
-                }`}
-              >
-                {isSelected && (
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] font-medium text-text">
-                  {opt.label}
-                </div>
-                <div className="text-[10px] text-text-muted mb-2">
-                  {opt.desc}
-                </div>
-                <div className="bg-surface border border-border rounded-lg p-3 flex items-center justify-center min-h-[48px]">
-                  <WidgetPreview
-                    view={WIDGET_VIEWS[opt.id]}
-                    colorMode="dark"
-                    frameClassName="flex items-center justify-center"
-                    hudFrameClassName="w-full max-w-[180px] aspect-[6/5]"
-                  />
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex gap-2 mt-auto pt-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="border border-border-strong bg-transparent text-accent rounded-lg px-5 py-2.5 text-[12px] font-medium cursor-pointer hover:bg-panel-hover transition-colors"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          className="bg-accent text-white border-none rounded-lg px-5 py-2.5 text-[12px] font-medium cursor-pointer hover:opacity-90 transition-opacity"
-        >
-          Next
-        </button>
-      </div>
-      <StepDots current={stepIndex} />
-    </div>
-  );
-}
-
-// ── Screen 4: Startup ─────────────────────────────────────────────────────────
-
-function StartupStep({
-  startWithWindows,
-  showWidgetOnStartup,
-  minimizeToTray,
-  onToggleStart,
-  onToggleWidget,
-  onToggleTray,
-  onFinish,
-  onBack,
-  stepIndex,
-  progress,
-  loading,
-}: {
-  startWithWindows: boolean;
-  showWidgetOnStartup: boolean;
-  minimizeToTray: boolean;
-  onToggleStart: () => void;
-  onToggleWidget: () => void;
-  onToggleTray: () => void;
-  onFinish: () => void;
-  onBack: () => void;
-  stepIndex: number;
-  progress: number;
-  loading: boolean;
-}) {
-  return (
-    <div className="flex flex-col px-6 py-6">
-      <ProgressBar progress={progress} />
-      <h2 className="text-[15px] font-medium text-text mb-1">
-        Startup preferences
-      </h2>
-      <p className="text-[11px] text-text-muted mb-5">
-        These can be changed anytime in Settings
-      </p>
-
-      <div className="bg-panel border border-border rounded-[10px] px-3 mb-4">
-        <CheckRow
-          checked={startWithWindows}
-          onToggle={onToggleStart}
-          label="Start FluxNet with Windows"
-          desc="Launch automatically on login"
-        />
-        <CheckRow
-          checked={showWidgetOnStartup}
-          onToggle={onToggleWidget}
-          label="Show widget on startup"
-          desc="Display overlay when app launches"
-        />
-        <CheckRow
-          checked={minimizeToTray}
-          onToggle={onToggleTray}
-          label="Minimize to system tray"
-          desc="Keep running in the background"
-          last
-        />
-      </div>
-
-      <div className="flex items-start gap-2 bg-accent-soft border border-accent-border rounded-lg px-3 py-2.5 mb-4">
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label="Toggle theme"
+      style={{
+        position: "fixed",
+        top: 10,
+        right: 10,
+        zIndex: 50,
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        background: "var(--panel)",
+        border: "1px solid var(--border)",
+        color: "var(--text-muted)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        transition: "background 0.15s, color 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background =
+          "var(--panel-hover)";
+        (e.currentTarget as HTMLElement).style.color = "var(--text)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "var(--panel)";
+        (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
+      }}
+    >
+      {isDark ? (
         <svg
           width="14"
           height="14"
@@ -553,33 +137,197 @@ function StartupStep({
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="text-accent shrink-0 mt-px"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
         </svg>
-        <span className="text-[11px] text-accent-strong leading-relaxed">
-          FluxNet never transmits your data. All monitoring is local.
-        </span>
-      </div>
+      ) : (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
-      <div className="flex gap-2 mt-auto pt-2">
+// ─── Step Transition Hook ─────────────────────────────────────────────────────
+// Keeps both old and new step in the DOM during the transition so exit and
+// enter animations play simultaneously.
+
+type StepSlot = {
+  key: Step;
+  direction: Direction;
+  phase: "enter" | "exit";
+};
+
+function useStepTransition(step: Step, direction: Direction) {
+  const [slots, setSlots] = useState<StepSlot[]>([
+    { key: step, direction, phase: "enter" },
+  ]);
+  const prevStep = useRef(step);
+
+  useEffect(() => {
+    if (step === prevStep.current) return;
+    const prev = prevStep.current;
+    prevStep.current = step;
+
+    setSlots([
+      { key: prev, direction, phase: "exit" },
+      { key: step, direction, phase: "enter" },
+    ]);
+
+    const t = setTimeout(() => {
+      setSlots([{ key: step, direction, phase: "enter" }]);
+    }, ANIM_MS + 40);
+
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, direction]);
+
+  return slots;
+}
+
+// ─── Step Dots ────────────────────────────────────────────────────────────────
+
+function StepDots({ current }: { current: number }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        justifyContent: "center",
+      }}
+    >
+      {STEPS.map((_, i) => (
+        <div
+          key={i}
+          style={{
+            borderRadius: 999,
+            transition:
+              "width 0.3s cubic-bezier(0.22,1,0.36,1), background 0.3s, opacity 0.3s",
+            width: i === current ? 20 : 6,
+            height: 6,
+            background: i <= current ? "var(--accent)" : "var(--border-strong)",
+            opacity: i < current ? 0.4 : 1,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Persistent Footer ────────────────────────────────────────────────────────
+// Lives OUTSIDE the animated content slot — Back/Next/Dots never move or
+// animate when stepping between pages.
+
+function PersistentFooter({
+  onBack,
+  onNext,
+  nextLabel = "Next",
+  nextDisabled = false,
+  loading = false,
+  showBack = true,
+  stepIndex,
+}: {
+  onBack?: () => void;
+  onNext: () => void;
+  nextLabel?: string;
+  nextDisabled?: boolean;
+  loading?: boolean;
+  showBack?: boolean;
+  stepIndex: number;
+}) {
+  return (
+    <div style={{ padding: "16px 0 0", flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        {showBack && onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              borderRadius: 10,
+              border: "1px solid var(--border-strong)",
+              background: "transparent",
+              color: "var(--text)",
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "background 0.15s",
+              opacity: loading ? 0.4 : 1,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--panel-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            Back
+          </button>
+        )}
+
         <button
           type="button"
-          onClick={onBack}
-          disabled={loading}
-          className="border border-border-strong bg-transparent text-accent rounded-lg px-5 py-2.5 text-[12px] font-medium cursor-pointer hover:bg-panel-hover transition-colors disabled:opacity-50"
+          onClick={onNext}
+          disabled={nextDisabled || loading}
+          style={{
+            flex: 1,
+            padding: "10px 0",
+            borderRadius: 10,
+            border: "none",
+            background: "var(--accent)",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: nextDisabled || loading ? "not-allowed" : "pointer",
+            opacity: nextDisabled || loading ? 0.45 : 1,
+            transition: "opacity 0.15s",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
         >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={onFinish}
-          disabled={loading}
-          className="bg-accent text-white border-none rounded-lg px-5 py-2.5 text-[12px] font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-70"
-        >
-          {loading ? "Setting up…" : "Finish"}
+          {loading ? (
+            <>
+              <svg
+                style={{ animation: "spin 0.8s linear infinite" }}
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+              Setting up…
+            </>
+          ) : (
+            nextLabel
+          )}
         </button>
       </div>
       <StepDots current={stepIndex} />
@@ -587,31 +335,789 @@ function StartupStep({
   );
 }
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export function OnboardingPage() {
+  const [step, setStep] = useState<Step>("welcome");
+  const [direction, setDirection] = useState<Direction>("forward");
+  const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
+  const [loadingIfaces, setLoadingIfaces] = useState(true);
+  const [selectedIface, setSelectedIface] = useState("");
+  const [selectedWidgets, setSelectedWidgets] = useState<Set<WidgetStyle>>(
+    new Set(["compact"]),
+  );
+  const [startWithWindows, setStartWithWindows] = useState(true);
+  const [showOnStartup, setShowOnStartup] = useState(true);
+  const [minimizeToTray, setMinimizeToTray] = useState(true);
+  const [finishing, setFinishing] = useState(false);
+
+  const stepIndex = STEPS.indexOf(step);
+  const progress = stepIndex / (STEPS.length - 1);
+
+  useEffect(() => {
+    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
+      .then((r) => {
+        setInterfaces(r);
+        const up = r.find((i) => i.status === "Up");
+        if (up) setSelectedIface(up.name);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingIfaces(false));
+  }, []);
+
+  const nav = useCallback(
+    (dir: Direction) => {
+      const idx = STEPS.indexOf(step);
+      const next = dir === "forward" ? idx + 1 : idx - 1;
+      if (next >= 0 && next < STEPS.length) {
+        setDirection(dir);
+        setStep(STEPS[next]);
+      }
+    },
+    [step],
+  );
+
+  const toggleWidget = useCallback((id: WidgetStyle) => {
+    setSelectedWidgets((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) {
+        if (n.size > 1) n.delete(id);
+      } else n.add(id);
+      return n;
+    });
+  }, []);
+
+  const finish = useCallback(async () => {
+    setFinishing(true);
+    try {
+      if (selectedIface)
+        await invokeWithTimeout("set_interface", { name: selectedIface });
+      await invoke(
+        startWithWindows
+          ? "plugin:autostart|enable"
+          : "plugin:autostart|disable",
+      ).catch(() => {});
+      if (showOnStartup) {
+        for (const w of selectedWidgets)
+          await invokeWithTimeout("set_widget_visibility", {
+            label: w,
+            visible: true,
+          });
+      }
+      await invokeWithTimeout("set_minimize_to_tray", {
+        enabled: minimizeToTray,
+      });
+      await invoke("set_onboarding_completed");
+      setStorageItem("fluxnet_configured", "true");
+    } catch {
+      await invoke("set_onboarding_completed").catch(() => {});
+      setStorageItem("fluxnet_configured", "true");
+    } finally {
+      setFinishing(false);
+      setDirection("forward");
+      setStep("done");
+    }
+  }, [
+    selectedIface,
+    selectedWidgets,
+    startWithWindows,
+    showOnStartup,
+    minimizeToTray,
+  ]);
+
+  const recommendedIface = interfaces.find(
+    (i) =>
+      i.status === "Up" &&
+      ["wifi", "ethernet"].includes(i.interface_type.toLowerCase()),
+  );
+
+  // renderStep renders ONLY the content area — no footer, no dots, no nav buttons.
+  const renderStep = useCallback(
+    (s: Step): React.ReactNode => {
+      switch (s) {
+        case "welcome":
+          return <WelcomeContent />;
+        case "interface":
+          return (
+            <InterfaceContent
+              interfaces={interfaces}
+              loading={loadingIfaces}
+              selected={selectedIface}
+              onSelect={setSelectedIface}
+              recommendedName={recommendedIface?.name}
+            />
+          );
+        case "widget":
+          return (
+            <WidgetContent selected={selectedWidgets} onToggle={toggleWidget} />
+          );
+        case "startup":
+          return (
+            <StartupContent
+              startWithWindows={startWithWindows}
+              showOnStartup={showOnStartup}
+              minimizeToTray={minimizeToTray}
+              onToggleStart={() => setStartWithWindows((v) => !v)}
+              onToggleWidget={() => setShowOnStartup((v) => !v)}
+              onToggleTray={() => setMinimizeToTray((v) => !v)}
+            />
+          );
+        case "done":
+          return (
+            <DoneContent
+              interfaceName={selectedIface}
+              widgetActive={showOnStartup}
+              minimizeToTray={minimizeToTray}
+              selectedWidgets={selectedWidgets}
+            />
+          );
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [
+      interfaces,
+      loadingIfaces,
+      selectedIface,
+      recommendedIface,
+      selectedWidgets,
+      startWithWindows,
+      showOnStartup,
+      minimizeToTray,
+      toggleWidget,
+    ],
+  );
+
+  const slots = useStepTransition(step, direction);
+
+  // Footer configuration per step, computed from live state.
+  // The footer lives outside the animated area so buttons never jump.
+  const footerConfig = (() => {
+    switch (step) {
+      case "welcome":
+        return {
+          showBack: false,
+          nextLabel: "Get started",
+          nextDisabled: false,
+          loading: false,
+          onNext: () => nav("forward"),
+        };
+      case "interface":
+        return {
+          showBack: true,
+          nextLabel: "Next",
+          nextDisabled: !selectedIface,
+          loading: false,
+          onBack: () => nav("back"),
+          onNext: () => nav("forward"),
+        };
+      case "widget":
+        return {
+          showBack: true,
+          nextLabel: "Next",
+          nextDisabled: selectedWidgets.size === 0,
+          loading: false,
+          onBack: () => nav("back"),
+          onNext: () => nav("forward"),
+        };
+      case "startup":
+        return {
+          showBack: true,
+          nextLabel: "Finish",
+          nextDisabled: false,
+          loading: finishing,
+          onBack: () => nav("back"),
+          onNext: finish,
+        };
+      case "done":
+        return {
+          showBack: false,
+          nextLabel: "Open FluxNet",
+          nextDisabled: false,
+          loading: false,
+          onNext: () => window.location.replace("/"),
+        };
+    }
+  })();
+
+  const isWidget = step === "widget";
+
+  return (
+    <>
+      <style>{GLOBAL_CSS}</style>
+      <ThemeToggle />
+
+      {/* Top progress bar — fixed, always at the very top */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: "var(--border)",
+          zIndex: 40,
+        }}
+      >
+        <div
+          className="ob-progress"
+          style={{
+            height: "100%",
+            background: "var(--accent)",
+            width: `${Math.round(progress * 100)}%`,
+          }}
+        />
+      </div>
+
+      {/* Page shell */}
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--bg)",
+          overflow: "hidden",
+        }}
+      >
+        {/*
+          Outer card — only its width transitions (widget step is wider).
+          The card has TWO zones:
+            1. Content slot  → position:relative, fixed height → only THIS animates
+            2. Footer        → static, never moves, always at the same Y position
+        */}
+        <div
+          style={{
+            width: isWidget ? 720 : 460,
+            display: "flex",
+            flexDirection: "column",
+            padding: "0 0 24px",
+            transition: "width 0.35s cubic-bezier(0.22,1,0.36,1)",
+          }}
+        >
+          {/* ── Animated content slot ── */}
+          <div
+            style={{ position: "relative", height: 420, overflow: "hidden" }}
+          >
+            {slots.map((slot) => (
+              <div
+                key={`${slot.key}-${slot.phase}`}
+                className={
+                  slot.phase === "enter"
+                    ? slot.direction === "forward"
+                      ? "ob-enter-forward"
+                      : "ob-enter-back"
+                    : slot.direction === "forward"
+                      ? "ob-exit-forward"
+                      : "ob-exit-back"
+                }
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  willChange: "transform, opacity",
+                }}
+              >
+                {renderStep(slot.key)}
+              </div>
+            ))}
+          </div>
+
+          {/* ── Static footer — NEVER inside the animated slot ── */}
+          <PersistentFooter {...footerConfig} stepIndex={stepIndex} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Screen Content Components ────────────────────────────────────────────────
+// Each component fills the 420 px content slot.
+// None of them render Back/Next buttons or StepDots — those live in
+// PersistentFooter above and never animate.
+
+// WELCOME ─────────────────────────────────────────────────────────────────────
+
+function WelcomeContent() {
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: "0 40px",
+        transform: "translateY(20px)",
+      }}
+    >
+      <img
+        src="/branding/logo.png"
+        alt="FluxNet"
+        style={{
+          width: 156,
+          height: 156,
+          objectFit: "contain",
+          transform: "translateY(10px)",
+
+          filter: "drop-shadow(0 8px 24px rgba(124,92,255,0.35))",
+        }}
+      />
+
+      <h1
+        style={{
+          fontSize: 26,
+          fontWeight: 700,
+          letterSpacing: "-0.03em",
+          color: "var(--text)",
+          marginBottom: 8,
+        }}
+      >
+        Welcome to FluxNet
+      </h1>
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--text-muted)",
+          lineHeight: 1.6,
+          maxWidth: 220,
+        }}
+      >
+        Real-time network monitoring, floating right on your desktop.
+      </p>
+    </div>
+  );
+}
+
+// INTERFACE ───────────────────────────────────────────────────────────────────
+
+function InterfaceContent({
+  interfaces,
+  loading,
+  selected,
+  onSelect,
+  recommendedName,
+}: {
+  interfaces: InterfaceInfo[];
+  loading: boolean;
+  selected: string;
+  onSelect: (n: string) => void;
+  recommendedName?: string;
+}) {
+  const up = interfaces.filter((i) => i.status === "Up");
+  const down = interfaces.filter((i) => i.status !== "Up").slice(0, 2);
+  const list = [...up, ...down];
+
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        padding: "32px 28px 0",
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 18,
+          fontWeight: 700,
+          letterSpacing: "-0.025em",
+          color: "var(--text)",
+          marginBottom: 4,
+        }}
+      >
+        Select network interface
+      </h2>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+        Choose the adapter FluxNet will monitor
+      </p>
+
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        {loading && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "32px 0",
+              color: "var(--text-muted)",
+              fontSize: 12,
+            }}
+          >
+            Detecting interfaces…
+          </div>
+        )}
+        {!loading &&
+          list.map((iface) => {
+            const isSel = iface.name === selected;
+            const isUp = iface.status === "Up";
+            const isRec = iface.name === recommendedName;
+            return (
+              <button
+                key={iface.if_index}
+                type="button"
+                onClick={() => isUp && onSelect(iface.name)}
+                disabled={!isUp}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  textAlign: "left",
+                  border: `1px solid ${isSel ? "var(--accent-border)" : "var(--border)"}`,
+                  background: isSel
+                    ? "color-mix(in srgb, var(--accent) 15%, transparent)"
+                    : "transparent",
+                  opacity: !isUp ? 0.4 : 1,
+                  cursor: isUp ? "pointer" : "not-allowed",
+                  transition: "border-color 0.15s, background 0.15s",
+                  width: "100%",
+                }}
+                onMouseEnter={(e) => {
+                  if (isUp && !isSel) {
+                    e.currentTarget.style.borderColor = "var(--border-strong)";
+                    e.currentTarget.style.background = "var(--panel-hover)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSel) {
+                    e.currentTarget.style.borderColor = "var(--border)";
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
+              >
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    border: `2px solid ${isSel ? "var(--accent)" : "var(--border-strong)"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "border-color 0.15s",
+                  }}
+                >
+                  {isSel && (
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "var(--accent)",
+                      }}
+                    />
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: isSel
+                        ? "#ffffff"
+                        : isUp
+                          ? "var(--text)"
+                          : "var(--text-muted)",
+                    }}
+                  >
+                    {iface.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: isSel
+                        ? "rgba(255,255,255,0.8)"
+                        : "var(--text-subtle)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {iface.description || iface.interface_type}
+                    {!isUp && " · Not connected"}
+                  </div>
+                </div>
+
+                {isRec && isUp && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      flexShrink: 0,
+                      background: "var(--success-bg)",
+                      color: "var(--success)",
+                      border:
+                        "1px solid color-mix(in srgb, var(--success) 25%, transparent)",
+                    }}
+                  >
+                    Recommended
+                  </span>
+                )}
+              </button>
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+
+// WIDGET ──────────────────────────────────────────────────────────────────────
+
+const WIDGET_OPTS: { id: WidgetStyle; label: string; desc: string }[] = [
+  { id: "compact", label: "Compact", desc: "Full stats & daily totals" },
+  { id: "pill", label: "Pill", desc: "Minimal inline bar" },
+  { id: "hud", label: "HUD", desc: "Gaming & full-screen" },
+];
+
+function WidgetContent({
+  selected,
+  onToggle,
+}: {
+  selected: Set<WidgetStyle>;
+  onToggle: (id: WidgetStyle) => void;
+}) {
+  const hint =
+    selected.size === 0
+      ? "Select at least one widget"
+      : selected.size === 1
+        ? "1 widget selected"
+        : `${selected.size} widgets selected — all will appear on your desktop`;
+
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        padding: "32px 28px 0",
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 18,
+          fontWeight: 700,
+          letterSpacing: "-0.025em",
+          color: "var(--text)",
+          marginBottom: 4,
+        }}
+      >
+        Choose widget style
+      </h2>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+        Select one or more — you can enable all of them
+      </p>
+
+      <div
+        style={{
+          flex: 1,
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 12,
+          alignContent: "start",
+        }}
+      >
+        {WIDGET_OPTS.map((opt) => {
+          const checked = selected.has(opt.id);
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onToggle(opt.id)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                borderRadius: 14,
+                overflow: "hidden",
+                border: `1px solid ${checked ? "var(--accent-border)" : "var(--border)"}`,
+                boxShadow: checked ? "0 0 0 1px var(--accent-border)" : "none",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "border-color 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                if (!checked)
+                  e.currentTarget.style.borderColor = "var(--border-strong)";
+              }}
+              onMouseLeave={(e) => {
+                if (!checked)
+                  e.currentTarget.style.borderColor = "var(--border)";
+              }}
+            >
+              <div
+                data-theme="dark"
+                style={{
+                  height: 170,
+                  background: "#0d0f14",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    transform: "scale(0.85)",
+                    transformOrigin: "center center",
+                  }}
+                >
+                  <WidgetPreview
+                    view={WIDGET_VIEWS[opt.id]}
+                    colorMode="dark"
+                    frameClassName="flex items-center justify-center"
+                    hudFrameClassName="w-[160px] aspect-[6/5]"
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  gap: 8,
+                  background: checked ? "var(--accent-soft)" : "var(--panel)",
+                  borderTop: `1px solid ${checked ? "var(--accent-border)" : "var(--border)"}`,
+                  transition: "background 0.15s",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: checked ? "var(--accent-strong)" : "var(--text)",
+                    }}
+                  >
+                    {opt.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text-subtle)",
+                      marginTop: 1,
+                    }}
+                  >
+                    {opt.desc}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 5,
+                    flexShrink: 0,
+                    background: checked ? "var(--accent)" : "transparent",
+                    border: checked
+                      ? "none"
+                      : "1.5px solid var(--border-strong)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background 0.15s, border 0.15s",
+                  }}
+                >
+                  {checked && (
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline className="ob-check" points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <p
+        style={{
+          fontSize: 11,
+          color: "var(--text-subtle)",
+          textAlign: "center",
+          paddingTop: 8,
+        }}
+      >
+        {hint}
+      </p>
+    </div>
+  );
+}
+
+// STARTUP ─────────────────────────────────────────────────────────────────────
+
 function CheckRow({
   checked,
   onToggle,
   label,
   desc,
-  last = false,
+  divided = false,
 }: {
   checked: boolean;
   onToggle: () => void;
   label: string;
   desc: string;
-  last?: boolean;
+  divided?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
-      className={`flex items-start gap-2.5 py-3 w-full text-left cursor-pointer ${
-        !last ? "border-b border-border" : ""
-      }`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "14px 16px",
+        width: "100%",
+        textAlign: "left",
+        cursor: "pointer",
+        background: "transparent",
+        border: "none",
+        borderTop: divided ? "1px solid var(--border)" : "none",
+        transition: "background 0.12s",
+      }}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.background = "var(--panel-hover)")
+      }
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
       <div
-        className={`w-4 h-4 rounded-[4px] flex items-center justify-center shrink-0 mt-px transition-colors ${
-          checked ? "bg-accent" : "bg-transparent border border-border-strong"
-        }`}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 5,
+          flexShrink: 0,
+          background: checked ? "var(--accent)" : "transparent",
+          border: checked ? "none" : "1.5px solid var(--border-strong)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "background 0.15s",
+        }}
       >
         {checked && (
           <svg
@@ -624,96 +1130,267 @@ function CheckRow({
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <polyline points="20 6 9 17 4 12" />
+            <polyline className="ob-check" points="20 6 9 17 4 12" />
           </svg>
         )}
       </div>
       <div>
-        <div className="text-[12px] font-medium text-text">{label}</div>
-        <div className="text-[10px] text-text-muted">{desc}</div>
+        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text)" }}>
+          {label}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-subtle)" }}>{desc}</div>
       </div>
     </button>
   );
 }
 
-// ── Screen 5: Done ────────────────────────────────────────────────────────────
-
-function DoneStep({
-  interfaceName,
-  widgetActive,
+function StartupContent({
+  startWithWindows,
+  showOnStartup,
   minimizeToTray,
-  onOpen,
-  stepIndex,
+  onToggleStart,
+  onToggleWidget,
+  onToggleTray,
 }: {
-  interfaceName: string;
-  widgetActive: boolean;
+  startWithWindows: boolean;
+  showOnStartup: boolean;
   minimizeToTray: boolean;
-  onOpen: () => void;
-  stepIndex: number;
+  onToggleStart: () => void;
+  onToggleWidget: () => void;
+  onToggleTray: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center text-center px-7 py-10">
-      <div className="w-13 h-13 bg-success-bg rounded-full flex items-center justify-center mb-4">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-success"
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      </div>
-      <h1 className="text-[20px] font-medium text-text tracking-[-0.02em] mb-1.5">
-        FluxNet is ready
-      </h1>
-      <p className="text-[12px] text-text-muted leading-relaxed max-w-[240px] mb-5">
-        {widgetActive ? (
-          <>
-            Your widget is active and monitoring{" "}
-            <strong className="text-text">
-              {interfaceName || "your network"}
-            </strong>
-            . It will appear on your desktop now.
-          </>
-        ) : (
-          <>
-            FluxNet is monitoring{" "}
-            <strong className="text-text">
-              {interfaceName || "your network"}
-            </strong>
-            . Open the dashboard to launch a widget.
-          </>
-        )}
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        padding: "32px 28px 0",
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 18,
+          fontWeight: 700,
+          letterSpacing: "-0.025em",
+          color: "var(--text)",
+          marginBottom: 4,
+        }}
+      >
+        Startup preferences
+      </h2>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+        These can be changed anytime in Settings
       </p>
 
-      <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-        {widgetActive && <StatusDot label="Widget active" />}
-        {minimizeToTray && <StatusDot label="Tray icon running" />}
-        <StatusDot label={`Monitoring ${interfaceName || "network"}`} />
+      <div
+        style={{
+          borderRadius: 12,
+          overflow: "hidden",
+          border: "1px solid var(--border)",
+          background: "var(--panel)",
+        }}
+      >
+        <CheckRow
+          checked={startWithWindows}
+          onToggle={onToggleStart}
+          label="Start FluxNet with Windows"
+          desc="Launch automatically on login"
+        />
+        <CheckRow
+          checked={showOnStartup}
+          onToggle={onToggleWidget}
+          label="Show widget on startup"
+          desc="Display overlay when app launches"
+          divided
+        />
+        <CheckRow
+          checked={minimizeToTray}
+          onToggle={onToggleTray}
+          label="Minimize to system tray"
+          desc="Keep running in the background"
+          divided
+        />
       </div>
 
-      <button
-        type="button"
-        onClick={onOpen}
-        className="bg-accent text-white border-none rounded-lg px-6 py-2.5 text-[12px] font-medium cursor-pointer hover:opacity-90 transition-opacity"
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+          marginTop: 14,
+          borderRadius: 12,
+          padding: "12px 14px",
+          background: "var(--accent-soft)",
+          border: "1px solid var(--accent-border)",
+        }}
       >
-        Open FluxNet
-      </button>
-      <StepDots current={stepIndex} />
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          style={{ flexShrink: 0, marginTop: 1 }}
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--accent-strong)",
+            lineHeight: 1.5,
+          }}
+        >
+          FluxNet never transmits your data. All monitoring is local.
+        </span>
+      </div>
     </div>
   );
 }
 
-function StatusDot({ label }: { label: string }) {
+// DONE ────────────────────────────────────────────────────────────────────────
+
+function DoneContent({
+  interfaceName,
+  widgetActive,
+  minimizeToTray,
+  selectedWidgets,
+}: {
+  interfaceName: string;
+  widgetActive: boolean;
+  minimizeToTray: boolean;
+  selectedWidgets: Set<WidgetStyle>;
+}) {
+  const count = selectedWidgets.size;
+  const dots = [
+    ...(widgetActive ? [`${count} widget${count > 1 ? "s" : ""} active`] : []),
+    ...(minimizeToTray ? ["Tray icon running"] : []),
+    `Monitoring ${interfaceName || "network"}`,
+  ];
+
   return (
-    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
-      <div className="w-1.5 h-1.5 rounded-full bg-success" />
-      {label}
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: "0 40px",
+      }}
+    >
+      <div
+        className="ob-pop"
+        style={{
+          width: 68,
+          height: 68,
+          borderRadius: "50%",
+          background: "var(--success-bg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 24,
+          boxShadow:
+            "0 0 0 8px color-mix(in srgb, var(--success) 12%, transparent)",
+        }}
+      >
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--success)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline className="ob-check" points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+
+      <h1
+        style={{
+          fontSize: 26,
+          fontWeight: 700,
+          letterSpacing: "-0.03em",
+          color: "var(--text)",
+          marginBottom: 8,
+        }}
+      >
+        FluxNet is ready
+      </h1>
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--text-muted)",
+          lineHeight: 1.6,
+          maxWidth: 240,
+          marginBottom: 24,
+        }}
+      >
+        {widgetActive ? (
+          <>
+            {count > 1 ? `${count} widgets are` : "Your widget is"} active and
+            monitoring{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              {interfaceName || "your network"}
+            </strong>
+            .
+          </>
+        ) : (
+          <>
+            FluxNet is monitoring{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              {interfaceName || "your network"}
+            </strong>
+            .
+          </>
+        )}
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        {dots.map((label, i) => (
+          <div
+            key={label}
+            className="ob-dot"
+            style={{
+              animationDelay: `${i * 80}ms`,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 11,
+              color: "var(--text-muted)",
+              background: "var(--panel)",
+              border: "1px solid var(--border)",
+              borderRadius: 999,
+              padding: "4px 10px",
+            }}
+          >
+            <div
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--success)",
+                flexShrink: 0,
+              }}
+            />
+            {label}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
