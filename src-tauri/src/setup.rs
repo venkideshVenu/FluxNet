@@ -201,6 +201,9 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
 
     // ── Cancellation token ────────────────────────────────────────────────────
     let cancel_token = CancellationToken::new();
+
+    app.manage(cancel_token.clone());
+
     let task_token = cancel_token.clone();
 
     let app_handle = app.handle().clone();
@@ -242,7 +245,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     wire_main_window(app);
 
     // ── System tray ───────────────────────────────────────────────────────────
-    build_tray(app_handle, cancel_token)?;
+    build_tray(app_handle)?;
 
     Ok(())
 }

@@ -27,6 +27,7 @@ use commands::visibility::{set_widget_always_on_top, set_widget_opacity, set_wid
 use persistence::app_settings::SettingsStore;
 use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
+use tokio_util::sync::CancellationToken;
 
 fn init_logging() {
     use tracing_subscriber::{fmt, EnvFilter};
@@ -171,8 +172,8 @@ fn main() {
                 }
                 // If minimize_to_tray is enabled, hide instead of closing so
                 // background monitoring and the tray icon remain active.
+                // In main.rs, inside on_window_event for "main"
                 WindowEvent::CloseRequested { api, .. } => {
-                    // Only intercept the main dashboard window, not widget windows
                     if window.label() == "main" {
                         let app_handle = window.app_handle();
                         if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
@@ -183,8 +184,40 @@ fn main() {
                                 tracing::debug!(
                                     "Main window hidden to tray (minimize_to_tray=true)"
                                 );
+                            } else {
+                                // Run in background disabled → quit the whole app
+                                api.prevent_close(); // prevent default close, we handle it
+                                tracing::debug!("minimize_to_tray=false, shutting down app");
+
+                                // Retrieve necessary state
+                                let cancel_token = match app_handle.try_state::<CancellationToken>()
+                                {
+                                    Some(t) => t.clone(),
+                                    None => {
+                                        tracing::error!(
+                                            "CancellationToken missing, exiting immediately"
+                                        );
+                                        app_handle.exit(0);
+                                        return;
+                                    }
+                                };
+                                let widget_store = app_handle
+                                    .state::<Arc<
+                                        crate::persistence::persistent_store::PersistentStore<
+                                            crate::persistence::widget_state::WidgetState,
+                                        >,
+                                    >>()
+                                    .clone();
+
+                                crate::tray::perform_shutdown(
+                                    &app_handle,
+                                    &cancel_token,
+                                    &widget_store,
+                                );
                             }
-                            // If minimize_to_tray is false, allow the default close behaviour
+                        } else {
+                            // Fallback – no store, just exit
+                            app_handle.exit(0);
                         }
                     }
                 }
