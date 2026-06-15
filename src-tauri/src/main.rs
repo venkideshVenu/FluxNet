@@ -8,6 +8,7 @@ mod persistence;
 mod setup;
 mod storage;
 mod tray;
+mod theme;
 mod window_positions;
 
 use crate::window_positions::{enqueue_position, PositionSender};
@@ -172,7 +173,6 @@ fn main() {
                 }
                 // If minimize_to_tray is enabled, hide instead of closing so
                 // background monitoring and the tray icon remain active.
-                // In main.rs, inside on_window_event for "main"
                 WindowEvent::CloseRequested { api, .. } => {
                     if window.label() == "main" {
                         let app_handle = window.app_handle();
