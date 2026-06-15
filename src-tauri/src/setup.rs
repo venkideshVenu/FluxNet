@@ -166,16 +166,7 @@ fn wire_widget_event_handlers(
 
 fn wire_main_window(app: &App) {
     if let Some(main_window) = app.get_webview_window("main") {
-        let main_cl = main_window.clone();
-        main_window.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = main_cl.hide();
-            }
-        });
-
-        // If launched via autostart, keep main window hidden (tray-only start).
-        // Otherwise show it normally.
+        // Keep autostart visibility logic:
         let is_autostart = std::env::args().any(|a| a == "--autostart" || a == "--minimized");
         if is_autostart {
             tracing::info!("Autostart launch detected — main window stays hidden");

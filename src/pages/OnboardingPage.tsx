@@ -347,7 +347,6 @@ export function OnboardingPage() {
     new Set(["compact"]),
   );
   const [startWithWindows, setStartWithWindows] = useState(true);
-  const [showOnStartup, setShowOnStartup] = useState(true);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [finishing, setFinishing] = useState(false);
 
@@ -397,13 +396,7 @@ export function OnboardingPage() {
           ? "plugin:autostart|enable"
           : "plugin:autostart|disable",
       ).catch(() => {});
-      if (showOnStartup) {
-        for (const w of selectedWidgets)
-          await invokeWithTimeout("set_widget_visibility", {
-            label: w,
-            visible: true,
-          });
-      }
+
       await invokeWithTimeout("set_minimize_to_tray", {
         enabled: minimizeToTray,
       });
@@ -417,13 +410,7 @@ export function OnboardingPage() {
       setDirection("forward");
       setStep("done");
     }
-  }, [
-    selectedIface,
-    selectedWidgets,
-    startWithWindows,
-    showOnStartup,
-    minimizeToTray,
-  ]);
+  }, [selectedIface, selectedWidgets, startWithWindows, minimizeToTray]);
 
   const recommendedIface = interfaces.find(
     (i) =>
@@ -455,10 +442,8 @@ export function OnboardingPage() {
           return (
             <StartupContent
               startWithWindows={startWithWindows}
-              showOnStartup={showOnStartup}
               minimizeToTray={minimizeToTray}
               onToggleStart={() => setStartWithWindows((v) => !v)}
-              onToggleWidget={() => setShowOnStartup((v) => !v)}
               onToggleTray={() => setMinimizeToTray((v) => !v)}
             />
           );
@@ -466,7 +451,6 @@ export function OnboardingPage() {
           return (
             <DoneContent
               interfaceName={selectedIface}
-              widgetActive={showOnStartup}
               minimizeToTray={minimizeToTray}
               selectedWidgets={selectedWidgets}
             />
@@ -481,7 +465,6 @@ export function OnboardingPage() {
       recommendedIface,
       selectedWidgets,
       startWithWindows,
-      showOnStartup,
       minimizeToTray,
       toggleWidget,
     ],
@@ -1146,17 +1129,13 @@ function CheckRow({
 
 function StartupContent({
   startWithWindows,
-  showOnStartup,
   minimizeToTray,
   onToggleStart,
-  onToggleWidget,
   onToggleTray,
 }: {
   startWithWindows: boolean;
-  showOnStartup: boolean;
   minimizeToTray: boolean;
   onToggleStart: () => void;
-  onToggleWidget: () => void;
   onToggleTray: () => void;
 }) {
   return (
@@ -1197,13 +1176,7 @@ function StartupContent({
           label="Start FluxNet with Windows"
           desc="Launch automatically on login"
         />
-        <CheckRow
-          checked={showOnStartup}
-          onToggle={onToggleWidget}
-          label="Show widget on startup"
-          desc="Display overlay when app launches"
-          divided
-        />
+
         <CheckRow
           checked={minimizeToTray}
           onToggle={onToggleTray}
@@ -1253,21 +1226,21 @@ function StartupContent({
 }
 
 // DONE ────────────────────────────────────────────────────────────────────────
-
 function DoneContent({
   interfaceName,
-  widgetActive,
   minimizeToTray,
   selectedWidgets,
 }: {
   interfaceName: string;
-  widgetActive: boolean;
   minimizeToTray: boolean;
   selectedWidgets: Set<WidgetStyle>;
 }) {
-  const count = selectedWidgets.size;
   const dots = [
-    ...(widgetActive ? [`${count} widget${count > 1 ? "s" : ""} active`] : []),
+    ...(selectedWidgets.size
+      ? [
+          `${selectedWidgets.size} widget${selectedWidgets.size > 1 ? "s" : ""} selected`,
+        ]
+      : []),
     ...(minimizeToTray ? ["Tray icon running"] : []),
     `Monitoring ${interfaceName || "network"}`,
   ];
@@ -1310,7 +1283,7 @@ function DoneContent({
           strokeLinejoin="round"
         >
           <polyline className="ob-check" points="20 6 9 17 4 12" />
-        </svg>
+        </svg>{" "}
       </div>
 
       <h1
@@ -1333,24 +1306,11 @@ function DoneContent({
           marginBottom: 24,
         }}
       >
-        {widgetActive ? (
-          <>
-            {count > 1 ? `${count} widgets are` : "Your widget is"} active and
-            monitoring{" "}
-            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
-              {interfaceName || "your network"}
-            </strong>
-            .
-          </>
-        ) : (
-          <>
-            FluxNet is monitoring{" "}
-            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
-              {interfaceName || "your network"}
-            </strong>
-            .
-          </>
-        )}
+        FluxNet is monitoring{" "}
+        <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+          {interfaceName || "your network"}
+        </strong>
+        .
       </p>
 
       <div
@@ -1384,7 +1344,6 @@ function DoneContent({
                 height: 6,
                 borderRadius: "50%",
                 background: "var(--success)",
-                flexShrink: 0,
               }}
             />
             {label}
