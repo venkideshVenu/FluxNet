@@ -41,7 +41,10 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
-      - name: Build installer
+      - name: Compile binary
+        run: pnpm tauri build --no-bundle --verbose
+
+      - name: Bundle installer
         run: pnpm tauri bundle --verbose
 
       - name: Show generated files
