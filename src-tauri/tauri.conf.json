@@ -112,7 +112,7 @@
         "languages": ["English"]
       }
     },
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": false
   },
   "plugins": {}
 }
