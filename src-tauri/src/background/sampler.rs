@@ -320,20 +320,20 @@ pub fn start_sampler(
                         }
                     }
 
-                    // // Periodic ping
-                    // if tick_counter % PING_INTERVAL_TICKS == 0 {
-                    //     let target_str = settings_store.read(|s| s.ping_target.clone());
-                    //     let target = resolve_ping_target(&target_str);
-                    //     let result = measure_ping(target).await;
-                    //     let stats = {
-                    //         let mut ps = ping_state.lock();
-                    //         ps.update(result.latency_ms, result.loss);
-                    //         ps.current_stats()
-                    //     };
-                    //     if any_window_visible(&app_handle) {
-                    //         let _ = app_handle.emit("ping-stats", &stats);
-                    //     }
-                    // }
+                    // Periodic ping
+                    if tick_counter % PING_INTERVAL_TICKS == 0 {
+                        let target_str = settings_store.read(|s| s.ping_target.clone());
+                        let target = resolve_ping_target(&target_str);
+                        let result = measure_ping(target).await;
+                        let stats = {
+                            let mut ps = ping_state.lock();
+                            ps.update(result.latency_ms, result.loss);
+                            ps.current_stats()
+                        };
+                        if any_window_visible(&app_handle) {
+                            let _ = app_handle.emit("ping-stats", &stats);
+                        }
+                    }
 
                     // Rollups at time boundaries
                     let hour_changed =

@@ -79,22 +79,33 @@ const GLOBAL_CSS = `
 // ─── Theme Toggle ─────────────────────────────────────────────────────────────
 
 function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() =>
-    typeof document !== "undefined"
-      ? document.documentElement.getAttribute("data-theme") !== "light"
-      : true,
-  );
+  const [isDark, setIsDark] = useState(() => {
+    // Read from localStorage directly – this is the source of truth
+    const stored = localStorage.getItem("fluxnet_color_mode");
+    if (stored === "light") return false;
+    if (stored === "dark") return true;
+    // If system or unset, check system preference
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
 
   const toggle = () => {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.setAttribute(
-      "data-theme",
-      next ? "dark" : "light",
+    const nextIsDark = !isDark;
+    setIsDark(nextIsDark);
+    const mode = nextIsDark ? "dark" : "light";
+    // Update DOM
+    document.documentElement.setAttribute("data-theme", mode);
+    // Persist and notify other windows (and same window)
+    const oldValue = localStorage.getItem("fluxnet_color_mode");
+    localStorage.setItem("fluxnet_color_mode", mode);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "fluxnet_color_mode",
+        oldValue,
+        newValue: mode,
+        storageArea: localStorage,
+        url: window.location.href,
+      }),
     );
-    try {
-      localStorage.setItem("fluxnet_mode", next ? "dark" : "light");
-    } catch {}
   };
 
   return (
@@ -130,6 +141,7 @@ function ThemeToggle() {
       }}
     >
       {isDark ? (
+        // Sun icon – means "switch to light"
         <svg
           width="14"
           height="14"
@@ -151,6 +163,7 @@ function ThemeToggle() {
           <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
         </svg>
       ) : (
+        // Moon icon – means "switch to dark"
         <svg
           width="14"
           height="14"
@@ -349,20 +362,34 @@ export function OnboardingPage() {
   const [startWithWindows, setStartWithWindows] = useState(true);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [ifaceError, setIfaceError] = useState<string | null>(null);
 
   const stepIndex = STEPS.indexOf(step);
   const progress = stepIndex / (STEPS.length - 1);
 
-  useEffect(() => {
-    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-      .then((r) => {
-        setInterfaces(r);
-        const up = r.find((i) => i.status === "Up");
-        if (up) setSelectedIface(up.name);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingIfaces(false));
+  const loadInterfaces = useCallback(async () => {
+    setLoadingIfaces(true);
+    setIfaceError(null);
+    try {
+      const result = await invokeWithTimeout<InterfaceInfo[]>(
+        "get_interfaces",
+        undefined,
+        10_000, // 10s timeout
+      );
+      setInterfaces(result);
+      const up = result.find((i) => i.status === "Up");
+      if (up) setSelectedIface(up.name);
+    } catch (err) {
+      console.error("Failed to load interfaces:", err);
+      setIfaceError("Could not detect interfaces. Please try again.");
+    } finally {
+      setLoadingIfaces(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadInterfaces();
+  }, [loadInterfaces]);
 
   const nav = useCallback(
     (dir: Direction) => {
@@ -403,8 +430,6 @@ export function OnboardingPage() {
       });
 
       // Apply widget visibility choices from the widget-selection step.
-      // Run in parallel and swallow individual failures — a widget not showing
-      // is recoverable from the tray; it must not block onboarding completion.
       await Promise.all(
         (["compact", "pill", "hud"] as WidgetStyle[]).map((label) =>
           invokeWithTimeout("set_widget_visibility", {
@@ -414,8 +439,6 @@ export function OnboardingPage() {
         ),
       );
 
-      // Use invokeWithTimeout so a hung IPC call doesn't freeze the Finish
-      // button forever — plain invoke() would stall the finally block too.
       await invokeWithTimeout("set_onboarding_completed");
       setStorageItem("fluxnet_configured", "true");
     } catch {
@@ -449,6 +472,8 @@ export function OnboardingPage() {
               selected={selectedIface}
               onSelect={setSelectedIface}
               recommendedName={recommendedIface?.name}
+              error={ifaceError}
+              onRetry={loadInterfaces}
             />
           );
         case "widget":
@@ -484,13 +509,14 @@ export function OnboardingPage() {
       startWithWindows,
       minimizeToTray,
       toggleWidget,
+      ifaceError,
+      loadInterfaces,
     ],
   );
 
   const slots = useStepTransition(step, direction);
 
   // Footer configuration per step, computed from live state.
-  // The footer lives outside the animated area so buttons never jump.
   const footerConfig = (() => {
     switch (step) {
       case "welcome":
@@ -502,10 +528,6 @@ export function OnboardingPage() {
           onNext: () => nav("forward"),
         };
       case "interface": {
-        // Allow proceeding when still loading, OR when an interface is selected.
-        // If loading finished and there are no "Up" interfaces at all, also allow
-        // proceeding so the user isn't permanently stuck — finish() already guards
-        // `if (selectedIface)` before calling set_interface.
         const hasSelectableIface = interfaces.some((i) => i.status === "Up");
         return {
           showBack: true,
@@ -586,12 +608,6 @@ export function OnboardingPage() {
           overflow: "hidden",
         }}
       >
-        {/*
-          Outer card — only its width transitions (widget step is wider).
-          The card has TWO zones:
-            1. Content slot  → position:relative, fixed height → only THIS animates
-            2. Footer        → static, never moves, always at the same Y position
-        */}
         <div
           style={{
             width: isWidget ? 720 : 460,
@@ -630,7 +646,7 @@ export function OnboardingPage() {
             ))}
           </div>
 
-          {/* ── Static footer — NEVER inside the animated slot ── */}
+          {/* ── Static footer ── */}
           <PersistentFooter {...footerConfig} stepIndex={stepIndex} />
         </div>
       </div>
@@ -667,7 +683,6 @@ function WelcomeContent() {
           height: 156,
           objectFit: "contain",
           transform: "translateY(10px)",
-
           filter: "drop-shadow(0 8px 24px rgba(124,92,255,0.35))",
         }}
       />
@@ -705,12 +720,16 @@ function InterfaceContent({
   selected,
   onSelect,
   recommendedName,
+  error,
+  onRetry,
 }: {
   interfaces: InterfaceInfo[];
   loading: boolean;
   selected: string;
   onSelect: (n: string) => void;
   recommendedName?: string;
+  error?: string | null;
+  onRetry: () => void;
 }) {
   const up = interfaces.filter((i) => i.status === "Up");
   const down = interfaces.filter((i) => i.status !== "Up").slice(0, 2);
@@ -761,7 +780,48 @@ function InterfaceContent({
             Detecting interfaces…
           </div>
         )}
-        {!loading && list.length === 0 && (
+        {!loading && error && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              padding: "24px 16px",
+              borderRadius: 12,
+              border: "1px solid var(--danger-border)",
+              background: "var(--danger-bg)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--danger-text)",
+              }}
+            >
+              {error}
+            </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && list.length === 0 && (
           <div
             style={{
               display: "flex",
@@ -814,9 +874,25 @@ function InterfaceContent({
                 configure it later in Settings.
               </div>
             </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Refresh
+            </button>
           </div>
         )}
         {!loading &&
+          !error &&
           list.map((iface) => {
             const isSel = iface.name === selected;
             const isUp = iface.status === "Up";
@@ -887,7 +963,7 @@ function InterfaceContent({
                       fontSize: 14,
                       fontWeight: 600,
                       color: isSel
-                        ? "#ffffff"
+                        ? "var(--accent)"
                         : isUp
                           ? "var(--text)"
                           : "var(--text-muted)",
@@ -898,9 +974,7 @@ function InterfaceContent({
                   <div
                     style={{
                       fontSize: 12,
-                      color: isSel
-                        ? "rgba(255,255,255,0.8)"
-                        : "var(--text-subtle)",
+                      color: "var(--text-subtle)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",

@@ -14,18 +14,23 @@ export function useWidgetSettings(label: WidgetLabel) {
     // Apply initial color mode
     applyColorMode(config.getStoredMode());
 
+    // Always-on-top: use stored value, fallback to defaultAlwaysOnTop
+    const storedAOT = getStorageItem(
+      config.alwaysOnTopKey as keyof import("@/utils").StorageSchema,
+      config.defaultAlwaysOnTop ? "true" : "false",
+    );
+    const aot = storedAOT === "true";
     invoke("set_widget_always_on_top", {
       label,
-      value: config.getStoredAlwaysOnTop(),
+      value: aot,
     }).catch(console.error);
 
-    const opacity =
-      Number(
-        getStorageItem(
-          config.opacityKey as keyof import("@/utils").StorageSchema,
-          config.defaultOpacity,
-        ),
-      ) / 100;
+    // Opacity: use stored value, fallback to defaultOpacity
+    const storedOpacity = getStorageItem(
+      config.opacityKey as keyof import("@/utils").StorageSchema,
+      config.defaultOpacity,
+    );
+    const opacity = Number(storedOpacity) / 100;
     invoke("set_widget_opacity", { label, value: opacity }).catch(
       console.error,
     );
