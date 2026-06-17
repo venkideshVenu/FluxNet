@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![windows_subsystem = "windows"]
 
 mod background;
 mod commands;
@@ -7,11 +7,11 @@ mod monitor;
 mod persistence;
 mod setup;
 mod storage;
-mod tray;
 mod theme;
+mod tray;
 mod window_positions;
 
-use crate::window_positions::{enqueue_position, PositionSender};
+use crate::window_positions::{PositionSender, enqueue_position};
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
 };
@@ -31,7 +31,7 @@ use tauri::{Manager, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
 fn init_logging() {
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt};
 
     #[cfg(debug_assertions)]
     {
@@ -89,7 +89,6 @@ fn install_panic_hook() {
 
         tracing::error!("PANIC at {}: {}", location, payload);
 
-        // Also write to a crash file as a last resort
         let crash_path = std::env::var("APPDATA")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
@@ -109,7 +108,6 @@ fn install_panic_hook() {
     }));
 }
 
-/// Detect if app was launched via autostart (command-line flag or registry).
 fn is_autostart_launch() -> bool {
     std::env::args().any(|arg| arg == "--autostart" || arg == "--minimized")
 }
@@ -163,66 +161,62 @@ fn main() {
             get_minimize_to_tray,
             set_minimize_to_tray,
         ])
-        .on_window_event(|window, event| {
-            match event {
-                WindowEvent::Moved(position) => {
-                    let app_handle = window.app_handle();
-                    if let Some(sender) = app_handle.try_state::<PositionSender>() {
-                        enqueue_position(&sender, window.label(), *position);
-                    }
+        .on_window_event(|window, event| match event {
+            WindowEvent::Moved(position) => {
+                let app_handle = window.app_handle();
+                if let Some(sender) = app_handle.try_state::<PositionSender>() {
+                    enqueue_position(&sender, window.label(), *position);
                 }
-                // If minimize_to_tray is enabled, hide instead of closing so
-                // background monitoring and the tray icon remain active.
-                WindowEvent::CloseRequested { api, .. } => {
-                    if window.label() == "main" {
-                        let app_handle = window.app_handle();
-                        if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
-                            let minimize = store.read(|s| s.minimize_to_tray);
-                            if minimize {
-                                api.prevent_close();
-                                window.hide().ok();
-                                tracing::debug!(
-                                    "Main window hidden to tray (minimize_to_tray=true)"
-                                );
-                            } else {
-                                // Run in background disabled → quit the whole app
-                                api.prevent_close(); // prevent default close, we handle it
-                                tracing::debug!("minimize_to_tray=false, shutting down app");
-
-                                // Retrieve necessary state
-                                let cancel_token = match app_handle.try_state::<CancellationToken>()
-                                {
-                                    Some(t) => t.clone(),
-                                    None => {
-                                        tracing::error!(
-                                            "CancellationToken missing, exiting immediately"
-                                        );
-                                        app_handle.exit(0);
-                                        return;
-                                    }
-                                };
-                                let widget_store = app_handle
-                                    .state::<Arc<
-                                        crate::persistence::persistent_store::PersistentStore<
-                                            crate::persistence::widget_state::WidgetState,
-                                        >,
-                                    >>()
-                                    .clone();
-
-                                crate::tray::perform_shutdown(
-                                    &app_handle,
-                                    &cancel_token,
-                                    &widget_store,
-                                );
-                            }
-                        } else {
-                            // Fallback – no store, just exit
-                            app_handle.exit(0);
-                        }
-                    }
-                }
-                _ => {}
             }
+            WindowEvent::CloseRequested { api, .. } => {
+                if window.label() == "main" {
+                    let app_handle = window.app_handle();
+                    if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
+                        let minimize = store.read(|s| s.minimize_to_tray);
+                        if minimize {
+                            api.prevent_close();
+                            window.hide().ok();
+                            tracing::debug!("Main window hidden to tray (minimize_to_tray=true)");
+                        } else {
+                            api.prevent_close();
+                            tracing::debug!("minimize_to_tray=false, shutting down app");
+
+                            let cancel_token = match app_handle.try_state::<CancellationToken>() {
+                                Some(t) => t.clone(),
+                                None => {
+                                    tracing::error!(
+                                        "CancellationToken missing, exiting immediately"
+                                    );
+                                    app_handle.exit(0);
+                                    return;
+                                }
+                            };
+
+                            let widget_store = match app_handle.try_state::<Arc<
+                                crate::persistence::persistent_store::PersistentStore<
+                                    crate::persistence::widget_state::WidgetState,
+                                >,
+                            >>() {
+                                Some(s) => s.clone(),
+                                None => {
+                                    tracing::error!("WidgetStore missing, exiting immediately");
+                                    app_handle.exit(0);
+                                    return;
+                                }
+                            };
+
+                            crate::tray::perform_shutdown(
+                                &app_handle,
+                                &cancel_token,
+                                &widget_store,
+                            );
+                        }
+                    } else {
+                        app_handle.exit(0);
+                    }
+                }
+            }
+            _ => {}
         })
         .setup(setup::setup)
         .run(tauri::generate_context!())

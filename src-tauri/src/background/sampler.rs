@@ -1,19 +1,19 @@
 use crate::commands::network::{
-    select_interface_outside_lock, tick_sample_with_networks, SharedMonitorState,
+    SharedMonitorState, select_interface_outside_lock, tick_sample_with_networks,
 };
 use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
 use crate::persistence::app_settings::SettingsStore;
+use crate::storage::DbState;
 use crate::storage::aggregation::{
     rollup_daily, rollup_daily_at, rollup_hourly, rollup_hourly_at, rollup_monthly,
     rollup_monthly_for,
 };
 use crate::storage::repository::{cleanup_old_samples, insert_sample};
-use crate::storage::DbState;
 use chrono::{Datelike, Duration as ChronoDuration, Local, TimeZone, Timelike};
 use parking_lot::Mutex;
 use std::collections::HashSet;
-use std::net::IpAddr;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::Networks;
@@ -22,17 +22,31 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio_util::sync::CancellationToken;
 
 /// Fixed backend sampling interval — always 500ms for accurate measurements.
-/// Frontend display refresh is controlled independently per window.
 const SAMPLER_INTERVAL_MS: u64 = 500;
 
 const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500ms = 5s
 
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
+/// Resolve a ping target string to an IpAddr.
+/// Supports raw IP addresses and hostnames.
+fn resolve_ping_target(target: &str) -> IpAddr {
+    // Try direct IP parse first
+    if let Ok(ip) = target.parse::<IpAddr>() {
+        return ip;
+    }
+    // Try DNS resolution
+    if let Ok(mut addrs) = format!("{}:0", target).to_socket_addrs() {
+        if let Some(addr) = addrs.next() {
+            return addr.ip();
+        }
+    }
+    // Fallback
+    "1.1.1.1".parse().unwrap()
+}
+
 // ── Startup backfill: compute all missing rollups ─────────────────────────────
 
-/// Backfills all missing hourly, daily, and monthly rollups from raw samples.
-/// This is critical because the app may be restarted before crossing time boundaries.
 fn backfill_all_rollups(db: &DbState) {
     let conn = db.0.lock();
 
@@ -42,9 +56,6 @@ fn backfill_all_rollups(db: &DbState) {
         .unwrap()
         .timestamp();
 
-    // ── Step 1: Backfill hourly ──────────────────────────────────────────────
-
-    // Get earliest sample timestamp
     let earliest_ts: Option<i64> = conn
         .query_row("SELECT MIN(timestamp) FROM bandwidth_samples", [], |r| {
             r.get(0)
@@ -57,7 +68,6 @@ fn backfill_all_rollups(db: &DbState) {
         return;
     };
 
-    // Get set of already-computed hours
     let existing_hours: HashSet<i64> = {
         let mut stmt = conn.prepare("SELECT hour_start FROM hourly_usage").unwrap();
         stmt.query_map([], |r| r.get::<_, i64>(0))
@@ -66,7 +76,6 @@ fn backfill_all_rollups(db: &DbState) {
             .collect()
     };
 
-    // Find the start of the earliest sample's hour (in local time)
     let earliest_local = Local.timestamp_opt(earliest_ts, 0).single().unwrap_or(now);
     let mut hour_cursor = Local
         .with_ymd_and_hms(
@@ -82,10 +91,8 @@ fn backfill_all_rollups(db: &DbState) {
 
     let mut hourly_count = 0u32;
 
-    // Iterate over all completed hours up to (but not including) the current hour
     while hour_cursor < current_hour_start {
         if !existing_hours.contains(&hour_cursor) {
-            // Check if there are any samples in this hour before computing
             let has_samples: bool = conn
                 .query_row(
                     "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
@@ -107,15 +114,12 @@ fn backfill_all_rollups(db: &DbState) {
         tracing::info!("Backfilled {hourly_count} hourly rollup(s)");
     }
 
-    // ── Step 2: Backfill daily ───────────────────────────────────────────────
-
     let today_str = now.format("%Y-%m-%d").to_string();
     let today_start = Local
         .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
         .unwrap()
         .timestamp();
 
-    // Get set of already-computed days
     let existing_days: HashSet<String> = {
         let mut stmt = conn.prepare("SELECT day FROM daily_usage").unwrap();
         stmt.query_map([], |r| r.get::<_, String>(0))
@@ -138,12 +142,10 @@ fn backfill_all_rollups(db: &DbState) {
     let mut day_cursor = earliest_day_start;
     let mut daily_count = 0u32;
 
-    // Iterate over all completed days (exclude today — it's still in progress)
     while day_cursor.timestamp() < today_start {
         let day_str = day_cursor.format("%Y-%m-%d").to_string();
 
         if !existing_days.contains(&day_str) {
-            // Check if there are samples or hourly data for this day
             let day_ts = day_cursor.timestamp();
             let has_data: bool = conn
                 .query_row(
@@ -167,11 +169,8 @@ fn backfill_all_rollups(db: &DbState) {
         tracing::info!("Backfilled {daily_count} daily rollup(s)");
     }
 
-    // ── Step 3: Backfill monthly ─────────────────────────────────────────────
-
     let current_month_str = now.format("%Y-%m").to_string();
 
-    // Get all months that have daily_usage entries
     let months_with_data: HashSet<String> = {
         let mut stmt = conn
             .prepare("SELECT DISTINCT SUBSTR(day, 1, 7) FROM daily_usage")
@@ -182,7 +181,6 @@ fn backfill_all_rollups(db: &DbState) {
             .collect()
     };
 
-    // Get existing monthly entries
     let existing_months: HashSet<String> = {
         let mut stmt = conn.prepare("SELECT month FROM monthly_usage").unwrap();
         stmt.query_map([], |r| r.get::<_, String>(0))
@@ -193,7 +191,6 @@ fn backfill_all_rollups(db: &DbState) {
 
     let mut monthly_count = 0u32;
     for month in &months_with_data {
-        // Only roll up completed months (not the current one)
         if month < &current_month_str && !existing_months.contains(month) {
             if rollup_monthly_for(&conn, month).is_ok() {
                 monthly_count += 1;
@@ -205,9 +202,6 @@ fn backfill_all_rollups(db: &DbState) {
         tracing::info!("Backfilled {monthly_count} monthly rollup(s)");
     }
 
-    // ── Step 4: Update today's daily_usage as a partial snapshot ──────────────
-    // This ensures the History page and Compact widget can read today's totals
-    // from daily_usage directly (more efficient than re-computing from raw each time).
     {
         let has_today_samples: bool = conn
             .query_row(
@@ -231,6 +225,7 @@ fn any_window_visible(app: &AppHandle) -> bool {
 }
 
 /// Starts the background sampling loop at a fixed 500ms rate.
+/// Backfill runs asynchronously on a blocking thread so it does NOT block the UI.
 pub fn start_sampler(
     monitor_state: SharedMonitorState,
     db: DbState,
@@ -239,17 +234,22 @@ pub fn start_sampler(
     settings_store: Arc<SettingsStore>,
     app_handle: AppHandle,
 ) -> SamplerHandle {
-    // Run full backfill on startup (synchronous, before async loop starts)
-    backfill_all_rollups(&db);
-
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
+        // Run backfill on a blocking thread so we don't block the async runtime
+        {
+            let db_clone = db.clone();
+            let _ = tokio::task::spawn_blocking(move || {
+                backfill_all_rollups(&db_clone);
+            })
+            .await;
+        }
+
         let mut sample_interval = tokio::time::interval(Duration::from_millis(SAMPLER_INTERVAL_MS));
         sample_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
         cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        // Periodic partial-day rollup (every 10 seconds, update today's daily_usage snapshot)
         let mut daily_snapshot_interval = tokio::time::interval(Duration::from_secs(10));
         daily_snapshot_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -264,10 +264,10 @@ pub fn start_sampler(
                 _ = cancel_token.cancelled() => {
                     tracing::info!("Sampler shutting down – performing final WAL checkpoint");
                     let db_clone = db.clone();
-                    std::thread::spawn(move || {
+                    let _ = tokio::task::spawn_blocking(move || {
                         let conn = db_clone.0.lock();
                         let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
-                    });
+                    }).await;
                     break;
                 }
 
@@ -320,22 +320,20 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Periodic ping
-                    if tick_counter % PING_INTERVAL_TICKS == 0 {
-                        let target_str = settings_store.read(|s| s.ping_target.clone());
-                        let target: IpAddr = target_str
-                            .parse()
-                            .unwrap_or_else(|_| "1.1.1.1".parse().unwrap());
-                        let result = measure_ping(target).await;
-                        let stats = {
-                            let mut ps = ping_state.lock();
-                            ps.update(result.latency_ms, result.loss);
-                            ps.current_stats()
-                        };
-                        if any_window_visible(&app_handle) {
-                            let _ = app_handle.emit("ping-stats", &stats);
-                        }
-                    }
+                    // // Periodic ping
+                    // if tick_counter % PING_INTERVAL_TICKS == 0 {
+                    //     let target_str = settings_store.read(|s| s.ping_target.clone());
+                    //     let target = resolve_ping_target(&target_str);
+                    //     let result = measure_ping(target).await;
+                    //     let stats = {
+                    //         let mut ps = ping_state.lock();
+                    //         ps.update(result.latency_ms, result.loss);
+                    //         ps.current_stats()
+                    //     };
+                    //     if any_window_visible(&app_handle) {
+                    //         let _ = app_handle.emit("ping-stats", &stats);
+                    //     }
+                    // }
 
                     // Rollups at time boundaries
                     let hour_changed =
@@ -374,8 +372,6 @@ pub fn start_sampler(
                 }
 
                 _ = daily_snapshot_interval.tick() => {
-                    // Periodically update today's partial daily_usage entry
-                    // so that the History page and Compact widget show current totals.
                     let now_local = Local::now();
                     let today_str = now_local.format("%Y-%m-%d").to_string();
                     let today_start = Local

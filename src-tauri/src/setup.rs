@@ -1,6 +1,6 @@
 use crate::background::sampler::start_sampler;
 use crate::commands::network::{
-    InterfacesCache, SharedInterfacesCache, SharedMonitorState, APP_SHUTTING_DOWN,
+    APP_SHUTTING_DOWN, InterfacesCache, SharedInterfacesCache, SharedMonitorState,
 };
 use crate::commands::ping::SharedPingState;
 use crate::persistence::app_settings::SettingsStore;
@@ -8,12 +8,12 @@ use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{spawn_position_writer, PositionSender};
+use crate::window_positions::{PositionSender, spawn_position_writer};
 use parking_lot::Mutex;
 use std::error::Error;
 use std::fs;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use tauri::{App, Manager, PhysicalPosition, Position, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
@@ -167,7 +167,6 @@ fn wire_widget_event_handlers(
 
 fn wire_main_window(app: &App) {
     if let Some(main_window) = app.get_webview_window("main") {
-        // Keep autostart visibility logic:
         let is_autostart = std::env::args().any(|a| a == "--autostart" || a == "--minimized");
         if is_autostart {
             tracing::info!("Autostart launch detected — main window stays hidden");
@@ -190,6 +189,14 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         .app_data_dir()
         .expect("failed to resolve app data dir");
 
+    let app_handle = app.handle().clone();
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // PHASE 1: Manage ALL state FIRST, before any blocking work.
+    // This ensures that if the webview loads instantly (bundled mode) and
+    // invokes commands, try_state() will find them available.
+    // ══════════════════════════════════════════════════════════════════════════
+
     // ── Database ──────────────────────────────────────────────────────────────
     let rw_db = DbState::open(&app_data_dir).expect("failed to open read-write DB");
     let ro_db = ReadOnlyDb::open(&app_data_dir).expect("failed to open read-only DB");
@@ -202,19 +209,35 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
 
     // ── Cancellation token ────────────────────────────────────────────────────
     let cancel_token = CancellationToken::new();
-
     app.manage(cancel_token.clone());
-
-    let task_token = cancel_token.clone();
-
-    let app_handle = app.handle().clone();
 
     // ── App settings ──────────────────────────────────────────────────────────
     let settings_store = Arc::new(SettingsStore::new("app-settings.json"));
     settings_store.load(&app_handle);
     app.manage(settings_store.clone());
 
-    // ── Start sampler ─────────────────────────────────────────────────────────
+    // ── Widget state store ────────────────────────────────────────────────────
+    let widget_store = Arc::new(WidgetStore::new("widget-state.json"));
+    widget_store.load(&app_handle);
+    app.manage(widget_store.clone());
+
+    // Migrate from legacy files (if present)
+    migrate_legacy_widget_files(&app_data_dir, &widget_store, &app_handle);
+
+    // Apply any internal migrations
+    widget_store.update(&app_handle, |s| s.migrate_legacy());
+
+    // ── Position debouncer ────────────────────────────────────────────────────
+    let pos_sender = spawn_position_writer(app_handle.clone(), widget_store.clone());
+    app.manage(pos_sender);
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // PHASE 2: All state is managed. Now start blocking/async work.
+    // Commands invoked by the webview will now find all state available.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── Start sampler (includes synchronous backfill) ─────────────────────────
+    let task_token = cancel_token.clone();
     let sampler_handle = start_sampler(
         monitor_state,
         rw_db,
@@ -225,32 +248,17 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     );
     app.manage(sampler_handle);
 
-    // ── Widget state store ────────────────────────────────────────────────────
-    let widget_store = Arc::new(WidgetStore::new("widget-state.json"));
-    app.manage(widget_store.clone());
-
-    // 1. Load existing state from disk
-    widget_store.load(&app_handle);
-
-    // 2. Migrate from legacy files (if present) INTO the loaded state
-    migrate_legacy_widget_files(&app_data_dir, &widget_store, &app_handle);
-
-    // 3. Apply any internal migrations
-    widget_store.update(&app_handle, |s| s.migrate_legacy());
-
-    // ── Position debouncer ────────────────────────────────────────────────────
-    let pos_sender = spawn_position_writer(app_handle.clone(), widget_store.clone());
-    app.manage(pos_sender);
-
-    // ── Restore widget positions and visibility IMMEDIATELY ───────────────────
-    restore_widget_states(app, &widget_store);
+    // ── System tray ───────────────────────────────────────────────────────────
+    build_tray(app_handle.clone())?;
 
     // ── Wire event handlers ───────────────────────────────────────────────────
-    wire_widget_event_handlers(app, widget_store, app_handle.clone());
-    wire_main_window(app);
+    wire_widget_event_handlers(app, widget_store.clone(), app_handle.clone());
 
-    // ── System tray ───────────────────────────────────────────────────────────
-    build_tray(app_handle)?;
+    // ── Restore widget positions and visibility ───────────────────────────────
+    restore_widget_states(app, &widget_store);
+
+    // ── Main window ───────────────────────────────────────────────────────────
+    wire_main_window(app);
 
     Ok(())
 }

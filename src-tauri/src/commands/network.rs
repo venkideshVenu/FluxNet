@@ -1,22 +1,22 @@
 use crate::commands::ping::{PingState, SharedPingState};
 use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo};
-use crate::monitor::bandwidth::{calculate_speed, read_total_counters, NetworkStats};
+use crate::monitor::bandwidth::{NetworkStats, calculate_speed, read_total_counters};
 
 use parking_lot::Mutex;
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
-use tauri::State;
-use windows::core::PWSTR;
+use tauri::{AppHandle, Manager, State};
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
-    GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES, IF_TYPE_ETHERNET_CSMACD,
+    GAA_FLAG_INCLUDE_ALL_INTERFACES, GetAdaptersAddresses, IF_TYPE_ETHERNET_CSMACD,
     IF_TYPE_IEEE80211, IF_TYPE_SOFTWARE_LOOPBACK, IF_TYPE_TUNNEL, IP_ADAPTER_ADDRESSES_LH,
 };
 use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
+use windows::core::PWSTR;
 
 // ── Centralised widget-label list ────────────────────────────────────────────
 
@@ -98,7 +98,6 @@ fn classify_interface_type(if_type: u32, name: &str, description: &str) -> Strin
     let name_lower = name.to_lowercase();
     let desc_lower = description.to_lowercase();
 
-    // VPN adapters
     if desc_lower.contains("tap-windows")
         || desc_lower.contains("openvpn")
         || desc_lower.contains("wireguard")
@@ -108,7 +107,6 @@ fn classify_interface_type(if_type: u32, name: &str, description: &str) -> Strin
         return "vpn".to_string();
     }
 
-    // Virtual machine adapters
     if desc_lower.contains("hyper-v")
         || desc_lower.contains("vmware")
         || desc_lower.contains("virtualbox")
@@ -119,12 +117,10 @@ fn classify_interface_type(if_type: u32, name: &str, description: &str) -> Strin
         return "virtual".to_string();
     }
 
-    // Bluetooth
     if desc_lower.contains("bluetooth") || name_lower.contains("bluetooth") {
         return "bluetooth".to_string();
     }
 
-    // Cellular
     if desc_lower.contains("cellular")
         || desc_lower.contains("mobile broadband")
         || desc_lower.contains("wwanpp")
@@ -132,7 +128,6 @@ fn classify_interface_type(if_type: u32, name: &str, description: &str) -> Strin
         return "cellular".to_string();
     }
 
-    // USB tethering / USB ethernet
     if desc_lower.contains("rndis")
         || desc_lower.contains("remote ndis")
         || desc_lower.contains("usb ethernet")
@@ -142,7 +137,6 @@ fn classify_interface_type(if_type: u32, name: &str, description: &str) -> Strin
         return "usb".to_string();
     }
 
-    // By IF_TYPE
     match if_type {
         t if t == IF_TYPE_IEEE80211 => "wifi".to_string(),
         t if t == IF_TYPE_ETHERNET_CSMACD => "ethernet".to_string(),
@@ -157,12 +151,10 @@ fn is_noise_interface(name: &str, description: &str, if_type: u32) -> bool {
     let name_lower = name.to_lowercase();
     let desc_lower = description.to_lowercase();
 
-    // Always filter loopback
     if if_type == IF_TYPE_SOFTWARE_LOOPBACK {
         return true;
     }
 
-    // Filter known noise interfaces
     let noise_patterns_name = [
         "local area connection*",
         "wi-fi direct",
@@ -207,8 +199,6 @@ fn is_noise_interface(name: &str, description: &str, if_type: u32) -> bool {
     false
 }
 
-/// Check if an interface name exists in sysinfo's network list.
-/// This validates that we can actually read counters for it.
 fn interface_exists_in_sysinfo(networks: &Networks, name: &str) -> bool {
     networks.iter().any(|(n, _)| n == name)
 }
@@ -217,25 +207,21 @@ fn interface_exists_in_sysinfo(networks: &Networks, name: &str) -> bool {
 
 fn auto_select_interface() -> String {
     let detailed = read_interfaces_from_windows();
-    // Prefer Ethernet that is Up
     for iface in &detailed {
         if iface.status == "Up" && iface.interface_type == "ethernet" {
             return iface.name.clone();
         }
     }
-    // Then Wi-Fi
     for iface in &detailed {
         if iface.status == "Up" && iface.interface_type == "wifi" {
             return iface.name.clone();
         }
     }
-    // Then USB (tethering)
     for iface in &detailed {
         if iface.status == "Up" && iface.interface_type == "usb" {
             return iface.name.clone();
         }
     }
-    // Any UP physical adapter (not virtual/vpn/tunnel)
     for iface in &detailed {
         if iface.status == "Up"
             && !matches!(
@@ -288,7 +274,6 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
             timestamp: now_ts,
         });
 
-        // Track connectivity — if any traffic in last 30s, consider connected
         if upload > 0.0 || download > 0.0 {
             s.last_nonzero_at = Some(now);
         }
@@ -310,18 +295,15 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
     }
 }
 
-/// Determine if the monitored interface is "connected" (has recent traffic or is operationally up)
 fn is_interface_connected(state: &MonitorState) -> bool {
     if state.interface.is_empty() {
         return false;
     }
-    // If we received any traffic in the last 30 seconds, consider connected
     if let Some(last) = state.last_nonzero_at {
         if last.elapsed() < Duration::from_secs(30) {
             return true;
         }
     }
-    // If we have a valid sample (interface exists), consider it up
     state.last_sample.is_some()
 }
 
@@ -364,12 +346,16 @@ pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnap
 }
 
 #[tauri::command]
-pub fn get_interfaces(cache: State<SharedInterfacesCache>) -> Vec<InterfaceInfo> {
+pub fn get_interfaces(app: AppHandle) -> Result<Vec<InterfaceInfo>, String> {
+    let cache = app
+        .try_state::<SharedInterfacesCache>()
+        .ok_or_else(|| "Interfaces cache not yet initialized".to_string())?;
+
     {
         let c = cache.lock();
         if let Some(at) = c.fetched_at {
             if at.elapsed() < INTERFACES_CACHE_TTL {
-                return c.data.clone();
+                return Ok(c.data.clone());
             }
         }
     }
@@ -383,16 +369,21 @@ pub fn get_interfaces(cache: State<SharedInterfacesCache>) -> Vec<InterfaceInfo>
         c.data = fresh.clone();
         c.fetched_at = Some(Instant::now());
     }
-    c.data.clone()
+    Ok(c.data.clone())
 }
 
 #[tauri::command]
-pub fn set_interface(
-    name: String,
-    net_state: State<SharedMonitorState>,
-    ping_state: State<SharedPingState>,
-    cache: State<SharedInterfacesCache>,
-) -> Result<(), String> {
+pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
+    let net_state = app
+        .try_state::<SharedMonitorState>()
+        .ok_or_else(|| "Monitor state not yet initialized".to_string())?;
+    let ping_state = app
+        .try_state::<SharedPingState>()
+        .ok_or_else(|| "Ping state not yet initialized".to_string())?;
+    let cache = app
+        .try_state::<SharedInterfacesCache>()
+        .ok_or_else(|| "Interfaces cache not yet initialized".to_string())?;
+
     // Validate the interface exists and is Up
     {
         let c = cache.lock();
@@ -541,12 +532,10 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
 pub fn select_interface_outside_lock(networks: &Networks) -> String {
     let selected = auto_select_interface();
     if !selected.is_empty() {
-        // Verify it actually exists in sysinfo
         if interface_exists_in_sysinfo(networks, &selected) {
             return selected;
         }
     }
-    // Last resort
     for (name, _) in networks {
         if name != "lo" && name != "Loopback Pseudo-Interface 1" {
             return name.clone();
