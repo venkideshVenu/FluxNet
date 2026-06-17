@@ -391,6 +391,7 @@ export function OnboardingPage() {
     try {
       if (selectedIface)
         await invokeWithTimeout("set_interface", { name: selectedIface });
+
       await invoke(
         startWithWindows
           ? "plugin:autostart|enable"
@@ -400,10 +401,26 @@ export function OnboardingPage() {
       await invokeWithTimeout("set_minimize_to_tray", {
         enabled: minimizeToTray,
       });
-      await invoke("set_onboarding_completed");
+
+      // Apply widget visibility choices from the widget-selection step.
+      // Run in parallel and swallow individual failures — a widget not showing
+      // is recoverable from the tray; it must not block onboarding completion.
+      await Promise.all(
+        (["compact", "pill", "hud"] as WidgetStyle[]).map((label) =>
+          invokeWithTimeout("set_widget_visibility", {
+            label,
+            visible: selectedWidgets.has(label),
+          }).catch(() => {}),
+        ),
+      );
+
+      // Use invokeWithTimeout so a hung IPC call doesn't freeze the Finish
+      // button forever — plain invoke() would stall the finally block too.
+      await invokeWithTimeout("set_onboarding_completed");
       setStorageItem("fluxnet_configured", "true");
     } catch {
-      await invoke("set_onboarding_completed").catch(() => {});
+      // At least mark onboarding done so the user isn't looped back here.
+      await invokeWithTimeout("set_onboarding_completed").catch(() => {});
       setStorageItem("fluxnet_configured", "true");
     } finally {
       setFinishing(false);
@@ -484,15 +501,21 @@ export function OnboardingPage() {
           loading: false,
           onNext: () => nav("forward"),
         };
-      case "interface":
+      case "interface": {
+        // Allow proceeding when still loading, OR when an interface is selected.
+        // If loading finished and there are no "Up" interfaces at all, also allow
+        // proceeding so the user isn't permanently stuck — finish() already guards
+        // `if (selectedIface)` before calling set_interface.
+        const hasSelectableIface = interfaces.some((i) => i.status === "Up");
         return {
           showBack: true,
           nextLabel: "Next",
-          nextDisabled: !selectedIface,
+          nextDisabled: loadingIfaces || (hasSelectableIface && !selectedIface),
           loading: false,
           onBack: () => nav("back"),
           onNext: () => nav("forward"),
         };
+      }
       case "widget":
         return {
           showBack: true,
@@ -736,6 +759,61 @@ function InterfaceContent({
             }}
           >
             Detecting interfaces…
+          </div>
+        )}
+        {!loading && list.length === 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              padding: "32px 16px",
+              borderRadius: 12,
+              border: "1px dashed var(--border-strong)",
+              textAlign: "center",
+            }}
+          >
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+              <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+              <line x1="12" y1="20" x2="12.01" y2="20" strokeWidth="2.5" />
+              <line x1="2" y1="2" x2="22" y2="22" />
+            </svg>
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--text)",
+                  marginBottom: 4,
+                }}
+              >
+                No active interfaces found
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  lineHeight: 1.5,
+                  maxWidth: 240,
+                }}
+              >
+                Make sure a network adapter is connected, or skip this step and
+                configure it later in Settings.
+              </div>
+            </div>
           </div>
         )}
         {!loading &&
@@ -1242,7 +1320,9 @@ function DoneContent({
         ]
       : []),
     ...(minimizeToTray ? ["Tray icon running"] : []),
-    `Monitoring ${interfaceName || "network"}`,
+    ...(interfaceName
+      ? [`Monitoring ${interfaceName}`]
+      : ["Interface: configure in Settings"]),
   ];
 
   return (
@@ -1306,11 +1386,23 @@ function DoneContent({
           marginBottom: 24,
         }}
       >
-        FluxNet is monitoring{" "}
-        <strong style={{ color: "var(--text)", fontWeight: 600 }}>
-          {interfaceName || "your network"}
-        </strong>
-        .
+        {interfaceName ? (
+          <>
+            FluxNet is monitoring{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              {interfaceName}
+            </strong>
+            .
+          </>
+        ) : (
+          <>
+            FluxNet is ready.{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              Select a network interface in Settings
+            </strong>{" "}
+            once one is available.
+          </>
+        )}
       </p>
 
       <div
