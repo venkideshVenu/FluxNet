@@ -11,3 +11,4 @@ export {
   useDragFromHandle,
 } from "./useDragToMove";
 export { useSettingsSync } from "./useSettingsSync";
+export { useOnboardingGuard } from "./useOnboarding";

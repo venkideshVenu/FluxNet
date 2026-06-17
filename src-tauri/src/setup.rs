@@ -59,26 +59,27 @@ fn migrate_legacy_widget_files(
     }
 
     tracing::info!("Migrating old widget settings to new merged file");
-    let mut state = WidgetState::default();
+    let mut positions = std::collections::HashMap::new();
+    let mut visibility = std::collections::HashMap::new();
 
     if let Ok(contents) = fs::read_to_string(&old_pos_path) {
-        if let Ok(positions) =
+        let _ =
             serde_json::from_str::<std::collections::HashMap<String, StoredPosition>>(&contents)
-        {
-            state.positions = positions;
-        }
+                .map(|p| positions = p);
     }
     if let Ok(contents) = fs::read_to_string(&old_vis_path) {
-        if let Ok(visibility) =
+        let _ =
             serde_json::from_str::<std::collections::HashMap<String, StoredVisibility>>(&contents)
-        {
-            for (label, sv) in visibility {
-                state.configs.entry(label).or_default().visible = sv.visible;
-            }
-        }
+                .map(|v| visibility = v);
     }
 
-    widget_store.update(app_handle, |s| *s = state);
+    widget_store.update(app_handle, |state| {
+        state.positions.extend(positions);
+        for (label, sv) in visibility {
+            state.configs.entry(label).or_default().visible = sv.visible;
+        }
+    });
+
     let _ = fs::remove_file(&old_pos_path);
     let _ = fs::remove_file(&old_vis_path);
 }
@@ -166,16 +167,7 @@ fn wire_widget_event_handlers(
 
 fn wire_main_window(app: &App) {
     if let Some(main_window) = app.get_webview_window("main") {
-        let main_cl = main_window.clone();
-        main_window.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = main_cl.hide();
-            }
-        });
-
-        // If launched via autostart, keep main window hidden (tray-only start).
-        // Otherwise show it normally.
+        // Keep autostart visibility logic:
         let is_autostart = std::env::args().any(|a| a == "--autostart" || a == "--minimized");
         if is_autostart {
             tracing::info!("Autostart launch detected — main window stays hidden");
@@ -210,6 +202,9 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
 
     // ── Cancellation token ────────────────────────────────────────────────────
     let cancel_token = CancellationToken::new();
+
+    app.manage(cancel_token.clone());
+
     let task_token = cancel_token.clone();
 
     let app_handle = app.handle().clone();
@@ -234,9 +229,13 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     let widget_store = Arc::new(WidgetStore::new("widget-state.json"));
     app.manage(widget_store.clone());
 
+    // 1. Load existing state from disk
+    widget_store.load(&app_handle);
+
+    // 2. Migrate from legacy files (if present) INTO the loaded state
     migrate_legacy_widget_files(&app_data_dir, &widget_store, &app_handle);
 
-    widget_store.load(&app_handle);
+    // 3. Apply any internal migrations
     widget_store.update(&app_handle, |s| s.migrate_legacy());
 
     // ── Position debouncer ────────────────────────────────────────────────────
@@ -251,7 +250,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     wire_main_window(app);
 
     // ── System tray ───────────────────────────────────────────────────────────
-    build_tray(app_handle, cancel_token)?;
+    build_tray(app_handle)?;
 
     Ok(())
 }

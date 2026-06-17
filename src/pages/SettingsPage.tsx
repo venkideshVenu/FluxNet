@@ -28,6 +28,7 @@ export function SettingsPage() {
   const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
   const [localPingTarget, setLocalPingTarget] = useState(pingTarget);
   const pingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [minimizeToTray, setMinimizeToTray] = useState(true);
 
   useEffect(() => {
     invoke<number>("get_refresh_interval")
@@ -73,6 +74,12 @@ export function SettingsPage() {
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, [colorMode]);
+
+  useEffect(() => {
+    invoke<boolean>("get_minimize_to_tray")
+      .then(setMinimizeToTray)
+      .catch(console.warn);
+  }, []);
 
   const handleInterval = async (raw: string) => {
     const secs = parseFloat(raw);
@@ -133,6 +140,13 @@ export function SettingsPage() {
   const handleResetPeaks = () => {
     resetPeaks();
     invoke("reset_peaks").catch(console.warn);
+  };
+
+  const handleMinimizeToTray = async (value: boolean) => {
+    setMinimizeToTray(value);
+    await invoke("set_minimize_to_tray", { enabled: value }).catch(
+      console.warn,
+    );
   };
 
   return (
@@ -222,43 +236,6 @@ export function SettingsPage() {
               pattern="[a-zA-Z0-9.\-:]+"
             />
           </div>
-
-          <div className="flex items-center justify-between px-4.5 py-3.25">
-            <div>
-              <div className="text-[13px] text-text font-[450]">
-                Start with Windows
-              </div>
-              <div className="text-[11px] text-text-muted mt-0.5">
-                Launch FluxNet at login
-                {autostartError && (
-                  <span className="block text-danger-text text-[11px] mt-1">
-                    {autostartError}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div
-              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors shrink-0 ${startWithOS ? "bg-accent" : "bg-accent-muted"} ${!autostartAvailable ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
-              onClick={() => handleStartWithOS(!startWithOS)}
-              role="switch"
-              aria-checked={startWithOS}
-              aria-disabled={!autostartAvailable}
-              tabIndex={autostartAvailable ? 0 : -1}
-              onKeyDown={(e) => {
-                if (
-                  autostartAvailable &&
-                  (e.key === " " || e.key === "Enter")
-                ) {
-                  e.preventDefault();
-                  handleStartWithOS(!startWithOS);
-                }
-              }}
-            >
-              <div
-                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -311,6 +288,77 @@ export function SettingsPage() {
                   onClick={() => handleTheme(i)}
                 />
               ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/*App behavior */}
+      <div className="mb-6">
+        <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
+          App behavior
+        </div>
+        <div className="bg-panel border border-border rounded-lg">
+          {/* Run in background toggle */}
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
+            <div>
+              <div className="text-[13px] text-text font-[450]">
+                Run in background
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                Keep FluxNet running in system tray when dashboard is closed
+              </div>
+            </div>
+            <div
+              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors ${
+                minimizeToTray ? "bg-accent" : "bg-accent-muted"
+              }`}
+              onClick={() => handleMinimizeToTray(!minimizeToTray)}
+              role="switch"
+              aria-checked={minimizeToTray}
+            >
+              <div
+                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform ${
+                  minimizeToTray ? "translate-x-4.25" : "translate-x-0"
+                }`}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between px-4.5 py-3.25">
+            <div>
+              <div className="text-[13px] text-text font-[450]">
+                Start with Windows
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                Launch FluxNet at login
+                {autostartError && (
+                  <span className="block text-danger-text text-[11px] mt-1">
+                    {autostartError}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div
+              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors shrink-0 ${startWithOS ? "bg-accent" : "bg-accent-muted"} ${!autostartAvailable ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
+              onClick={() => handleStartWithOS(!startWithOS)}
+              role="switch"
+              aria-checked={startWithOS}
+              aria-disabled={!autostartAvailable}
+              tabIndex={autostartAvailable ? 0 : -1}
+              onKeyDown={(e) => {
+                if (
+                  autostartAvailable &&
+                  (e.key === " " || e.key === "Enter")
+                ) {
+                  e.preventDefault();
+                  handleStartWithOS(!startWithOS);
+                }
+              }}
+            >
+              <div
+                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
+              />
             </div>
           </div>
         </div>

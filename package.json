@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tauri dev",
     "dev:web": "vite --port 1420",
-    "build": "tauri build",
+    "build": "vite build",
+    "build:desktop": "tauri build",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",

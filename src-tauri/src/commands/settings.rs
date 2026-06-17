@@ -61,3 +61,35 @@ pub fn set_refresh_interval(
     store.update(&app, |s| s.refresh_interval_ms = interval_ms);
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_onboarding_completed(store: State<Arc<SettingsStore>>) -> Result<bool, String> {
+    Ok(store.read(|s| s.onboarding_completed))
+}
+
+#[tauri::command]
+pub fn set_onboarding_completed(
+    store: State<Arc<SettingsStore>>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    store.update(&app, |s| s.onboarding_completed = true);
+    Ok(())
+}
+
+// The main.rs on_window_event handler should read this setting when
+// CloseRequested fires to decide whether to hide or quit.
+
+#[tauri::command]
+pub fn get_minimize_to_tray(store: State<Arc<SettingsStore>>) -> Result<bool, String> {
+    Ok(store.read(|s| s.minimize_to_tray))
+}
+
+#[tauri::command]
+pub fn set_minimize_to_tray(
+    store: State<Arc<SettingsStore>>,
+    enabled: bool,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    store.update(&app, |s| s.minimize_to_tray = enabled);
+    Ok(())
+}
