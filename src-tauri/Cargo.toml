@@ -1,9 +1,12 @@
 [package]
 name = "fluxnet"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
+description = "Real-time network monitoring desktop application built with Tauri, Rust, and React"
+authors = ["Venkidesh"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/venkideshVenu/FluxNet"
+homepage = "https://github.com/venkideshVenu/FluxNet"
+edition = "2024"
 
 build = "build.rs"
 
