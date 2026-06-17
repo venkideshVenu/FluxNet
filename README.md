@@ -97,18 +97,37 @@ Whether you are a developer debugging network‑dependent code, a gamer tracking
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 
-<div align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="48%">
-  <img src="docs/screenshots/widgets.png" alt="Widgets" width="48%">
-  <br>
-  <img src="docs/screenshots/history.png" alt="History" width="48%">
-  <img src="docs/screenshots/settings.png" alt="Settings" width="48%">
-</div>
+### 📊 Dashboard
+Real-time network activity overview with live upload/download statistics, peak speeds, and bandwidth charts.
 
-> _Placeholder – replace with actual screenshots from your `docs/screenshots/` folder._
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="90%">
+</p>
 
+### 🧩 Widgets
+Configure and manage floating desktop widgets with customizable appearance, refresh intervals, and display modes.
+
+<p align="center">
+  <img src="docs/screenshots/widgets.png" alt="Widgets" width="90%">
+</p>
+
+### 📈 History
+Explore historical bandwidth usage with interactive charts and detailed traffic summaries.
+
+<p align="center">
+  <img src="docs/screenshots/history.png" alt="History" width="90%">
+</p>
+
+### ⚙️ Settings
+Personalize FluxNet with theme preferences, startup behavior, display units, and monitoring options.
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Settings" width="90%">
+</p>
+
+---
 ---
 
 ## Technology Stack
@@ -158,11 +177,6 @@ FluxNet follows a **layered architecture** with clear separation between the Rus
 - **Aggregation Pipeline** rolls up data into hourly, daily, and monthly summaries.  
 - **IPC** exposes commands (e.g., `get_network_stats`) and events (e.g., `network-stats`) for the frontend.  
 - **Widgets** are separate WebView windows that subscribe to live data and handle drag/opacity/always‑on‑top.  
-
-For a complete deep dive, see:
-
-- [Backend Engineering Report](docs/FluxNet%20Backend%20Engineering%20Report.md)  
-- [Frontend Engineering Report](docs/FRONTEND%20ENGINEERING%20REPORT.md)  
 
 ---
 
@@ -295,8 +309,6 @@ fluxnet/
 │   ├── favicon.ico
 │   └── branding/                # Logos and icons
 ├── docs/                        # Documentation
-│   ├── FluxNet Backend Engineering Report.md
-│   └── FRONTEND ENGINEERING REPORT.md
 ├── package.json                 # Frontend dependencies
 ├── pnpm-lock.yaml               # Lockfile
 ├── tsconfig.json                # TypeScript config
