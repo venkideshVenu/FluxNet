@@ -255,6 +255,7 @@ function StepDots({ current }: { current: number }) {
 function PersistentFooter({
   onBack,
   onNext,
+  onSkip,
   nextLabel = "Next",
   nextDisabled = false,
   loading = false,
@@ -263,6 +264,7 @@ function PersistentFooter({
 }: {
   onBack?: () => void;
   onNext: () => void;
+  onSkip?: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
   loading?: boolean;
@@ -344,6 +346,49 @@ function PersistentFooter({
         </button>
       </div>
       <StepDots current={stepIndex} />
+      {onSkip && (
+        <div
+          style={{ display: "flex", justifyContent: "center", marginTop: 10 }}
+        >
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{
+              background: "none",
+              border: "none",
+              padding: "2px 8px",
+              fontSize: 11,
+              color: "var(--text-subtle)",
+              cursor: "pointer",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--text-muted)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-subtle)")
+            }
+          >
+            Skip for now
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -406,9 +451,8 @@ export function OnboardingPage() {
   const toggleWidget = useCallback((id: WidgetStyle) => {
     setSelectedWidgets((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) {
-        if (n.size > 1) n.delete(id);
-      } else n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   }, []);
@@ -542,10 +586,14 @@ export function OnboardingPage() {
         return {
           showBack: true,
           nextLabel: "Next",
-          nextDisabled: selectedWidgets.size === 0,
+          nextDisabled: false,
           loading: false,
           onBack: () => nav("back"),
           onNext: () => nav("forward"),
+          onSkip: () => {
+            setSelectedWidgets(new Set());
+            nav("forward");
+          },
         };
       case "startup":
         return {
@@ -1027,7 +1075,7 @@ function WidgetContent({
 }) {
   const hint =
     selected.size === 0
-      ? "Select at least one widget"
+      ? "No widgets selected — you can enable them anytime in Settings"
       : selected.size === 1
         ? "1 widget selected"
         : `${selected.size} widgets selected — all will appear on your desktop`;
@@ -1053,7 +1101,8 @@ function WidgetContent({
         Choose widget style
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
-        Select one or more — you can enable all of them
+        Optional — pick styles to float on your desktop. You can change this
+        anytime.
       </p>
 
       <div
