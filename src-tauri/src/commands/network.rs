@@ -322,9 +322,13 @@ pub fn get_network_stats(state: State<SharedMonitorState>) -> NetworkStats {
 #[tauri::command]
 pub fn get_dashboard_snapshot(state: State<SharedMonitorState>) -> DashboardSnapshot {
     let s = state.lock();
+
+    // Only send last 600 points to reduce serialization/IPC overhead
+    let skip = s.history.len().saturating_sub(600);
     let history: Vec<HistorySnapshotPoint> = s
         .history
         .iter()
+        .skip(skip)
         .map(|p| HistorySnapshotPoint {
             upload: p.upload,
             download: p.download,
@@ -384,6 +388,14 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
         .try_state::<SharedInterfacesCache>()
         .ok_or_else(|| "Interfaces cache not yet initialized".to_string())?;
 
+    // Refresh cache before validation to ensure we have the latest interfaces
+    {
+        let mut c = cache.lock();
+        let fresh = read_interfaces_from_windows();
+        c.data = fresh;
+        c.fetched_at = Some(Instant::now());
+    }
+
     // Validate the interface exists and is Up
     {
         let c = cache.lock();
@@ -394,6 +406,8 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
                     name, iface.status
                 ));
             }
+        } else {
+            return Err(format!("Interface '{}' not found", name));
         }
     }
 
@@ -406,6 +420,10 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
         s.last_download = 0.0;
         s.history.clear();
         s.last_nonzero_at = None;
+        // Reset sampling state so next tick re-initializes counters
+        s.prev_tx = 0;
+        s.prev_rx = 0;
+        s.last_sample = None;
     }
 
     INTERFACE_DIRTY.store(true, Ordering::Relaxed);
@@ -413,6 +431,7 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
     let mut ps = ping_state.lock();
     *ps = PingState::default();
 
+    // Invalidate cache so next get_interfaces call refreshes
     cache.lock().fetched_at = None;
 
     Ok(())

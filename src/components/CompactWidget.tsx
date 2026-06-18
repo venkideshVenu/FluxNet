@@ -49,7 +49,7 @@ export function CompactWidget() {
       }
     };
     syncTodayTotals();
-    const id = setInterval(syncTodayTotals, 5_000);
+    const id = setInterval(syncTodayTotals, 30_000); // Was 5000, now 30000
     return () => {
       alive = false;
       clearInterval(id);

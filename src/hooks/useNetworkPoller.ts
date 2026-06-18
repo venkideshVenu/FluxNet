@@ -13,6 +13,7 @@ import { useStoredInterval, useDailyUsageAccumulator } from "@/hooks";
 
 /**
  * Core polling hook — thin coordinator.
+ * Pauses polling when the document is hidden to save resources.
  */
 export function useNetworkPoller() {
   const setData = useNetworkStore((s) => s.setData);
@@ -39,9 +40,22 @@ export function useNetworkPoller() {
   );
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const visibleRef = useRef(!document.hidden);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      visibleRef.current = !document.hidden;
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   useEffect(() => {
     const poll = async () => {
+      // Skip polling if document is hidden (saves CPU/RAM)
+      if (!visibleRef.current && WINDOW_LABEL === "main") return;
+
       try {
         const result = await pollNetworkData(WINDOW_LABEL);
 

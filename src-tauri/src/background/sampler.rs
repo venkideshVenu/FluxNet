@@ -279,7 +279,13 @@ pub fn start_sampler(
                     let current_hour = now_local.hour();
                     let current_day = now_local.day();
 
-                    networks.refresh();
+                    // Refresh network list every 10 ticks (5s) to detect hot-plugged interfaces
+                    // Regular refresh only updates counters for known interfaces
+                    if tick_counter % 10 == 0 {
+                        networks = Networks::new_with_refreshed_list();
+                    } else {
+                        networks.refresh();
+                    }
 
                     let needs_selection = {
                         let s = monitor_state.lock();
@@ -293,6 +299,20 @@ pub fn start_sampler(
                                 s.interface = selected;
                             }
                         }
+                    }
+
+                    // Also verify current interface still exists in sysinfo
+                    let iface_missing = {
+                        let s = monitor_state.lock();
+                        if !s.interface.is_empty() {
+                            !networks.iter().any(|(n, _)| n == &s.interface)
+                        } else {
+                            false
+                        }
+                    };
+                    if iface_missing && tick_counter % 10 == 0 {
+                        // Force a full list refresh when interface is missing
+                        networks = Networks::new_with_refreshed_list();
                     }
 
                     let (dl, ul, iface, was_uninitialized) = {

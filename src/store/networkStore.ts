@@ -59,7 +59,7 @@ type NetworkStore = {
   dismissError: () => void;
 };
 
-const MAX_HISTORY_POINTS = 300;
+const MAX_HISTORY_POINTS = 600;
 
 export const useNetworkStore = create<NetworkStore>((set) => ({
   data: { uploadBytesPerSec: 0, downloadBytesPerSec: 0, interfaceName: "" },

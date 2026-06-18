@@ -2,6 +2,7 @@ use crate::background::sampler::start_sampler;
 use crate::commands::network::{
     APP_SHUTTING_DOWN, InterfacesCache, SharedInterfacesCache, SharedMonitorState,
 };
+
 use crate::commands::ping::SharedPingState;
 use crate::persistence::app_settings::SettingsStore;
 use crate::persistence::persistent_store::PersistentStore;
@@ -16,7 +17,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use tauri::{App, Manager, PhysicalPosition, Position, WindowEvent};
 use tokio_util::sync::CancellationToken;
-
+use tauri::Size;
 type WidgetStore = PersistentStore<WidgetState>;
 
 // ── Position clamping ─────────────────────────────────────────────────────────
@@ -117,6 +118,38 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
             tracing::info!("Showing widget '{label}' (was visible at last quit)");
             let _ = window.show();
         }
+    }
+}
+
+/// Adjust widget window sizes based on the monitor's scale factor.
+/// This ensures consistent physical pixel sizes across different DPI displays.
+fn adjust_widget_sizes_for_dpi(app: &App) {
+    let widget_sizes: &[(&str, u32, u32)] =
+        &[("pill", 270, 40), ("compact", 190, 175), ("hud", 220, 185)];
+
+    for (label, logical_w, logical_h) in widget_sizes {
+        let Some(window) = app.get_webview_window(label) else {
+            continue;
+        };
+
+        let scale = window.scale_factor().unwrap_or(1.0);
+
+        // Set size using physical pixels to ensure consistent appearance
+        let phys_w = (*logical_w as f64 * scale) as u32;
+        let phys_h = (*logical_h as f64 * scale) as u32;
+
+        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: phys_w,
+            height: phys_h,
+        }));
+        let _ = window.set_min_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
+            width: phys_w,
+            height: phys_h,
+        })));
+        let _ = window.set_max_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
+            width: phys_w,
+            height: phys_h,
+        })));
     }
 }
 
@@ -253,6 +286,9 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
 
     // ── Wire event handlers ───────────────────────────────────────────────────
     wire_widget_event_handlers(app, widget_store.clone(), app_handle.clone());
+
+    // ── Adjust widget sizes for display DPI ───────────────────────────────
+    adjust_widget_sizes_for_dpi(app);
 
     // ── Restore widget positions and visibility ───────────────────────────────
     restore_widget_states(app, &widget_store);
