@@ -42,7 +42,7 @@ pub fn spawn_theme_watcher(app: AppHandle, tray_id: TrayIconId) {
 #[cfg(target_os = "windows")]
 fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
     use windows::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RegCloseKey,
+        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, 
         RegNotifyChangeKeyValue, RegOpenKeyExW,
     };
     use windows::core::w;

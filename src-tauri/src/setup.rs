@@ -17,7 +17,6 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use tauri::{App, Manager, PhysicalPosition, Position, WindowEvent};
 use tokio_util::sync::CancellationToken;
-use tauri::Size;
 type WidgetStore = PersistentStore<WidgetState>;
 
 // ── Position clamping ─────────────────────────────────────────────────────────
