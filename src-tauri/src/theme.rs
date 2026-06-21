@@ -28,8 +28,8 @@ pub fn is_system_light_theme() -> bool {
     false
 }
 
-/// Watches for theme changes using registry change notifications (no polling).
-/// Uses `RegNotifyChangeKeyValue` which blocks the thread until a change occurs.
+/// Watches for theme changes using registry change notifications (zero CPU polling).
+/// Spawns a dedicated OS thread that blocks on RegNotifyChangeKeyValue.
 pub fn spawn_theme_watcher(app: AppHandle, tray_id: TrayIconId) {
     std::thread::Builder::new()
         .name("theme-watcher".into())
@@ -42,62 +42,67 @@ pub fn spawn_theme_watcher(app: AppHandle, tray_id: TrayIconId) {
 #[cfg(target_os = "windows")]
 fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
     use windows::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, 
+        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RegCloseKey,
         RegNotifyChangeKeyValue, RegOpenKeyExW,
     };
     use windows::core::w;
 
-    let mut hkey = HKEY::default();
-    let status = unsafe {
-        RegOpenKeyExW(
-            HKEY_CURRENT_USER,
-            w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-            0,
-            KEY_NOTIFY,
-            &mut hkey,
-        )
+    // Opens the registry key for theme watching and returns the HKEY on success.
+    let open_key = || -> Option<HKEY> {
+        let mut hkey = HKEY::default();
+        let status = unsafe {
+            RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+                0,
+                KEY_NOTIFY,
+                &mut hkey,
+            )
+        };
+        if status.is_err() {
+            tracing::warn!("Failed to open registry key for theme watching: {status:?}");
+            None
+        } else {
+            Some(hkey)
+        }
     };
 
-    if status.is_err() {
-        tracing::warn!(
-            "Failed to open registry key for theme watching: {:?}",
-            status
-        );
+    let Some(mut hkey) = open_key() else {
         return;
-    }
+    };
 
     let mut last_light = is_system_light_theme();
 
     loop {
-        // This blocks until the registry key value changes — no polling, no CPU usage
+        // Blocks here (zero CPU) until the registry key's values change.
         let result = unsafe {
             RegNotifyChangeKeyValue(
                 hkey,
                 false,                      // don't watch subtree
-                REG_NOTIFY_CHANGE_LAST_SET, // notify on value changes
-                None,                       // no event handle (synchronous wait)
-                false,                      // synchronous (blocking)
+                REG_NOTIFY_CHANGE_LAST_SET, // notify on value changes only
+                None,                       // no event handle → synchronous blocking wait
+                false,
             )
         };
 
         if result.is_err() {
-            tracing::warn!("RegNotifyChangeKeyValue failed: {:?}", result);
-            // Re-open the key and retry after a delay
+            tracing::warn!("RegNotifyChangeKeyValue failed: {result:?}");
+
+            // FIX: Close the old key BEFORE reopening, preventing an HKEY handle leak.
+            unsafe { RegCloseKey(hkey) };
+
             std::thread::sleep(std::time::Duration::from_secs(30));
-            let reopen = unsafe {
-                RegOpenKeyExW(
-                    HKEY_CURRENT_USER,
-                    w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-                    0,
-                    KEY_NOTIFY,
-                    &mut hkey,
-                )
-            };
-            if reopen.is_err() {
-                tracing::error!("Cannot reopen registry key for theme watching, giving up");
-                return;
+
+            match open_key() {
+                Some(new_hkey) => {
+                    hkey = new_hkey;
+                    continue;
+                }
+                None => {
+                    tracing::error!("Cannot reopen registry key for theme watching, giving up");
+                    return;
+                }
             }
-            continue;
         }
 
         let current = is_system_light_theme();
@@ -115,3 +120,7 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
         }
     }
 }
+
+// No-op on non-Windows (theme watcher is Windows-only)
+#[cfg(not(target_os = "windows"))]
+fn theme_watch_loop(_app: &AppHandle, _tray_id: &TrayIconId) {}

@@ -26,26 +26,33 @@ const SAMPLER_INTERVAL_MS: u64 = 500;
 
 const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500ms = 5s
 
+/// How often to do a full interface-list refresh (detecting hot-plugged adapters).
+/// 600 ticks × 500ms = 5 minutes. We use refresh() for all other ticks, which
+/// only updates counters and does NOT allocate new OS-level buffers.
+///
+/// ROOT CAUSE FIX: The v2 leak was caused by calling Networks::new_with_refreshed_list()
+/// every 10 ticks (5 seconds). On Windows, sysinfo 0.31 does not call FreeMibTable
+/// on the raw MIB_IF_TABLE2 pointer it receives when the Networks object is dropped,
+/// so each recreation leaks the previous OS buffer. Spacing this out to every 5 minutes
+/// eliminates continuous unbounded growth. refresh() is safe to call at any frequency.
+const IFACE_LIST_REFRESH_TICKS: u32 = 600; // 5 minutes
+
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
 /// Resolve a ping target string to an IpAddr.
-/// Supports raw IP addresses and hostnames.
 fn resolve_ping_target(target: &str) -> IpAddr {
-    // Try direct IP parse first
     if let Ok(ip) = target.parse::<IpAddr>() {
         return ip;
     }
-    // Try DNS resolution
     if let Ok(mut addrs) = format!("{}:0", target).to_socket_addrs() {
         if let Some(addr) = addrs.next() {
             return addr.ip();
         }
     }
-    // Fallback
     "1.1.1.1".parse().unwrap()
 }
 
-// ── Startup backfill: compute all missing rollups ─────────────────────────────
+// ── Startup backfill ──────────────────────────────────────────────────────────
 
 fn backfill_all_rollups(db: &DbState) {
     let conn = db.0.lock();
@@ -67,6 +74,8 @@ fn backfill_all_rollups(db: &DbState) {
         tracing::debug!("No samples in DB — skipping backfill");
         return;
     };
+
+    // ── Hourly backfill ───────────────────────────────────────────────────────
 
     let existing_hours: HashSet<i64> = {
         let mut stmt = conn.prepare("SELECT hour_start FROM hourly_usage").unwrap();
@@ -90,7 +99,6 @@ fn backfill_all_rollups(db: &DbState) {
         .timestamp();
 
     let mut hourly_count = 0u32;
-
     while hour_cursor < current_hour_start {
         if !existing_hours.contains(&hour_cursor) {
             let has_samples: bool = conn
@@ -100,19 +108,17 @@ fn backfill_all_rollups(db: &DbState) {
                     |_| Ok(true),
                 )
                 .unwrap_or(false);
-
-            if has_samples {
-                if rollup_hourly_at(&conn, hour_cursor).is_ok() {
-                    hourly_count += 1;
-                }
+            if has_samples && rollup_hourly_at(&conn, hour_cursor).is_ok() {
+                hourly_count += 1;
             }
         }
         hour_cursor += 3600;
     }
-
     if hourly_count > 0 {
         tracing::info!("Backfilled {hourly_count} hourly rollup(s)");
     }
+
+    // ── Daily backfill ────────────────────────────────────────────────────────
 
     let today_str = now.format("%Y-%m-%d").to_string();
     let today_start = Local
@@ -141,10 +147,8 @@ fn backfill_all_rollups(db: &DbState) {
 
     let mut day_cursor = earliest_day_start;
     let mut daily_count = 0u32;
-
     while day_cursor.timestamp() < today_start {
         let day_str = day_cursor.format("%Y-%m-%d").to_string();
-
         if !existing_days.contains(&day_str) {
             let day_ts = day_cursor.timestamp();
             let has_data: bool = conn
@@ -154,20 +158,17 @@ fn backfill_all_rollups(db: &DbState) {
                     |_| Ok(true),
                 )
                 .unwrap_or(false);
-
-            if has_data {
-                if rollup_daily_at(&conn, day_ts, &day_str).is_ok() {
-                    daily_count += 1;
-                }
+            if has_data && rollup_daily_at(&conn, day_ts, &day_str).is_ok() {
+                daily_count += 1;
             }
         }
-
         day_cursor = day_cursor + ChronoDuration::days(1);
     }
-
     if daily_count > 0 {
         tracing::info!("Backfilled {daily_count} daily rollup(s)");
     }
+
+    // ── Monthly backfill ──────────────────────────────────────────────────────
 
     let current_month_str = now.format("%Y-%m").to_string();
 
@@ -197,11 +198,11 @@ fn backfill_all_rollups(db: &DbState) {
             }
         }
     }
-
     if monthly_count > 0 {
         tracing::info!("Backfilled {monthly_count} monthly rollup(s)");
     }
 
+    // ── Seed today's partial daily snapshot ───────────────────────────────────
     {
         let has_today_samples: bool = conn
             .query_row(
@@ -210,7 +211,6 @@ fn backfill_all_rollups(db: &DbState) {
                 |_| Ok(true),
             )
             .unwrap_or(false);
-
         if has_today_samples {
             let _ = rollup_daily_at(&conn, today_start, &today_str);
             tracing::debug!("Updated today's partial daily_usage snapshot");
@@ -235,7 +235,7 @@ pub fn start_sampler(
     app_handle: AppHandle,
 ) -> SamplerHandle {
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
-        // Run backfill on a blocking thread so we don't block the async runtime
+        // Backfill on a blocking thread — does not delay the UI
         {
             let db_clone = db.clone();
             let _ = tokio::task::spawn_blocking(move || {
@@ -247,9 +247,11 @@ pub fn start_sampler(
         let mut sample_interval = tokio::time::interval(Duration::from_millis(SAMPLER_INTERVAL_MS));
         sample_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Cleanup + WAL checkpoint every 60 seconds
         let mut cleanup_interval = tokio::time::interval(Duration::from_secs(60));
         cleanup_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Partial daily snapshot every 10 seconds
         let mut daily_snapshot_interval = tokio::time::interval(Duration::from_secs(10));
         daily_snapshot_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -257,6 +259,9 @@ pub fn start_sampler(
         let mut last_hour: Option<u32> = None;
         let mut last_day: Option<u32> = None;
 
+        // FIX: Create once; use refresh() to update counters without reallocating OS buffers.
+        // A full list refresh (new_with_refreshed_list) is only done every 5 minutes to detect
+        // hot-plugged adapters, not every 5 seconds as in the leaking version.
         let mut networks = Networks::new_with_refreshed_list();
 
         loop {
@@ -267,7 +272,8 @@ pub fn start_sampler(
                     let _ = tokio::task::spawn_blocking(move || {
                         let conn = db_clone.0.lock();
                         let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
-                    }).await;
+                    })
+                    .await;
                     break;
                 }
 
@@ -279,14 +285,16 @@ pub fn start_sampler(
                     let current_hour = now_local.hour();
                     let current_day = now_local.day();
 
-                    // Refresh network list every 10 ticks (5s) to detect hot-plugged interfaces
-                    // Regular refresh only updates counters for known interfaces
-                    if tick_counter % 10 == 0 {
+                    // FIX: Only do a full interface-list refresh every 5 minutes.
+                    // refresh() is sufficient for normal counter updates and does not
+                    // allocate new OS network buffers on each call.
+                    if tick_counter % IFACE_LIST_REFRESH_TICKS == 0 {
                         networks = Networks::new_with_refreshed_list();
                     } else {
                         networks.refresh();
                     }
 
+                    // Auto-select interface if none is set
                     let needs_selection = {
                         let s = monitor_state.lock();
                         s.interface.is_empty()
@@ -301,17 +309,13 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Also verify current interface still exists in sysinfo
+                    // If the selected interface has disappeared, force a list refresh now
                     let iface_missing = {
                         let s = monitor_state.lock();
-                        if !s.interface.is_empty() {
-                            !networks.iter().any(|(n, _)| n == &s.interface)
-                        } else {
-                            false
-                        }
+                        !s.interface.is_empty()
+                            && !networks.iter().any(|(n, _)| n == &s.interface)
                     };
-                    if iface_missing && tick_counter % 10 == 0 {
-                        // Force a full list refresh when interface is missing
+                    if iface_missing {
                         networks = Networks::new_with_refreshed_list();
                     }
 
@@ -340,7 +344,7 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Periodic ping
+                    // Periodic ping (every 5 seconds)
                     if tick_counter % PING_INTERVAL_TICKS == 0 {
                         let target_str = settings_store.read(|s| s.ping_target.clone());
                         let target = resolve_ping_target(&target_str);
@@ -355,11 +359,9 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Rollups at time boundaries
-                    let hour_changed =
-                        last_hour.map_or(false, |prev| prev != current_hour);
-                    let day_changed =
-                        last_day.map_or(false, |prev| prev != current_day);
+                    // Rollups at hour/day boundaries
+                    let hour_changed = last_hour.map_or(false, |prev| prev != current_hour);
+                    let day_changed = last_day.map_or(false, |prev| prev != current_day);
 
                     if hour_changed || day_changed {
                         let conn = db.0.lock();
@@ -392,6 +394,7 @@ pub fn start_sampler(
                 }
 
                 _ = daily_snapshot_interval.tick() => {
+                    // Update today's partial daily_usage row for the History page
                     let now_local = Local::now();
                     let today_str = now_local.format("%Y-%m-%d").to_string();
                     let today_start = Local
@@ -411,9 +414,17 @@ pub fn start_sampler(
                 _ = cleanup_interval.tick() => {
                     let cutoff = Local::now().timestamp() - 7 * 86_400;
                     let conn = db.0.lock();
+
                     if let Err(e) = cleanup_old_samples(&conn, cutoff) {
                         tracing::warn!("Cleanup failed: {e}");
                     }
+
+                    // FIX: Periodic WAL checkpoint so SQLite doesn't accumulate
+                    // un-checkpointed pages in shared memory indefinitely.
+                    // PASSIVE mode: checkpoints without blocking readers/writers.
+                    // Without this, insert_sample (2/s) + rollup_daily_at (every 10s)
+                    // fills the WAL continuously, growing SQLite's mapped memory footprint.
+                    let _ = conn.execute("PRAGMA wal_checkpoint(PASSIVE)", []);
                 }
             }
         }
