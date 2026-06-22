@@ -339,13 +339,49 @@ function SettingsGroup({
   );
 }
 
+// ── Settings Summary (shown when collapsed) ───────────────────────────────────
+
+function SettingsSummary({
+  colorMode,
+  opacity,
+  intervalMs,
+  alwaysOnTop,
+}: {
+  colorMode: ColorMode;
+  opacity: number;
+  intervalMs: number;
+  alwaysOnTop: boolean;
+}) {
+  const modeLabel =
+    colorMode === "system" ? "System" : colorMode === "dark" ? "Dark" : "Light";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-t border-border">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-surface border border-border text-text-muted">
+        <IconPalette /> {modeLabel}
+      </span>
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-surface border border-border text-text-muted">
+        {opacity}% opacity
+      </span>
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-surface border border-border text-text-muted">
+        {intervalMs / 1000}s refresh
+      </span>
+      {alwaysOnTop && (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-surface border border-border text-text-muted">
+          Always on top
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ── Main Widget Panel ─────────────────────────────────────────────────────────
 
 function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const view = WIDGET_VIEWS[widgetLabel];
   const config = view.entry;
   const state = useWidgetPanelState(config);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const opacityDescription =
     state.opacity >= 95
@@ -405,17 +441,9 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
             disabled={state.visible === null}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${
               state.visible
-                ? "bg-surface text-text-muted border-border hover:border-danger-border hover:text-danger-text hover:bg-danger-bg"
-                : "text-white border-transparent hover:opacity-90"
+                ? "bg-surface text-text-muted border-border hover:border-border-strong hover:text-text hover:bg-panel-hover"
+                : "bg-accent text-white border-transparent hover:opacity-90 shadow-[0_2px_8px_var(--accent-shadow)]"
             }`}
-            style={
-              !state.visible
-                ? {
-                    background: config.accentColor,
-                    boxShadow: `0 2px 8px ${config.accentColor}44`,
-                  }
-                : undefined
-            }
           >
             {state.visible === null ? (
               "…"
@@ -443,10 +471,20 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
         </div>
       </div>
 
+      {/* Settings Summary (shown when collapsed) */}
+      {!isExpanded && (
+        <SettingsSummary
+          colorMode={state.colorMode}
+          opacity={state.opacity}
+          intervalMs={state.intervalMs}
+          alwaysOnTop={state.alwaysOnTop}
+        />
+      )}
+
       {/* Expandable Content */}
       {isExpanded && (
         <div className="border-t border-border">
-          {/* Preview strip — sits above settings, no fake background */}
+          {/* Preview strip */}
           <div className="flex flex-col items-center border-b border-border bg-surface/40">
             <WidgetPreview
               view={view}

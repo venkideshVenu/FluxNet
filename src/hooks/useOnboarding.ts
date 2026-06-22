@@ -28,7 +28,18 @@ export function useOnboardingGuard(): boolean | null {
     //   - User manually resets app-settings.json to onboarding_completed: false
     //   - App data was wiped but WebView storage survived
     //   - Developer testing / QA resets
-    invoke<boolean>("get_onboarding_completed")
+    // Wrap in a race so a hung IPC call can't stall the loading state forever.
+    // 5 s is generous — the command just reads an in-memory bool. If it takes
+    // longer than that the backend is effectively unreachable and we fall back
+    // to the catch handler below, same as any other IPC failure.
+    const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> => {
+      const timer = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), ms),
+      );
+      return Promise.race([p, timer]);
+    };
+
+    withTimeout(invoke<boolean>("get_onboarding_completed"), 5_000)
       .then((backendCompleted) => {
         if (!isMounted) return;
 

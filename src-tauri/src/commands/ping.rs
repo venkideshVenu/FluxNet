@@ -2,6 +2,7 @@ use crate::dto::ping::PingStats;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use tauri::{AppHandle, Manager};
 
 pub type SharedPingState = Arc<Mutex<PingState>>;
 
@@ -55,7 +56,7 @@ impl PingState {
             .count();
 
         let latency_ms = if consecutive_losses >= N_CONSECUTIVE_LOSS {
-            -1.0 // sustained outage — signal the UI to show "timeout"
+            -1.0
         } else {
             self.last_latency_ms
         };
@@ -68,7 +69,10 @@ impl PingState {
 }
 
 #[tauri::command]
-pub fn get_ping_stats(state: tauri::State<SharedPingState>) -> Result<PingStats, String> {
+pub fn get_ping_stats(app: AppHandle) -> Result<PingStats, String> {
+    let state = app
+        .try_state::<SharedPingState>()
+        .ok_or_else(|| "Ping state not yet initialized".to_string())?;
     let s = state.lock();
     Ok(s.current_stats())
 }

@@ -17,7 +17,7 @@ import {
   getStorageItem,
 } from "@/utils";
 
-const DEFAULT_VISIBLE_POINTS = 300;
+const DEFAULT_VISIBLE_POINTS = 200;
 
 export function DashboardPage() {
   const {

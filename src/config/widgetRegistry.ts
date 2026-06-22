@@ -20,19 +20,6 @@ import {
   ColorMode,
 } from "@/utils";
 
-/**
- * ┌──────────────────────────────────────────────────────────────────────────┐
- * │ WIDGET REGISTRY — Single Source of Truth                                 │
- * │                                                                          │
- * │ To add a new widget (e.g., "mini"):                                      │
- * │ 1. Add entry here in WIDGET_REGISTRY                                     │
- * │ 2. Create MiniApp.tsx entry point                                        │
- * │ 3. Create mini.css stylesheet                                            │
- * │ 4. Add to main.tsx label→component map                                   │
- * │ 5. Add window definition in tauri.conf.json                              │
- * └──────────────────────────────────────────────────────────────────────────┘
- */
-
 export type WidgetLabel = "pill" | "compact" | "hud";
 
 export type IntervalGetter = (fallback?: number) => number;
@@ -55,6 +42,7 @@ export interface WidgetRegistryEntry {
   invokeOpacity: string;
   invokeVisibility: string;
   defaultOpacity: number;
+  defaultAlwaysOnTop: boolean; // <-- added
 }
 
 export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
@@ -73,7 +61,8 @@ export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
     invokeAlwaysOnTop: "set_pill_always_on_top",
     invokeOpacity: "set_pill_opacity",
     invokeVisibility: "set_widget_visibility",
-    defaultOpacity: 88,
+    defaultOpacity: 100, // changed from 88
+    defaultAlwaysOnTop: true, // added
   },
   compact: {
     label: "compact",
@@ -90,7 +79,8 @@ export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
     invokeAlwaysOnTop: "set_compact_always_on_top",
     invokeOpacity: "set_compact_opacity",
     invokeVisibility: "set_widget_visibility",
-    defaultOpacity: 88,
+    defaultOpacity: 100,
+    defaultAlwaysOnTop: true,
   },
   hud: {
     label: "hud",
@@ -107,7 +97,8 @@ export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
     invokeAlwaysOnTop: "set_hud_always_on_top",
     invokeOpacity: "set_hud_opacity",
     invokeVisibility: "set_widget_visibility",
-    defaultOpacity: 88,
+    defaultOpacity: 100,
+    defaultAlwaysOnTop: true,
   },
 };
 

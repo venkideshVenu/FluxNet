@@ -2,10 +2,10 @@ use crate::commands::network::APP_SHUTTING_DOWN;
 use crate::commands::visibility::apply_widget_visibility;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::WidgetState;
-use crate::theme; // <-- uses your theme.rs
+use crate::theme;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::{ Instant};
+use std::time::Instant;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, WebviewWindowBuilder};
@@ -13,9 +13,7 @@ use tokio_util::sync::CancellationToken;
 
 type WidgetStore = PersistentStore<WidgetState>;
 
-/// Program-start epoch for converting Instant to u64 nanoseconds.
 static EPOCH: OnceLock<Instant> = OnceLock::new();
-/// Nanoseconds since EPOCH of the last accepted tray left-click.
 static LAST_TRAY_CLICK_NS: AtomicU64 = AtomicU64::new(0);
 
 fn monotonic_now_ns() -> u64 {
@@ -23,13 +21,10 @@ fn monotonic_now_ns() -> u64 {
     epoch.elapsed().as_nanos() as u64
 }
 
-const DEBOUNCE_NS: u64 = 300_000_000; // 300 ms
-
-// ── Tray builder ──────────────────────────────────────────────────────────────
+const DEBOUNCE_NS: u64 = 300_000_000;
 
 pub fn build_tray(app_handle: AppHandle) -> tauri::Result<()> {
     let app = app_handle.app_handle();
-    let store = app_handle.state::<Arc<WidgetStore>>().inner().clone();
 
     let is_light = theme::is_system_light_theme();
     let icon = theme::tray_icon_for_theme(is_light)?;
@@ -52,8 +47,6 @@ pub fn build_tray(app_handle: AppHandle) -> tauri::Result<()> {
         ],
     )?;
 
-    let store_clone = store.clone();
-
     let tray = TrayIconBuilder::new()
         .icon(icon)
         .icon_as_template(false)
@@ -61,16 +54,27 @@ pub fn build_tray(app_handle: AppHandle) -> tauri::Result<()> {
         .tooltip("FluxNet")
         .on_menu_event(move |app_handle, event| match event.id.as_ref() {
             "quit" => {
-                let cancel_token = app_handle
-                    .try_state::<CancellationToken>()
-                    .expect("cancel_token not in app state")
-                    .clone();
-                let store = app_handle.state::<Arc<WidgetStore>>().clone();
+                let cancel_token = match app_handle.try_state::<CancellationToken>() {
+                    Some(t) => t.clone(),
+                    None => {
+                        tracing::error!("CancellationToken missing on quit, forcing exit");
+                        app_handle.exit(1);
+                        return;
+                    }
+                };
+                let store = match app_handle.try_state::<Arc<WidgetStore>>() {
+                    Some(s) => s.inner().clone(),
+                    None => {
+                        tracing::error!("WidgetStore missing on quit, forcing exit");
+                        app_handle.exit(1);
+                        return;
+                    }
+                };
                 perform_shutdown(app_handle, &cancel_token, &store);
             }
-            "toggle_pill" => toggle_widget(app_handle, &store_clone, "pill"),
-            "toggle_compact" => toggle_widget(app_handle, &store_clone, "compact"),
-            "toggle_hud" => toggle_widget(app_handle, &store_clone, "hud"),
+            "toggle_pill" => toggle_widget(app_handle, "pill"),
+            "toggle_compact" => toggle_widget(app_handle, "compact"),
+            "toggle_hud" => toggle_widget(app_handle, "hud"),
             "dashboard" => open_dashboard(app_handle),
             _ => {}
         })
@@ -93,22 +97,26 @@ pub fn build_tray(app_handle: AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    // Spawn theme watcher from your theme.rs module
     theme::spawn_theme_watcher(app_handle.clone(), tray.id().clone());
 
     Ok(())
 }
 
-/// Helper to toggle a widget’s visibility.
-fn toggle_widget(app_handle: &AppHandle, store: &Arc<WidgetStore>, widget_id: &str) {
+fn toggle_widget(app_handle: &AppHandle, widget_id: &str) {
+    let store = match app_handle.try_state::<Arc<WidgetStore>>() {
+        Some(s) => s.inner().clone(),
+        None => {
+            tracing::warn!("WidgetStore not available yet for toggle");
+            return;
+        }
+    };
+
     let visible = app_handle
         .get_webview_window(widget_id)
         .and_then(|w| w.is_visible().ok())
         .unwrap_or(false);
-    let _ = apply_widget_visibility(app_handle, store, widget_id, !visible);
+    let _ = apply_widget_visibility(app_handle, &store, widget_id, !visible);
 }
-
-// ── Dashboard helper ──────────────────────────────────────────────────────────
 
 pub fn open_dashboard(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -128,7 +136,6 @@ pub fn open_dashboard(app: &AppHandle) {
     }
 }
 
-/// Gracefully shut down FluxNet: cancel sampler, save widget states, exit.
 pub fn perform_shutdown(
     app_handle: &AppHandle,
     cancel_token: &CancellationToken,
@@ -136,7 +143,6 @@ pub fn perform_shutdown(
 ) {
     APP_SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::SeqCst);
 
-    // Save current widget states (visibility & position)
     widget_store.update(app_handle, |state| {
         for label in crate::commands::network::WIDGET_LABELS {
             if let Some(w) = app_handle.get_webview_window(label) {
@@ -155,7 +161,6 @@ pub fn perform_shutdown(
     tracing::info!("Full shutdown initiated – cancelling sampler");
     cancel_token.cancel();
 
-    // Give a moment for cleanup, then exit
     let app_handle = app_handle.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(1000));

@@ -20,5 +20,16 @@
   <body style="background: transparent; margin: 0; padding: 0">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Disable right-click context menu to make the app feel native
+      document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        return false;
+      });
+      // Disable text selection drag
+      document.addEventListener("dragstart", function (e) {
+        e.preventDefault();
+      });
+    </script>
   </body>
 </html>

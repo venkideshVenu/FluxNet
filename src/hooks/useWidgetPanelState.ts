@@ -8,7 +8,15 @@ import { WidgetRegistryEntry } from "@/config";
  */
 export function useWidgetPanelState(config: WidgetRegistryEntry) {
   const [visible, setVisible] = useState<boolean | null>(null);
-  const [alwaysOnTop, setAlwaysOnTop] = useState(config.getStoredAlwaysOnTop());
+
+  // Fix: Use stored value with proper default from registry
+  const [alwaysOnTop, setAlwaysOnTop] = useState(() => {
+    const stored = localStorage.getItem(config.alwaysOnTopKey);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+    return config.defaultAlwaysOnTop; // Use registry default
+  });
+
   const [opacity, setOpacity] = useState(() => {
     const saved = localStorage.getItem(config.opacityKey);
     return saved ? Number(saved) : config.defaultOpacity;

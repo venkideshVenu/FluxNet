@@ -19,38 +19,38 @@ type Step = "welcome" | "interface" | "widget" | "startup" | "done";
 type Direction = "forward" | "back";
 
 const STEPS: Step[] = ["welcome", "interface", "widget", "startup", "done"];
-const ANIM_MS = 320;
+const ANIM_MS = 250;
 
 // ─── Global CSS ───────────────────────────────────────────────────────────────
 
 const GLOBAL_CSS = `
   @keyframes ob-slide-enter-right {
-    from { opacity: 0; transform: translateX(40px) scale(0.98); }
-    to   { opacity: 1; transform: translateX(0)   scale(1); }
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes ob-slide-exit-left {
-    from { opacity: 1; transform: translateX(0)    scale(1); }
-    to   { opacity: 0; transform: translateX(-40px) scale(0.98); }
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(-30px); }
   }
   @keyframes ob-slide-enter-left {
-    from { opacity: 0; transform: translateX(-40px) scale(0.98); }
-    to   { opacity: 1; transform: translateX(0)     scale(1); }
+    from { opacity: 0; transform: translateX(-30px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes ob-slide-exit-right {
-    from { opacity: 1; transform: translateX(0)   scale(1); }
-    to   { opacity: 0; transform: translateX(40px) scale(0.98); }
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(30px); }
   }
 
-  .ob-enter-forward { animation: ob-slide-enter-right ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; }
-  .ob-exit-forward  { animation: ob-slide-exit-left   ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; pointer-events:none; }
-  .ob-enter-back    { animation: ob-slide-enter-left  ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; }
-  .ob-exit-back     { animation: ob-slide-exit-right  ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; pointer-events:none; }
+  .ob-enter-forward { animation: ob-slide-enter-right ${ANIM_MS}ms ease-out both; }
+  .ob-exit-forward  { animation: ob-slide-exit-left   ${ANIM_MS}ms ease-in both; pointer-events:none; position:absolute; }
+  .ob-enter-back    { animation: ob-slide-enter-left  ${ANIM_MS}ms ease-out both; }
+  .ob-exit-back     { animation: ob-slide-exit-right  ${ANIM_MS}ms ease-in both; pointer-events:none; position:absolute; }
 
   @keyframes ob-dot-in {
-    from { opacity: 0; transform: translateY(6px) scale(0.9); }
-    to   { opacity: 1; transform: translateY(0)   scale(1); }
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-  .ob-dot { animation: ob-dot-in 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+  .ob-dot { animation: ob-dot-in 0.35s ease-out both; }
 
   @keyframes ob-check-draw {
     from { stroke-dashoffset: 24; }
@@ -63,9 +63,9 @@ const GLOBAL_CSS = `
     70%  { transform: scale(1.12); opacity: 1; }
     100% { transform: scale(1);    opacity: 1; }
   }
-  .ob-pop { animation: ob-pop 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+  .ob-pop { animation: ob-pop 0.45s ease-out both; }
 
-  .ob-progress { transition: width 0.45s cubic-bezier(0.22,1,0.36,1); }
+  .ob-progress { transition: width 0.35s ease-out; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -79,23 +79,46 @@ const GLOBAL_CSS = `
 // ─── Theme Toggle ─────────────────────────────────────────────────────────────
 
 function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() =>
-    typeof document !== "undefined"
-      ? document.documentElement.getAttribute("data-theme") !== "light"
-      : true,
-  );
+  const [isDark, setIsDark] = useState(() => {
+    const current = document.documentElement.getAttribute("data-theme");
+    if (current === "dark") return true;
+    if (current === "light") return false;
+    const stored = localStorage.getItem("fluxnet_color_mode");
+    if (stored === "dark") return true;
+    if (stored === "light") return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
 
   const toggle = () => {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.setAttribute(
-      "data-theme",
-      next ? "dark" : "light",
+    const nextIsDark = !isDark;
+    setIsDark(nextIsDark);
+    const mode = nextIsDark ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", mode);
+    const oldValue = localStorage.getItem("fluxnet_color_mode");
+    localStorage.setItem("fluxnet_color_mode", mode);
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "fluxnet_color_mode",
+        oldValue,
+        newValue: mode,
+        storageArea: localStorage,
+        url: window.location.href,
+      }),
     );
-    try {
-      localStorage.setItem("fluxnet_mode", next ? "dark" : "light");
-    } catch {}
   };
+
+  // Sync with external theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const current = document.documentElement.getAttribute("data-theme");
+      setIsDark(current === "dark");
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <button
@@ -169,8 +192,6 @@ function ThemeToggle() {
 }
 
 // ─── Step Transition Hook ─────────────────────────────────────────────────────
-// Keeps both old and new step in the DOM during the transition so exit and
-// enter animations play simultaneously.
 
 type StepSlot = {
   key: Step;
@@ -183,22 +204,26 @@ function useStepTransition(step: Step, direction: Direction) {
     { key: step, direction, phase: "enter" },
   ]);
   const prevStep = useRef(step);
-
+const timerRef = useRef <NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (step === prevStep.current) return;
     const prev = prevStep.current;
     prevStep.current = step;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     setSlots([
       { key: prev, direction, phase: "exit" },
       { key: step, direction, phase: "enter" },
     ]);
 
-    const t = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       setSlots([{ key: step, direction, phase: "enter" }]);
-    }, ANIM_MS + 40);
+    }, ANIM_MS + 20);
 
-    return () => clearTimeout(t);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, direction]);
 
@@ -222,8 +247,7 @@ function StepDots({ current }: { current: number }) {
           key={i}
           style={{
             borderRadius: 999,
-            transition:
-              "width 0.3s cubic-bezier(0.22,1,0.36,1), background 0.3s, opacity 0.3s",
+            transition: "width 0.3s ease-out, background 0.3s, opacity 0.3s",
             width: i === current ? 20 : 6,
             height: 6,
             background: i <= current ? "var(--accent)" : "var(--border-strong)",
@@ -236,12 +260,11 @@ function StepDots({ current }: { current: number }) {
 }
 
 // ─── Persistent Footer ────────────────────────────────────────────────────────
-// Lives OUTSIDE the animated content slot — Back/Next/Dots never move or
-// animate when stepping between pages.
 
 function PersistentFooter({
   onBack,
   onNext,
+  onSkip,
   nextLabel = "Next",
   nextDisabled = false,
   loading = false,
@@ -250,6 +273,7 @@ function PersistentFooter({
 }: {
   onBack?: () => void;
   onNext: () => void;
+  onSkip?: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
   loading?: boolean;
@@ -331,6 +355,49 @@ function PersistentFooter({
         </button>
       </div>
       <StepDots current={stepIndex} />
+      {onSkip && (
+        <div
+          style={{ display: "flex", justifyContent: "center", marginTop: 10 }}
+        >
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{
+              background: "none",
+              border: "none",
+              padding: "2px 8px",
+              fontSize: 11,
+              color: "var(--text-subtle)",
+              cursor: "pointer",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--text-muted)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-subtle)")
+            }
+          >
+            Skip for now
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -344,25 +411,55 @@ export function OnboardingPage() {
   const [loadingIfaces, setLoadingIfaces] = useState(true);
   const [selectedIface, setSelectedIface] = useState("");
   const [selectedWidgets, setSelectedWidgets] = useState<Set<WidgetStyle>>(
-    new Set(["compact"]),
+    new Set(["pill"]),
   );
   const [startWithWindows, setStartWithWindows] = useState(true);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [ifaceError, setIfaceError] = useState<string | null>(null);
+  const interfacesFetched = useRef(false);
 
   const stepIndex = STEPS.indexOf(step);
   const progress = stepIndex / (STEPS.length - 1);
 
-  useEffect(() => {
-    invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-      .then((r) => {
-        setInterfaces(r);
-        const up = r.find((i) => i.status === "Up");
+  const loadInterfaces = useCallback(async (retryCount = 3) => {
+    setLoadingIfaces(true);
+    setIfaceError(null);
+
+    for (let attempt = 0; attempt < retryCount; attempt++) {
+      try {
+        // Small delay on first attempt to let backend initialize
+        if (attempt === 0 && !interfacesFetched.current) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+
+        const result = await invokeWithTimeout<InterfaceInfo[]>(
+          "get_interfaces",
+          undefined,
+          10_000,
+        );
+        setInterfaces(result);
+        const up = result.find((i) => i.status === "Up");
         if (up) setSelectedIface(up.name);
-      })
-      .catch(console.error)
-      .finally(() => setLoadingIfaces(false));
+        interfacesFetched.current = true;
+        setLoadingIfaces(false);
+        return; // Success
+      } catch (err) {
+        console.error(`Interface fetch attempt ${attempt + 1} failed:`, err);
+        if (attempt < retryCount - 1) {
+          await new Promise((r) => setTimeout(r, 1000)); // Wait before retry
+        }
+      }
+    }
+
+    // All retries failed
+    setIfaceError("Could not detect interfaces. Please try again.");
+    setLoadingIfaces(false);
   }, []);
+
+  useEffect(() => {
+    loadInterfaces();
+  }, [loadInterfaces]);
 
   const nav = useCallback(
     (dir: Direction) => {
@@ -379,9 +476,8 @@ export function OnboardingPage() {
   const toggleWidget = useCallback((id: WidgetStyle) => {
     setSelectedWidgets((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) {
-        if (n.size > 1) n.delete(id);
-      } else n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   }, []);
@@ -391,6 +487,7 @@ export function OnboardingPage() {
     try {
       if (selectedIface)
         await invokeWithTimeout("set_interface", { name: selectedIface });
+
       await invoke(
         startWithWindows
           ? "plugin:autostart|enable"
@@ -400,10 +497,20 @@ export function OnboardingPage() {
       await invokeWithTimeout("set_minimize_to_tray", {
         enabled: minimizeToTray,
       });
-      await invoke("set_onboarding_completed");
+
+      await Promise.all(
+        (["compact", "pill", "hud"] as WidgetStyle[]).map((label) =>
+          invokeWithTimeout("set_widget_visibility", {
+            label,
+            visible: selectedWidgets.has(label),
+          }).catch(() => {}),
+        ),
+      );
+
+      await invokeWithTimeout("set_onboarding_completed");
       setStorageItem("fluxnet_configured", "true");
     } catch {
-      await invoke("set_onboarding_completed").catch(() => {});
+      await invokeWithTimeout("set_onboarding_completed").catch(() => {});
       setStorageItem("fluxnet_configured", "true");
     } finally {
       setFinishing(false);
@@ -418,7 +525,6 @@ export function OnboardingPage() {
       ["wifi", "ethernet"].includes(i.interface_type.toLowerCase()),
   );
 
-  // renderStep renders ONLY the content area — no footer, no dots, no nav buttons.
   const renderStep = useCallback(
     (s: Step): React.ReactNode => {
       switch (s) {
@@ -432,6 +538,8 @@ export function OnboardingPage() {
               selected={selectedIface}
               onSelect={setSelectedIface}
               recommendedName={recommendedIface?.name}
+              error={ifaceError}
+              onRetry={() => loadInterfaces(3)}
             />
           );
         case "widget":
@@ -467,13 +575,13 @@ export function OnboardingPage() {
       startWithWindows,
       minimizeToTray,
       toggleWidget,
+      ifaceError,
+      loadInterfaces,
     ],
   );
 
   const slots = useStepTransition(step, direction);
 
-  // Footer configuration per step, computed from live state.
-  // The footer lives outside the animated area so buttons never jump.
   const footerConfig = (() => {
     switch (step) {
       case "welcome":
@@ -484,23 +592,29 @@ export function OnboardingPage() {
           loading: false,
           onNext: () => nav("forward"),
         };
-      case "interface":
+      case "interface": {
+        const hasSelectableIface = interfaces.some((i) => i.status === "Up");
         return {
           showBack: true,
           nextLabel: "Next",
-          nextDisabled: !selectedIface,
+          nextDisabled: loadingIfaces || (hasSelectableIface && !selectedIface),
           loading: false,
           onBack: () => nav("back"),
           onNext: () => nav("forward"),
         };
+      }
       case "widget":
         return {
           showBack: true,
           nextLabel: "Next",
-          nextDisabled: selectedWidgets.size === 0,
+          nextDisabled: false,
           loading: false,
           onBack: () => nav("back"),
           onNext: () => nav("forward"),
+          onSkip: () => {
+            setSelectedWidgets(new Set());
+            nav("forward");
+          },
         };
       case "startup":
         return {
@@ -529,7 +643,6 @@ export function OnboardingPage() {
       <style>{GLOBAL_CSS}</style>
       <ThemeToggle />
 
-      {/* Top progress bar — fixed, always at the very top */}
       <div
         style={{
           position: "fixed",
@@ -551,7 +664,6 @@ export function OnboardingPage() {
         />
       </div>
 
-      {/* Page shell */}
       <div
         style={{
           width: "100%",
@@ -563,22 +675,16 @@ export function OnboardingPage() {
           overflow: "hidden",
         }}
       >
-        {/*
-          Outer card — only its width transitions (widget step is wider).
-          The card has TWO zones:
-            1. Content slot  → position:relative, fixed height → only THIS animates
-            2. Footer        → static, never moves, always at the same Y position
-        */}
         <div
           style={{
             width: isWidget ? 720 : 460,
             display: "flex",
             flexDirection: "column",
             padding: "0 0 24px",
-            transition: "width 0.35s cubic-bezier(0.22,1,0.36,1)",
+            transition: "width 0.3s ease-out",
           }}
         >
-          {/* ── Animated content slot ── */}
+          {/* Animated content slot */}
           <div
             style={{ position: "relative", height: 420, overflow: "hidden" }}
           >
@@ -599,7 +705,6 @@ export function OnboardingPage() {
                   inset: 0,
                   display: "flex",
                   flexDirection: "column",
-                  willChange: "transform, opacity",
                 }}
               >
                 {renderStep(slot.key)}
@@ -607,7 +712,6 @@ export function OnboardingPage() {
             ))}
           </div>
 
-          {/* ── Static footer — NEVER inside the animated slot ── */}
           <PersistentFooter {...footerConfig} stepIndex={stepIndex} />
         </div>
       </div>
@@ -616,11 +720,6 @@ export function OnboardingPage() {
 }
 
 // ─── Screen Content Components ────────────────────────────────────────────────
-// Each component fills the 420 px content slot.
-// None of them render Back/Next buttons or StepDots — those live in
-// PersistentFooter above and never animate.
-
-// WELCOME ─────────────────────────────────────────────────────────────────────
 
 function WelcomeContent() {
   return (
@@ -644,7 +743,6 @@ function WelcomeContent() {
           height: 156,
           objectFit: "contain",
           transform: "translateY(10px)",
-
           filter: "drop-shadow(0 8px 24px rgba(124,92,255,0.35))",
         }}
       />
@@ -682,12 +780,16 @@ function InterfaceContent({
   selected,
   onSelect,
   recommendedName,
+  error,
+  onRetry,
 }: {
   interfaces: InterfaceInfo[];
   loading: boolean;
   selected: string;
   onSelect: (n: string) => void;
   recommendedName?: string;
+  error?: string | null;
+  onRetry: () => void;
 }) {
   const up = interfaces.filter((i) => i.status === "Up");
   const down = interfaces.filter((i) => i.status !== "Up").slice(0, 2);
@@ -738,7 +840,119 @@ function InterfaceContent({
             Detecting interfaces…
           </div>
         )}
+        {!loading && error && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              padding: "24px 16px",
+              borderRadius: 12,
+              border: "1px solid var(--danger-border)",
+              background: "var(--danger-bg)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--danger-text)",
+              }}
+            >
+              {error}
+            </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && list.length === 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              padding: "32px 16px",
+              borderRadius: 12,
+              border: "1px dashed var(--border-strong)",
+              textAlign: "center",
+            }}
+          >
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+              <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+              <line x1="12" y1="20" x2="12.01" y2="20" strokeWidth="2.5" />
+              <line x1="2" y1="2" x2="22" y2="22" />
+            </svg>
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--text)",
+                  marginBottom: 4,
+                }}
+              >
+                No active interfaces found
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  lineHeight: 1.5,
+                  maxWidth: 240,
+                }}
+              >
+                Make sure a network adapter is connected, or skip this step and
+                configure it later in Settings.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Refresh
+            </button>
+          </div>
+        )}
         {!loading &&
+          !error &&
           list.map((iface) => {
             const isSel = iface.name === selected;
             const isUp = iface.status === "Up";
@@ -809,7 +1023,7 @@ function InterfaceContent({
                       fontSize: 14,
                       fontWeight: 600,
                       color: isSel
-                        ? "#ffffff"
+                        ? "var(--accent)"
                         : isUp
                           ? "var(--text)"
                           : "var(--text-muted)",
@@ -820,9 +1034,7 @@ function InterfaceContent({
                   <div
                     style={{
                       fontSize: 12,
-                      color: isSel
-                        ? "rgba(255,255,255,0.8)"
-                        : "var(--text-subtle)",
+                      color: "var(--text-subtle)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -861,8 +1073,8 @@ function InterfaceContent({
 // WIDGET ──────────────────────────────────────────────────────────────────────
 
 const WIDGET_OPTS: { id: WidgetStyle; label: string; desc: string }[] = [
-  { id: "compact", label: "Compact", desc: "Full stats & daily totals" },
   { id: "pill", label: "Pill", desc: "Minimal inline bar" },
+  { id: "compact", label: "Compact", desc: "Full stats & daily totals" },
   { id: "hud", label: "HUD", desc: "Gaming & full-screen" },
 ];
 
@@ -875,7 +1087,7 @@ function WidgetContent({
 }) {
   const hint =
     selected.size === 0
-      ? "Select at least one widget"
+      ? "No widgets selected — you can enable them anytime in Settings"
       : selected.size === 1
         ? "1 widget selected"
         : `${selected.size} widgets selected — all will appear on your desktop`;
@@ -901,7 +1113,8 @@ function WidgetContent({
         Choose widget style
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
-        Select one or more — you can enable all of them
+        Optional — pick styles to float on your desktop. You can change this
+        anytime.
       </p>
 
       <div
@@ -1242,7 +1455,9 @@ function DoneContent({
         ]
       : []),
     ...(minimizeToTray ? ["Tray icon running"] : []),
-    `Monitoring ${interfaceName || "network"}`,
+    ...(interfaceName
+      ? [`Monitoring ${interfaceName}`]
+      : ["Interface: configure in Settings"]),
   ];
 
   return (
@@ -1283,7 +1498,7 @@ function DoneContent({
           strokeLinejoin="round"
         >
           <polyline className="ob-check" points="20 6 9 17 4 12" />
-        </svg>{" "}
+        </svg>
       </div>
 
       <h1
@@ -1306,11 +1521,23 @@ function DoneContent({
           marginBottom: 24,
         }}
       >
-        FluxNet is monitoring{" "}
-        <strong style={{ color: "var(--text)", fontWeight: 600 }}>
-          {interfaceName || "your network"}
-        </strong>
-        .
+        {interfaceName ? (
+          <>
+            FluxNet is monitoring{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              {interfaceName}
+            </strong>
+            .
+          </>
+        ) : (
+          <>
+            FluxNet is ready.{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              Select a network interface in Settings
+            </strong>{" "}
+            once one is available.
+          </>
+        )}
       </p>
 
       <div

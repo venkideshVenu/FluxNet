@@ -5,10 +5,18 @@ export function invokeWithTimeout<T>(
   args?: Record<string, unknown>,
   timeoutMs = 5000,
 ): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+
   return Promise.race([
-    invoke<T>(cmd, args),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`IPC timeout: ${cmd}`)), timeoutMs),
-    ),
+    invoke<T>(cmd, args).then((result) => {
+      clearTimeout(timer);
+      return result;
+    }),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`IPC timeout: ${cmd}`)),
+        timeoutMs,
+      );
+    }),
   ]);
 }
