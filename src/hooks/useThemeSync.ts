@@ -9,6 +9,13 @@ import {
   LS_MODE,
 } from "@/utils";
 
+// Apply theme immediately (not in useEffect) to prevent flash
+const initialMode = getStoredColorMode();
+const initialAccentIndex = getStoredAccentIndex();
+const initialSwatch = THEMES[initialAccentIndex] ?? THEMES[0];
+applyAccent(initialSwatch.color);
+applyColorMode(initialMode);
+
 export function useThemeSync() {
   useEffect(() => {
     const apply = () => {
@@ -18,6 +25,7 @@ export function useThemeSync() {
       applyColorMode(getStoredColorMode());
     };
 
+    // Re-apply in case something changed between module load and mount
     apply();
 
     const handleStorage = (e: StorageEvent) => {
@@ -26,7 +34,6 @@ export function useThemeSync() {
       }
     };
 
-    // Listen for OS theme changes (for "system" mode)
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
       const mode = getStoredColorMode();

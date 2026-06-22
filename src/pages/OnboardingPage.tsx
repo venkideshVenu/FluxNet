@@ -19,38 +19,38 @@ type Step = "welcome" | "interface" | "widget" | "startup" | "done";
 type Direction = "forward" | "back";
 
 const STEPS: Step[] = ["welcome", "interface", "widget", "startup", "done"];
-const ANIM_MS = 320;
+const ANIM_MS = 250;
 
 // ─── Global CSS ───────────────────────────────────────────────────────────────
 
 const GLOBAL_CSS = `
   @keyframes ob-slide-enter-right {
-    from { opacity: 0; transform: translateX(40px) scale(0.98); }
-    to   { opacity: 1; transform: translateX(0)   scale(1); }
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes ob-slide-exit-left {
-    from { opacity: 1; transform: translateX(0)    scale(1); }
-    to   { opacity: 0; transform: translateX(-40px) scale(0.98); }
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(-30px); }
   }
   @keyframes ob-slide-enter-left {
-    from { opacity: 0; transform: translateX(-40px) scale(0.98); }
-    to   { opacity: 1; transform: translateX(0)     scale(1); }
+    from { opacity: 0; transform: translateX(-30px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes ob-slide-exit-right {
-    from { opacity: 1; transform: translateX(0)   scale(1); }
-    to   { opacity: 0; transform: translateX(40px) scale(0.98); }
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(30px); }
   }
 
-  .ob-enter-forward { animation: ob-slide-enter-right ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; }
-  .ob-exit-forward  { animation: ob-slide-exit-left   ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; pointer-events:none; }
-  .ob-enter-back    { animation: ob-slide-enter-left  ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; }
-  .ob-exit-back     { animation: ob-slide-exit-right  ${ANIM_MS}ms cubic-bezier(0.22,1,0.36,1) both; pointer-events:none; }
+  .ob-enter-forward { animation: ob-slide-enter-right ${ANIM_MS}ms ease-out both; }
+  .ob-exit-forward  { animation: ob-slide-exit-left   ${ANIM_MS}ms ease-in both; pointer-events:none; position:absolute; }
+  .ob-enter-back    { animation: ob-slide-enter-left  ${ANIM_MS}ms ease-out both; }
+  .ob-exit-back     { animation: ob-slide-exit-right  ${ANIM_MS}ms ease-in both; pointer-events:none; position:absolute; }
 
   @keyframes ob-dot-in {
-    from { opacity: 0; transform: translateY(6px) scale(0.9); }
-    to   { opacity: 1; transform: translateY(0)   scale(1); }
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-  .ob-dot { animation: ob-dot-in 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+  .ob-dot { animation: ob-dot-in 0.35s ease-out both; }
 
   @keyframes ob-check-draw {
     from { stroke-dashoffset: 24; }
@@ -63,9 +63,9 @@ const GLOBAL_CSS = `
     70%  { transform: scale(1.12); opacity: 1; }
     100% { transform: scale(1);    opacity: 1; }
   }
-  .ob-pop { animation: ob-pop 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+  .ob-pop { animation: ob-pop 0.45s ease-out both; }
 
-  .ob-progress { transition: width 0.45s cubic-bezier(0.22,1,0.36,1); }
+  .ob-progress { transition: width 0.35s ease-out; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -80,11 +80,12 @@ const GLOBAL_CSS = `
 
 function ThemeToggle() {
   const [isDark, setIsDark] = useState(() => {
-    // Read from localStorage directly – this is the source of truth
+    const current = document.documentElement.getAttribute("data-theme");
+    if (current === "dark") return true;
+    if (current === "light") return false;
     const stored = localStorage.getItem("fluxnet_color_mode");
-    if (stored === "light") return false;
     if (stored === "dark") return true;
-    // If system or unset, check system preference
+    if (stored === "light") return false;
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
 
@@ -92,9 +93,7 @@ function ThemeToggle() {
     const nextIsDark = !isDark;
     setIsDark(nextIsDark);
     const mode = nextIsDark ? "dark" : "light";
-    // Update DOM
     document.documentElement.setAttribute("data-theme", mode);
-    // Persist and notify other windows (and same window)
     const oldValue = localStorage.getItem("fluxnet_color_mode");
     localStorage.setItem("fluxnet_color_mode", mode);
     window.dispatchEvent(
@@ -107,6 +106,19 @@ function ThemeToggle() {
       }),
     );
   };
+
+  // Sync with external theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const current = document.documentElement.getAttribute("data-theme");
+      setIsDark(current === "dark");
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <button
@@ -141,7 +153,6 @@ function ThemeToggle() {
       }}
     >
       {isDark ? (
-        // Sun icon – means "switch to light"
         <svg
           width="14"
           height="14"
@@ -163,7 +174,6 @@ function ThemeToggle() {
           <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
         </svg>
       ) : (
-        // Moon icon – means "switch to dark"
         <svg
           width="14"
           height="14"
@@ -182,8 +192,6 @@ function ThemeToggle() {
 }
 
 // ─── Step Transition Hook ─────────────────────────────────────────────────────
-// Keeps both old and new step in the DOM during the transition so exit and
-// enter animations play simultaneously.
 
 type StepSlot = {
   key: Step;
@@ -196,22 +204,26 @@ function useStepTransition(step: Step, direction: Direction) {
     { key: step, direction, phase: "enter" },
   ]);
   const prevStep = useRef(step);
-
+const timerRef = useRef <NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (step === prevStep.current) return;
     const prev = prevStep.current;
     prevStep.current = step;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     setSlots([
       { key: prev, direction, phase: "exit" },
       { key: step, direction, phase: "enter" },
     ]);
 
-    const t = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       setSlots([{ key: step, direction, phase: "enter" }]);
-    }, ANIM_MS + 40);
+    }, ANIM_MS + 20);
 
-    return () => clearTimeout(t);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, direction]);
 
@@ -235,8 +247,7 @@ function StepDots({ current }: { current: number }) {
           key={i}
           style={{
             borderRadius: 999,
-            transition:
-              "width 0.3s cubic-bezier(0.22,1,0.36,1), background 0.3s, opacity 0.3s",
+            transition: "width 0.3s ease-out, background 0.3s, opacity 0.3s",
             width: i === current ? 20 : 6,
             height: 6,
             background: i <= current ? "var(--accent)" : "var(--border-strong)",
@@ -249,8 +260,6 @@ function StepDots({ current }: { current: number }) {
 }
 
 // ─── Persistent Footer ────────────────────────────────────────────────────────
-// Lives OUTSIDE the animated content slot — Back/Next/Dots never move or
-// animate when stepping between pages.
 
 function PersistentFooter({
   onBack,
@@ -402,34 +411,50 @@ export function OnboardingPage() {
   const [loadingIfaces, setLoadingIfaces] = useState(true);
   const [selectedIface, setSelectedIface] = useState("");
   const [selectedWidgets, setSelectedWidgets] = useState<Set<WidgetStyle>>(
-    new Set(["compact"]),
+    new Set(["pill"]),
   );
   const [startWithWindows, setStartWithWindows] = useState(true);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [finishing, setFinishing] = useState(false);
   const [ifaceError, setIfaceError] = useState<string | null>(null);
+  const interfacesFetched = useRef(false);
 
   const stepIndex = STEPS.indexOf(step);
   const progress = stepIndex / (STEPS.length - 1);
 
-  const loadInterfaces = useCallback(async () => {
+  const loadInterfaces = useCallback(async (retryCount = 3) => {
     setLoadingIfaces(true);
     setIfaceError(null);
-    try {
-      const result = await invokeWithTimeout<InterfaceInfo[]>(
-        "get_interfaces",
-        undefined,
-        10_000, // 10s timeout
-      );
-      setInterfaces(result);
-      const up = result.find((i) => i.status === "Up");
-      if (up) setSelectedIface(up.name);
-    } catch (err) {
-      console.error("Failed to load interfaces:", err);
-      setIfaceError("Could not detect interfaces. Please try again.");
-    } finally {
-      setLoadingIfaces(false);
+
+    for (let attempt = 0; attempt < retryCount; attempt++) {
+      try {
+        // Small delay on first attempt to let backend initialize
+        if (attempt === 0 && !interfacesFetched.current) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+
+        const result = await invokeWithTimeout<InterfaceInfo[]>(
+          "get_interfaces",
+          undefined,
+          10_000,
+        );
+        setInterfaces(result);
+        const up = result.find((i) => i.status === "Up");
+        if (up) setSelectedIface(up.name);
+        interfacesFetched.current = true;
+        setLoadingIfaces(false);
+        return; // Success
+      } catch (err) {
+        console.error(`Interface fetch attempt ${attempt + 1} failed:`, err);
+        if (attempt < retryCount - 1) {
+          await new Promise((r) => setTimeout(r, 1000)); // Wait before retry
+        }
+      }
     }
+
+    // All retries failed
+    setIfaceError("Could not detect interfaces. Please try again.");
+    setLoadingIfaces(false);
   }, []);
 
   useEffect(() => {
@@ -473,7 +498,6 @@ export function OnboardingPage() {
         enabled: minimizeToTray,
       });
 
-      // Apply widget visibility choices from the widget-selection step.
       await Promise.all(
         (["compact", "pill", "hud"] as WidgetStyle[]).map((label) =>
           invokeWithTimeout("set_widget_visibility", {
@@ -486,7 +510,6 @@ export function OnboardingPage() {
       await invokeWithTimeout("set_onboarding_completed");
       setStorageItem("fluxnet_configured", "true");
     } catch {
-      // At least mark onboarding done so the user isn't looped back here.
       await invokeWithTimeout("set_onboarding_completed").catch(() => {});
       setStorageItem("fluxnet_configured", "true");
     } finally {
@@ -502,7 +525,6 @@ export function OnboardingPage() {
       ["wifi", "ethernet"].includes(i.interface_type.toLowerCase()),
   );
 
-  // renderStep renders ONLY the content area — no footer, no dots, no nav buttons.
   const renderStep = useCallback(
     (s: Step): React.ReactNode => {
       switch (s) {
@@ -517,7 +539,7 @@ export function OnboardingPage() {
               onSelect={setSelectedIface}
               recommendedName={recommendedIface?.name}
               error={ifaceError}
-              onRetry={loadInterfaces}
+              onRetry={() => loadInterfaces(3)}
             />
           );
         case "widget":
@@ -560,7 +582,6 @@ export function OnboardingPage() {
 
   const slots = useStepTransition(step, direction);
 
-  // Footer configuration per step, computed from live state.
   const footerConfig = (() => {
     switch (step) {
       case "welcome":
@@ -622,7 +643,6 @@ export function OnboardingPage() {
       <style>{GLOBAL_CSS}</style>
       <ThemeToggle />
 
-      {/* Top progress bar — fixed, always at the very top */}
       <div
         style={{
           position: "fixed",
@@ -644,7 +664,6 @@ export function OnboardingPage() {
         />
       </div>
 
-      {/* Page shell */}
       <div
         style={{
           width: "100%",
@@ -662,10 +681,10 @@ export function OnboardingPage() {
             display: "flex",
             flexDirection: "column",
             padding: "0 0 24px",
-            transition: "width 0.35s cubic-bezier(0.22,1,0.36,1)",
+            transition: "width 0.3s ease-out",
           }}
         >
-          {/* ── Animated content slot ── */}
+          {/* Animated content slot */}
           <div
             style={{ position: "relative", height: 420, overflow: "hidden" }}
           >
@@ -686,7 +705,6 @@ export function OnboardingPage() {
                   inset: 0,
                   display: "flex",
                   flexDirection: "column",
-                  willChange: "transform, opacity",
                 }}
               >
                 {renderStep(slot.key)}
@@ -694,7 +712,6 @@ export function OnboardingPage() {
             ))}
           </div>
 
-          {/* ── Static footer ── */}
           <PersistentFooter {...footerConfig} stepIndex={stepIndex} />
         </div>
       </div>
@@ -703,11 +720,6 @@ export function OnboardingPage() {
 }
 
 // ─── Screen Content Components ────────────────────────────────────────────────
-// Each component fills the 420 px content slot.
-// None of them render Back/Next buttons or StepDots — those live in
-// PersistentFooter above and never animate.
-
-// WELCOME ─────────────────────────────────────────────────────────────────────
 
 function WelcomeContent() {
   return (
@@ -1061,8 +1073,8 @@ function InterfaceContent({
 // WIDGET ──────────────────────────────────────────────────────────────────────
 
 const WIDGET_OPTS: { id: WidgetStyle; label: string; desc: string }[] = [
-  { id: "compact", label: "Compact", desc: "Full stats & daily totals" },
   { id: "pill", label: "Pill", desc: "Minimal inline bar" },
+  { id: "compact", label: "Compact", desc: "Full stats & daily totals" },
   { id: "hud", label: "HUD", desc: "Gaming & full-screen" },
 ];
 
@@ -1486,7 +1498,7 @@ function DoneContent({
           strokeLinejoin="round"
         >
           <polyline className="ob-check" points="20 6 9 17 4 12" />
-        </svg>{" "}
+        </svg>
       </div>
 
       <h1

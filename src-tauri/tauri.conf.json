@@ -43,8 +43,8 @@
       {
         "label": "compact",
         "title": "FluxNet",
-        "width": 190,
-        "height": 175,
+        "width": 225,
+        "height": 185,
         "x": 1680,
         "y": 420,
         "resizable": false,
