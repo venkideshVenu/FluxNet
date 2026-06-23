@@ -26,7 +26,7 @@ export const CompactPresentation = memo(function CompactPresentation({
 }: CompactPresentationProps) {
   return (
     <div
-      className="w-45 max-w-full rounded-xl px-2 py-2 flex flex-col gap-0 cursor-default font-mono antialiased bg-[rgb(18,16,32)] border border-[#2a2650] in-[[data-theme='light']]:bg-[#f0eff8] in-[[data-theme='light']]:border-[rgba(60,50,140,0.18)]"
+      className="w-full max-w-[196px] rounded-xl px-2 py-2 flex flex-col gap-0 cursor-default font-mono antialiased bg-[rgb(18,16,32)] border border-[#2a2650] in-[[data-theme='light']]:bg-[#f0eff8] in-[[data-theme='light']]:border-[rgba(60,50,140,0.18)]"
       role="status"
     >
       {/* Header */}
@@ -79,7 +79,7 @@ export const CompactPresentation = memo(function CompactPresentation({
             Download
           </span>
           <span className="inline-flex items-baseline gap-1">
-            <span className="text-[15px] font-medium tracking-[-0.02em] tabular-nums leading-none min-w-9 text-right text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
+            <span className="text-[14px] font-medium tracking-[-0.02em] tabular-nums leading-none min-w-8 text-right text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
               {download.value}
             </span>
             <span className="text-[9px] font-normal leading-none self-end mb-px text-[#5b5890] in-[[data-theme='light']]:text-[#5a5478]">
@@ -93,7 +93,7 @@ export const CompactPresentation = memo(function CompactPresentation({
             Upload
           </span>
           <span className="inline-flex items-baseline gap-1">
-            <span className="text-[15px] font-medium tracking-[-0.02em] tabular-nums leading-none min-w-9 text-right text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
+            <span className="text-[14px] font-medium tracking-[-0.02em] tabular-nums leading-none min-w-8 text-right text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
               {upload.value}
             </span>
             <span className="text-[9px] font-normal leading-none self-end mb-px text-[#5b5890] in-[[data-theme='light']]:text-[#5a5478]">
@@ -114,7 +114,7 @@ export const CompactPresentation = memo(function CompactPresentation({
         <span className="inline-flex items-center gap-1.75">
           <span className="inline-flex items-baseline gap-1 tabular-nums">
             <span className="w-1.75 h-1.75 rounded-sm inline-block shrink-0 bg-net-download" />
-            <span className="text-[15px] font-semibold text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
+            <span className="text-[14px] font-semibold text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
               {todayDownload.value}
             </span>
             <span className="text-[9px] text-[#5b5890] in-[[data-theme='light']]:text-[#5a5478]">
@@ -123,7 +123,7 @@ export const CompactPresentation = memo(function CompactPresentation({
           </span>
           <span className="inline-flex items-baseline gap-1 tabular-nums">
             <span className="w-1.75 h-1.75 rounded-sm inline-block shrink-0 bg-net-upload" />
-            <span className="text-[15px] font-semibold text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
+            <span className="text-[14px] font-semibold text-[#eae9ff] in-[[data-theme='light']]:text-[#131020]">
               {todayUpload.value}
             </span>
             <span className="text-[9px] text-[#5b5890] in-[[data-theme='light']]:text-[#5a5478]">

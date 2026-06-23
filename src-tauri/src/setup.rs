@@ -123,32 +123,26 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
 /// Adjust widget window sizes based on the monitor's scale factor.
 /// This ensures consistent physical pixel sizes across different DPI displays.
 fn adjust_widget_sizes_for_dpi(app: &App) {
-    let widget_sizes: &[(&str, u32, u32)] =
-        &[("pill", 270, 40), ("compact", 190, 175), ("hud", 220, 185)];
+    // These are LOGICAL sizes - Tauri handles DPI scaling automatically
+    let widget_sizes: &[(&str, f64, f64)] = &[
+        ("pill", 270.0, 40.0),
+        ("compact", 200.0, 180.0),
+        ("hud", 200.0, 175.0),
+    ];
 
     for (label, logical_w, logical_h) in widget_sizes {
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
 
-        let scale = window.scale_factor().unwrap_or(1.0);
+        let size = tauri::Size::Logical(tauri::LogicalSize {
+            width: *logical_w,
+            height: *logical_h,
+        });
 
-        // Set size using physical pixels to ensure consistent appearance
-        let phys_w = (*logical_w as f64 * scale) as u32;
-        let phys_h = (*logical_h as f64 * scale) as u32;
-
-        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
-            width: phys_w,
-            height: phys_h,
-        }));
-        let _ = window.set_min_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
-            width: phys_w,
-            height: phys_h,
-        })));
-        let _ = window.set_max_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
-            width: phys_w,
-            height: phys_h,
-        })));
+        let _ = window.set_size(size.clone());
+        let _ = window.set_min_size(Some(size.clone()));
+        let _ = window.set_max_size(Some(size));
     }
 }
 
