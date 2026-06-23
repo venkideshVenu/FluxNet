@@ -23,37 +23,30 @@ type InterfaceInfo = {
   interface_type: string;
 };
 
+type MonitoringMode = "auto" | "manual";
+
 function getInterfaceIcon(
   interfaceType: string,
   isUp: boolean,
 ): React.ReactNode {
   if (!isUp) return <CircleOff size={18} />;
-
   switch (interfaceType) {
     case "wifi":
       return <Wifi size={18} />;
-
     case "ethernet":
       return <Cable size={18} />;
-
     case "usb":
       return <Cable size={18} />;
-
     case "bluetooth":
       return <Bluetooth size={18} />;
-
     case "cellular":
       return <Smartphone size={18} />;
-
     case "vpn":
       return <Shield size={18} />;
-
     case "virtual":
       return <Monitor size={18} />;
-
     case "tunnel":
       return <Route size={18} />;
-
     default:
       return <Network size={18} />;
   }
@@ -65,9 +58,9 @@ export function InterfacesPage() {
   const { data } = useNetworkStore();
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selecting, setSelecting] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [error, setError] = useState<string | null>(null);
   const [selectError, setSelectError] = useState<string | null>(null);
+  const [monitoringMode, setMonitoringMode] = useState<MonitoringMode>("auto");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadInterfaces = useCallback(async () => {
@@ -107,24 +100,26 @@ export function InterfacesPage() {
       await loadInterfaces();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("set_interface failed:", msg);
       setSelectError(`Failed to select "${name}": ${msg}`);
     } finally {
       setSelecting(null);
     }
   };
 
-  const totalCount = interfaces.length;
-  const upCount = interfaces.filter(
-    (iface) => iface.status.toLowerCase() === "up",
-  ).length;
-  const downCount = totalCount - upCount;
+  // Auto-detect best interface
+  const autoDetected =
+    interfaces.find(
+      (i) =>
+        i.status.toLowerCase() === "up" &&
+        ["ethernet", "wifi"].includes(i.interface_type.toLowerCase()),
+    ) || interfaces.find((i) => i.status.toLowerCase() === "up");
 
-  const visibleInterfaces = interfaces.filter((iface) => {
-    if (filter === "all") return true;
-    const isUp = iface.status.toLowerCase() === "up";
-    return filter === "up" ? isUp : !isUp;
-  });
+  const upInterfaces = interfaces.filter(
+    (i) => i.status.toLowerCase() === "up",
+  );
+  const downInterfaces = interfaces.filter(
+    (i) => i.status.toLowerCase() !== "up",
+  );
 
   return (
     <div className="p-7 px-8 w-full max-w-full">
@@ -136,10 +131,15 @@ export function InterfacesPage() {
           <div className="text-[12px] text-text-muted font-normal">
             Currently monitoring:{" "}
             <strong className="text-text">{data.interfaceName || "—"}</strong>
-            {" · "}
-            <span>Auto-refreshing every {POLL_INTERVAL_MS / 1000}s</span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={loadInterfaces}
+          className="text-[11px] bg-accent-soft text-accent-strong border border-accent-border rounded-lg px-3.5 py-1.5 cursor-pointer font-sans font-medium hover:bg-accent-soft-2 transition-colors"
+        >
+          ↻ Refresh
+        </button>
       </div>
 
       {selectError && (
@@ -151,7 +151,6 @@ export function InterfacesPage() {
           <button
             type="button"
             onClick={() => setSelectError(null)}
-            aria-label="Dismiss"
             className="bg-transparent border-none text-danger-text cursor-pointer text-base px-1 leading-none"
           >
             ×
@@ -159,196 +158,220 @@ export function InterfacesPage() {
         </div>
       )}
 
-      {/* Hero */}
-      <div className="grid grid-cols-[1.2fr_1fr] gap-4 mb-4.5 max-[900px]:grid-cols-1">
-        <div className="rounded-xl border border-border bg-panel px-4.5 py-4 shadow-sm">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
-            Active Interface
-          </div>
-          <div className="text-lg font-bold text-text mt-2 tracking-[-0.01em]">
-            {data.interfaceName || "No active interface"}
-          </div>
-          <div className="mt-1.5 text-[12px] text-text-muted">
-            {upCount} up · {downCount} down · {totalCount} total
-          </div>
+      {/* Monitoring Mode Selector */}
+      <div className="bg-panel border border-border rounded-xl p-5 mb-5">
+        <div className="text-[11px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
+          Monitoring Mode
         </div>
-        <div className="rounded-xl border border-border bg-panel px-4.5 py-4 shadow-sm flex flex-col justify-center">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-bold">
-            Filter
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {(["all", "up", "down"] as const).map((f) => {
-              const count =
-                f === "all" ? totalCount : f === "up" ? upCount : downCount;
-              return (
-                <button
-                  key={f}
-                  className={`border px-2.5 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${
-                    filter === f
-                      ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
-                      : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"
-                  }`}
-                  onClick={() => setFilter(f)}
-                  type="button"
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)} ({count})
-                </button>
-              );
-            })}
-          </div>
+
+        <div className="flex flex-col gap-2.5">
+          {/* Auto option */}
           <button
             type="button"
-            onClick={loadInterfaces}
-            className="mt-2.5 text-[11px] bg-accent-soft text-accent-strong border border-accent-border rounded-[7px] px-3.5 py-1.5 cursor-pointer font-sans font-medium hover:bg-accent-soft-2 transition-colors"
+            onClick={() => {
+              setMonitoringMode("auto");
+              if (autoDetected) select(autoDetected.name);
+            }}
+            className={`flex items-center gap-3.5 p-3.5 rounded-lg border text-left w-full cursor-pointer transition-all ${
+              monitoringMode === "auto"
+                ? "border-accent-border bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] shadow-[0_0_0_1px_var(--accent-border)]"
+                : "border-border hover:border-border-strong"
+            }`}
           >
-            ↻ Refresh now
+            <div
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${monitoringMode === "auto" ? "border-accent" : "border-border-strong"}`}
+            >
+              {monitoringMode === "auto" && (
+                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[13px] font-semibold ${monitoringMode === "auto" ? "text-accent" : "text-text"}`}
+                >
+                  Automatic
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-success-bg text-success border border-[color-mix(in_srgb,var(--success)_25%,transparent)]">
+                  Recommended
+                </span>
+              </div>
+              <div className="text-[11px] text-text-muted mt-1">
+                {autoDetected ? (
+                  <>
+                    Currently:{" "}
+                    <strong className="text-text">{autoDetected.name}</strong> ·{" "}
+                    {autoDetected.interface_type} · Connected
+                  </>
+                ) : (
+                  "Automatically selects the best active interface"
+                )}
+              </div>
+            </div>
+          </button>
+
+          {/* Manual option */}
+          <button
+            type="button"
+            onClick={() => setMonitoringMode("manual")}
+            className={`flex items-center gap-3.5 p-3.5 rounded-lg border text-left w-full cursor-pointer transition-all ${
+              monitoringMode === "manual"
+                ? "border-accent-border bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] shadow-[0_0_0_1px_var(--accent-border)]"
+                : "border-border hover:border-border-strong"
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${monitoringMode === "manual" ? "border-accent" : "border-border-strong"}`}
+            >
+              {monitoringMode === "manual" && (
+                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
+              )}
+            </div>
+            <div className="flex-1">
+              <span
+                className={`text-[13px] font-semibold ${monitoringMode === "manual" ? "text-accent" : "text-text"}`}
+              >
+                Manual
+              </span>
+              <div className="text-[11px] text-text-muted mt-1">
+                Choose a specific network adapter
+              </div>
+            </div>
           </button>
         </div>
       </div>
 
-      {/* Interface List */}
-      <div className="bg-panel border border-border rounded-lg p-5">
-        {error ? (
-          <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
-            <div className="text-[32px] mb-3 opacity-40">⚠️</div>
-            <div className="text-[13px]">
-              Failed to load interfaces: {error}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                loadInterfaces();
-              }}
-              className="mt-3 bg-accent-soft text-accent-strong border border-accent-border rounded-[7px] px-3.5 py-1.5 text-[12px] cursor-pointer font-sans hover:bg-accent-soft-2"
-            >
-              Retry
-            </button>
+      {/* Interface List (only shown in manual mode) */}
+      {monitoringMode === "manual" && (
+        <div className="bg-panel border border-border rounded-xl p-5">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
+            Select Interface · {upInterfaces.length} active,{" "}
+            {downInterfaces.length} inactive
           </div>
-        ) : visibleInterfaces.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
-            <div className="text-[32px] mb-3 opacity-40">⚡</div>
-            <div className="text-[13px]">
-              {interfaces.length === 0
-                ? "Loading interfaces…"
-                : "No interfaces match this filter."}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {visibleInterfaces.map((iface) => {
-              const isActive = iface.name === data.interfaceName;
-              const isPending = selecting === iface.name;
-              const isUp = iface.status.toLowerCase() === "up";
-              const isSelectable = isUp && !isActive && !isPending;
-              const statusLabel = iface.status || "Unknown";
-              const badgeLabel = isPending
-                ? "Switching…"
-                : isActive
-                  ? "Active"
-                  : statusLabel;
-              const linkSpeedLabel = formatLinkSpeed(iface.link_speed_bps);
-              const macLabel = iface.mac || "—";
-              const icon = getInterfaceIcon(iface.interface_type, isUp);
 
-              return (
-                <button
-                  key={iface.name}
-                  type="button"
-                  className={`grid items-center gap-3.5 grid-cols-[40px_minmax(180px,1fr)_auto_auto] p-3.5 px-4 rounded-lg border bg-surface cursor-pointer transition-all font-sans text-left text-inherit w-full ${
-                    isActive
-                      ? "border-success shadow-[0_0_0_1px_rgba(15,140,66,0.2),0_4px_12px_rgba(15,140,66,0.08)]"
-                      : "border-border"
-                  } ${
-                    !isSelectable && !isActive
-                      ? "cursor-default"
-                      : !isSelectable
-                        ? "cursor-default"
-                        : "hover:border-accent-border hover:shadow-md hover:-translate-y-px"
-                  }`}
-                  onClick={() =>
-                    isSelectable ? select(iface.name) : undefined
-                  }
-                  disabled={!isSelectable}
-                  aria-label={`${iface.name} — ${statusLabel}${isActive ? " (active)" : ""}`}
-                >
-                  <div
-                    className={`w-9.5 h-9.5 rounded-[10px] flex items-center justify-center shrink-0 text-base ${
-                      isUp && (isActive || isPending)
-                        ? "bg-success-bg text-success"
-                        : isUp
-                          ? "bg-accent-soft text-accent-strong"
-                          : "bg-surface text-text-muted"
-                    }`}
-                  >
-                    {icon}
-                  </div>
-                  <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-                    <div
-                      className={`text-[15px] font-semibold transition-colors overflow-hidden text-ellipsis whitespace-nowrap ${
-                        !isUp && !isActive ? "text-text-muted" : "text-text"
-                      }`}
-                    >
-                      {iface.name}
-                    </div>
-                    <div
-                      className={`text-[12px] mt-0.5 line-clamp-2 overflow-hidden ${
-                        !isUp && !isActive
-                          ? "text-text-muted"
-                          : "text-text-subtle"
-                      }`}
-                    >
-                      {iface.description || "—"}
-                    </div>
-                    <div className="text-[11px] text-text-muted tracking-[0.02em] overflow-hidden text-ellipsis whitespace-nowrap">
-                      IF {iface.if_index} · {macLabel} · {iface.interface_type}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 ml-auto mr-3 shrink-0">
-                    <div className="flex flex-col gap-0.5 min-w-22">
-                      <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
-                        Link
-                      </div>
-                      <div
-                        className={`text-[12px] font-semibold ${
-                          !isUp && !isActive ? "text-text-muted" : "text-text"
-                        }`}
-                      >
-                        {linkSpeedLabel}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-0.5 min-w-22">
-                      <div className="text-[10px] uppercase tracking-[0.08em] text-text-muted font-semibold">
-                        Status
-                      </div>
-                      <div
-                        className={`text-[12px] font-semibold ${
-                          isUp ? "text-success" : "text-text-muted"
-                        }`}
-                      >
-                        {statusLabel}
-                      </div>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-[11px] font-semibold rounded-[20px] px-2.5 py-1 justify-self-end whitespace-nowrap border ${
+          {error ? (
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
+              <div className="text-[32px] mb-3 opacity-40">⚠️</div>
+              <div className="text-[13px]">
+                Failed to load interfaces: {error}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  loadInterfaces();
+                }}
+                className="mt-3 bg-accent-soft text-accent-strong border border-accent-border rounded-lg px-3.5 py-1.5 text-[12px] cursor-pointer"
+              >
+                Retry
+              </button>
+            </div>
+          ) : interfaces.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
+              <div className="text-[32px] mb-3 opacity-40">⚡</div>
+              <div className="text-[13px]">Loading interfaces…</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {[...upInterfaces, ...downInterfaces].map((iface) => {
+                const isActive = iface.name === data.interfaceName;
+                const isPending = selecting === iface.name;
+                const isUp = iface.status.toLowerCase() === "up";
+                const isSelectable = isUp && !isActive && !isPending;
+                const icon = getInterfaceIcon(iface.interface_type, isUp);
+
+                return (
+                  <button
+                    key={iface.name}
+                    type="button"
+                    className={`flex items-center gap-3.5 p-3.5 rounded-lg border transition-all text-left w-full ${
                       isActive
-                        ? "bg-success-bg text-success border-success"
-                        : isPending
-                          ? "bg-accent-soft text-accent-strong border-accent-border"
-                          : isUp
-                            ? "bg-accent-soft text-accent-strong border-accent-border"
-                            : "bg-surface text-text-muted border-border-strong"
-                    }`}
+                        ? "border-success shadow-[0_0_0_1px_rgba(15,140,66,0.2)]"
+                        : "border-border"
+                    } ${isSelectable ? "cursor-pointer hover:border-accent-border hover:-translate-y-px" : "cursor-default"}`}
+                    onClick={() =>
+                      isSelectable ? select(iface.name) : undefined
+                    }
+                    disabled={!isSelectable}
                   >
-                    {badgeLabel}
-                  </span>
-                </button>
-              );
-            })}
+                    <div
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                        isActive
+                          ? "bg-success-bg text-success"
+                          : isUp
+                            ? "bg-accent-soft text-accent-strong"
+                            : "bg-surface text-text-muted"
+                      }`}
+                    >
+                      {icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`text-[14px] font-semibold truncate ${!isUp ? "text-text-muted" : "text-text"}`}
+                      >
+                        {iface.name}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate">
+                        {iface.description || iface.interface_type}
+                        {!isUp && " · Not connected"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] text-text-muted">
+                        {formatLinkSpeed(iface.link_speed_bps)}
+                      </span>
+                      <span
+                        className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border ${
+                          isActive
+                            ? "bg-success-bg text-success border-success"
+                            : isPending
+                              ? "bg-accent-soft text-accent-strong border-accent-border"
+                              : isUp
+                                ? "bg-surface text-text-muted border-border"
+                                : "bg-surface text-text-muted border-border opacity-60"
+                        }`}
+                      >
+                        {isPending
+                          ? "Switching…"
+                          : isActive
+                            ? "Active"
+                            : iface.status}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Auto mode status */}
+      {monitoringMode === "auto" && autoDetected && (
+        <div className="bg-panel border border-border rounded-xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-success-bg text-success flex items-center justify-center">
+              {getInterfaceIcon(autoDetected.interface_type, true)}
+            </div>
+            <div>
+              <div className="text-[14px] font-semibold text-text">
+                {autoDetected.name}
+              </div>
+              <div className="text-[11px] text-text-muted">
+                {autoDetected.description} ·{" "}
+                {formatLinkSpeed(autoDetected.link_speed_bps)}
+              </div>
+            </div>
+            <span className="ml-auto text-[10px] font-semibold rounded-full px-2.5 py-1 bg-success-bg text-success border border-success">
+              Active
+            </span>
           </div>
-        )}
-      </div>
+          <div className="mt-3 pt-3 border-t border-border text-[11px] text-text-muted">
+            Automatically selected based on active network traffic. FluxNet will
+            switch if your connection changes.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
