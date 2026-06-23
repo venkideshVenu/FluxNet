@@ -7,8 +7,6 @@ import type { CompactPresentationProps } from "./CompactPresentation";
 import type { HudPresentationProps } from "./HudPresentation";
 import { WIDGET_REGISTRY, WidgetLabel, WidgetRegistryEntry } from "@/config";
 
-// ── View config types ────────────────────────────────────────────────────────
-
 export interface PillViewConfig {
   entry: WidgetRegistryEntry;
   previewComponent: typeof PillPresentation;
@@ -41,12 +39,6 @@ export type WidgetViewConfig =
   | CompactViewConfig
   | HudViewConfig;
 
-// ── Mock data + presentation wiring for each widget style ───────────────────
-//
-// This is the single source of truth for "what does widget X look like with
-// representative sample data". Used by the WidgetSettingsPage preview strips
-// and the Onboarding widget-style picker so both stay visually identical.
-
 export const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
   pill: {
     entry: WIDGET_REGISTRY.pill,
@@ -57,6 +49,7 @@ export const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
       uploadValue: "3.2",
       uploadUnit: "MB/s",
       isConnected: true,
+      hasInterface: true,
     }),
   },
   compact: {
@@ -86,18 +79,6 @@ export const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
   },
 };
 
-/**
- * CSS custom-property overrides for the pill / HUD previews.
- *
- * The pill and HUD widgets pick up their colors from variables that are
- * normally re-declared on `:root[data-theme="..."]`. That selector only
- * matches the <html> element, so it never applies to a `data-theme`
- * attribute set on a preview container further down the tree — which is
- * why switching the per-widget theme mode previously had no visible effect
- * on the pill/HUD previews. Re-declaring the same variables inline on the
- * preview frame keeps the preview in sync with the selected theme mode
- * regardless of the app's global theme.
- */
 export const PREVIEW_THEME_VARS: Record<"light" | "dark", React.CSSProperties> =
   {
     light: {
@@ -144,18 +125,12 @@ export const PREVIEW_THEME_VARS: Record<"light" | "dark", React.CSSProperties> =
     } as React.CSSProperties,
   };
 
-// ── Shared preview renderer ──────────────────────────────────────────────────
-
 export interface WidgetPreviewProps {
   view: WidgetViewConfig;
   colorMode: ColorMode;
-  /** 40–100. Defaults to fully opaque. */
   opacity?: number;
-  /** Refresh interval in ms — only affects the compact widget's interval label. */
   intervalMs?: number;
-  /** Classes for the outer frame that carries the theme vars + data-theme. */
   frameClassName?: string;
-  /** Classes for the sizing wrapper used only for the HUD preview (it needs an explicit aspect ratio). */
   hudFrameClassName?: string;
 }
 

@@ -6,6 +6,7 @@ export interface PillPresentationProps {
   uploadValue: string;
   uploadUnit: string;
   isConnected: boolean;
+  hasInterface?: boolean;
 }
 
 export const PillPresentation = memo(function PillPresentation({
@@ -14,6 +15,7 @@ export const PillPresentation = memo(function PillPresentation({
   uploadValue,
   uploadUnit,
   isConnected,
+  hasInterface = true,
 }: PillPresentationProps) {
   const unitClass = (unit: string) => {
     const u = unit.toLowerCase();
@@ -25,6 +27,13 @@ export const PillPresentation = memo(function PillPresentation({
       return "text-[#4bd4ff] bg-[rgba(12,62,82,0.42)] in-[[data-theme='light']]:text-[#085070] in-[[data-theme='light']]:bg-[rgba(12,96,144,0.12)]";
     return "text-[#c9ccd6] bg-[rgba(86,92,104,0.22)] in-[[data-theme='light']]:text-[#3d3760] in-[[data-theme='light']]:bg-[rgba(60,50,100,0.08)]";
   };
+
+  // Red when no interface, green when connected, grey when disconnected
+  const dotColor = !hasInterface
+    ? "bg-[#ef4444] shadow-[0_0_6px_rgba(239,68,68,0.6)]"
+    : isConnected
+      ? "bg-[#0f8c42] shadow-[0_0_6px_rgba(15,140,66,0.6)] in-data-[theme='dark']_&]:bg-[#22d97d] in-data-[theme='dark']_&]:shadow-[0_0_6px_rgba(34,217,125,0.7)]"
+      : "bg-[#8a8590]";
 
   return (
     <div
@@ -53,11 +62,7 @@ export const PillPresentation = memo(function PillPresentation({
         </span>
       </div>
       <div
-        className={`w-1.75 h-1.75 ml-0.5 rounded-full ${
-          isConnected
-            ? "bg-[#0f8c42] shadow-[0_0_6px_rgba(15,140,66,0.6)] in-data-[theme='dark']_&]:bg-[#22d97d] in-data-[theme='dark']_&]:shadow-[0_0_6px_rgba(34,217,125,0.7)]"
-            : "bg-[#8a8590]"
-        }`}
+        className={`w-1.75 h-1.75 ml-0.5 rounded-full ${dotColor}`}
         aria-hidden="true"
       />
     </div>

@@ -27,6 +27,7 @@ export function PillWidget() {
         uploadValue={up.value}
         uploadUnit={up.unit}
         isConnected={isConnected}
+        hasInterface={!!data.interfaceName}
       />
     </div>
   );
