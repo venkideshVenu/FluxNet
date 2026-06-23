@@ -1,6 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, DisplayUnits, useNetworkStore } from "@/store";
+import type {
+  TimeFormat,
+  DateFormat,
+  StartOfWeek,
+} from "@/store/settingsStore";
 import {
   THEMES,
   applyAccent,
@@ -9,6 +14,8 @@ import {
   getStoredColorMode,
   ColorMode,
   setStorageItem,
+  getFilteredThemes,
+  resolveColorMode,
 } from "@/utils";
 import { FluxSelect } from "@/components";
 
@@ -16,9 +23,15 @@ export function SettingsPage() {
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const pingTarget = useSettingsStore((s) => s.pingTarget);
+  const timeFormat = useSettingsStore((s) => s.timeFormat);
+  const dateFormat = useSettingsStore((s) => s.dateFormat);
+  const startOfWeek = useSettingsStore((s) => s.startOfWeek);
   const setPollInterval = useSettingsStore((s) => s.setPollInterval);
   const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
   const setPingTarget = useSettingsStore((s) => s.setPingTarget);
+  const setTimeFormat = useSettingsStore((s) => s.setTimeFormat);
+  const setDateFormat = useSettingsStore((s) => s.setDateFormat);
+  const setStartOfWeek = useSettingsStore((s) => s.setStartOfWeek);
   const resetPeaks = useNetworkStore((s) => s.resetPeaks);
 
   const [startWithOS, setStartWithOS] = useState(false);
@@ -48,7 +61,7 @@ export function SettingsPage() {
       .catch((err) => {
         setStartWithOS(false);
         setAutostartAvailable(false);
-        setAutostartError("Autostart plugin not available. Feature disabled.");
+        setAutostartError("Autostart plugin not available.");
         console.warn("autostart not available:", err);
       });
   }, [setPollInterval, setPingTarget]);
@@ -63,13 +76,10 @@ export function SettingsPage() {
     applyColorMode(colorMode);
   }, [colorMode]);
 
-  // Listen to system theme changes when in "system" mode
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
-      if (colorMode === "system") {
-        applyColorMode("system");
-      }
+      if (colorMode === "system") applyColorMode("system");
     };
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
@@ -82,8 +92,7 @@ export function SettingsPage() {
   }, []);
 
   const handleInterval = async (raw: string) => {
-    const secs = parseFloat(raw);
-    const ms = secs * 1000;
+    const ms = parseFloat(raw) * 1000;
     setPollInterval(ms);
     await invoke("set_refresh_interval", { intervalMs: ms }).catch(
       console.warn,
@@ -100,11 +109,8 @@ export function SettingsPage() {
       if (value) await invoke("plugin:autostart|enable");
       else await invoke("plugin:autostart|disable");
     } catch (err) {
-      setAutostartError(
-        "Failed to change autostart setting. Please try again.",
-      );
+      setAutostartError("Failed to change autostart setting.");
       setStartWithOS(!value);
-      console.warn("autostart error:", err);
     }
   };
 
@@ -141,13 +147,16 @@ export function SettingsPage() {
     resetPeaks();
     invoke("reset_peaks").catch(console.warn);
   };
-
   const handleMinimizeToTray = async (value: boolean) => {
     setMinimizeToTray(value);
     await invoke("set_minimize_to_tray", { enabled: value }).catch(
       console.warn,
     );
   };
+
+  // Get filtered themes based on current effective theme
+  const effectiveTheme = resolveColorMode(colorMode);
+  const filteredThemes = getFilteredThemes(effectiveTheme);
 
   return (
     <div className="p-7 px-8 w-full max-w-full">
@@ -174,8 +183,7 @@ export function SettingsPage() {
                 Dashboard refresh interval
               </div>
               <div className="text-[11px] text-text-muted mt-0.5">
-                How often the dashboard UI updates (backend always samples at
-                500ms)
+                How often the dashboard UI updates
               </div>
             </div>
             <FluxSelect
@@ -189,7 +197,6 @@ export function SettingsPage() {
               ]}
             />
           </div>
-
           <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">
@@ -197,8 +204,8 @@ export function SettingsPage() {
               </div>
               <div className="text-[11px] text-text-muted mt-0.5">
                 {displayUnits === "bytes"
-                  ? "Bytes per second — adaptive (B/s, KB/s, MB/s, GB/s)"
-                  : "Bits per second — adaptive (bps, Kbps, Mbps, Gbps)"}
+                  ? "Bytes per second (B/s, KB/s, MB/s, GB/s)"
+                  : "Bits per second (bps, Kbps, Mbps, Gbps)"}
               </div>
             </div>
             <FluxSelect
@@ -206,19 +213,12 @@ export function SettingsPage() {
               onChange={handleUnits}
               width="w-[220px]"
               options={[
-                {
-                  value: "bytes",
-                  label: "Bytes/s (KB/s, MB/s, GB/s)",
-                },
-                {
-                  value: "bits",
-                  label: "Bits/s (Kbps, Mbps, Gbps)",
-                },
+                { value: "bytes", label: "Bytes/s (KB/s, MB/s, GB/s)" },
+                { value: "bits", label: "Bits/s (Kbps, Mbps, Gbps)" },
               ]}
             />
           </div>
-
-          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
+          <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Ping target
@@ -233,7 +233,71 @@ export function SettingsPage() {
               value={localPingTarget}
               onChange={(e) => handlePingTarget(e.target.value)}
               placeholder="e.g. 1.1.1.1"
-              pattern="[a-zA-Z0-9.\-:]+"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Time & Date */}
+      <div className="mb-6">
+        <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
+          Time & Date
+        </div>
+        <div className="bg-panel border border-border rounded-lg">
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
+            <div>
+              <div className="text-[13px] text-text font-[450]">
+                Time format
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                Used across all views and charts
+              </div>
+            </div>
+            <FluxSelect
+              value={timeFormat}
+              onChange={(v) => setTimeFormat(v as TimeFormat)}
+              options={[
+                { value: "12h", label: "12-hour (1:30 PM)" },
+                { value: "24h", label: "24-hour (13:30)" },
+              ]}
+            />
+          </div>
+          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
+            <div>
+              <div className="text-[13px] text-text font-[450]">
+                Date format
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                Used for history and tooltips
+              </div>
+            </div>
+            <FluxSelect
+              value={dateFormat}
+              onChange={(v) => setDateFormat(v as DateFormat)}
+              options={[
+                { value: "MM/DD/YYYY", label: "MM/DD/YYYY" },
+                { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
+                { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
+              ]}
+            />
+          </div>
+          <div className="flex items-center justify-between px-4.5 py-3.25">
+            <div>
+              <div className="text-[13px] text-text font-[450]">
+                Start of week
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                Affects weekly history view
+              </div>
+            </div>
+            <FluxSelect
+              value={startOfWeek}
+              onChange={(v) => setStartOfWeek(v as StartOfWeek)}
+              options={[
+                { value: "sunday", label: "Sunday" },
+                { value: "monday", label: "Monday" },
+                { value: "saturday", label: "Saturday" },
+              ]}
             />
           </div>
         </div>
@@ -250,10 +314,10 @@ export function SettingsPage() {
               <div className="text-[13px] text-text font-[450]">Theme mode</div>
               <div className="text-[11px] text-text-muted mt-0.5">
                 {colorMode === "system"
-                  ? "Follows Windows personalization setting"
+                  ? "Follows Windows personalization"
                   : colorMode === "dark"
-                    ? "Always use dark theme"
-                    : "Always use light theme"}
+                    ? "Always dark"
+                    : "Always light"}
               </div>
             </div>
             <FluxSelect
@@ -266,7 +330,6 @@ export function SettingsPage() {
               ]}
             />
           </div>
-
           <div className="flex flex-col items-start gap-3 px-4.5 py-3.25">
             <div className="text-[13px] text-text font-[450]">
               Accent colour
@@ -276,30 +339,38 @@ export function SettingsPage() {
               role="radiogroup"
               aria-label="Accent colour"
             >
-              {THEMES.map((t, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={`w-6.5 h-6.5 rounded-full cursor-pointer p-0 transition-transform hover:scale-[1.15] ${selectedTheme === i ? "border-2 border-accent" : isLightColor(t.color) ? "border-2 border-transparent" : "border-2 border-[rgba(255,255,255,0.3)]"}`}
-                  style={{ background: t.color }}
-                  title={t.label}
-                  aria-label={`${t.label} theme`}
-                  aria-pressed={selectedTheme === i}
-                  onClick={() => handleTheme(i)}
-                />
-              ))}
+              {filteredThemes.map((t) => {
+                const globalIndex = THEMES.indexOf(t);
+                const isWhite = t.color === "#FFFFFF";
+                return (
+                  <button
+                    key={globalIndex}
+                    type="button"
+                    className={`w-6.5 h-6.5 rounded-full cursor-pointer p-0 transition-transform hover:scale-[1.15] ${selectedTheme === globalIndex ? "ring-2 ring-accent ring-offset-2 ring-offset-panel" : ""}`}
+                    style={{
+                      background: t.color,
+                      border: isWhite
+                        ? "1.5px solid var(--border-strong)"
+                        : "none",
+                    }}
+                    title={t.label}
+                    aria-label={`${t.label} theme`}
+                    aria-pressed={selectedTheme === globalIndex}
+                    onClick={() => handleTheme(globalIndex)}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      {/*App behavior */}
+      {/* App behavior */}
       <div className="mb-6">
         <div className="text-[11px] font-semibold text-accent uppercase tracking-[0.08em] mb-3">
           App behavior
         </div>
         <div className="bg-panel border border-border rounded-lg">
-          {/* Run in background toggle */}
           <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
             <div>
               <div className="text-[13px] text-text font-[450]">
@@ -310,21 +381,16 @@ export function SettingsPage() {
               </div>
             </div>
             <div
-              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors ${
-                minimizeToTray ? "bg-accent" : "bg-accent-muted"
-              }`}
+              className={`w-9.5 h-5.25 rounded-[11px] flex items-center p-0.5 cursor-pointer transition-colors ${minimizeToTray ? "bg-accent" : "bg-accent-muted"}`}
               onClick={() => handleMinimizeToTray(!minimizeToTray)}
               role="switch"
               aria-checked={minimizeToTray}
             >
               <div
-                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform ${
-                  minimizeToTray ? "translate-x-4.25" : "translate-x-0"
-                }`}
+                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform ${minimizeToTray ? "translate-x-4.25" : "translate-x-0"}`}
               />
             </div>
           </div>
-
           <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
               <div className="text-[13px] text-text font-[450]">
@@ -344,17 +410,6 @@ export function SettingsPage() {
               onClick={() => handleStartWithOS(!startWithOS)}
               role="switch"
               aria-checked={startWithOS}
-              aria-disabled={!autostartAvailable}
-              tabIndex={autostartAvailable ? 0 : -1}
-              onKeyDown={(e) => {
-                if (
-                  autostartAvailable &&
-                  (e.key === " " || e.key === "Enter")
-                ) {
-                  e.preventDefault();
-                  handleStartWithOS(!startWithOS);
-                }
-              }}
             >
               <div
                 className={`w-4.25 h-4.25 rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
@@ -391,12 +446,4 @@ export function SettingsPage() {
       </div>
     </div>
   );
-}
-
-function isLightColor(hex: string): boolean {
-  const c = hex.replace("#", "");
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  return r * 0.299 + g * 0.587 + b * 0.114 > 80;
 }

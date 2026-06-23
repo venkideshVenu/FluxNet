@@ -1,20 +1,24 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-/**
- * Display unit system:
- * - "bytes": Adaptive B/s → KB/s → MB/s → GB/s (base 1024)
- * - "bits":  Adaptive bps → Kbps → Mbps → Gbps (base 1000, ×8)
- */
 export type DisplayUnits = "bytes" | "bits";
+export type TimeFormat = "12h" | "24h";
+export type DateFormat = "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY-MM-DD";
+export type StartOfWeek = "sunday" | "monday" | "saturday";
 
 type SettingsStore = {
   pollIntervalMs: number;
   displayUnits: DisplayUnits;
   pingTarget: string;
+  timeFormat: TimeFormat;
+  dateFormat: DateFormat;
+  startOfWeek: StartOfWeek;
   setPollInterval: (ms: number) => void;
   setDisplayUnits: (u: DisplayUnits) => void;
   setPingTarget: (t: string) => void;
+  setTimeFormat: (f: TimeFormat) => void;
+  setDateFormat: (f: DateFormat) => void;
+  setStartOfWeek: (d: StartOfWeek) => void;
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -23,9 +27,15 @@ export const useSettingsStore = create<SettingsStore>()(
       pollIntervalMs: 1000,
       displayUnits: "bytes",
       pingTarget: "8.8.8.8",
+      timeFormat: "12h",
+      dateFormat: "MM/DD/YYYY",
+      startOfWeek: "sunday",
       setPollInterval: (ms) => set({ pollIntervalMs: ms }),
       setDisplayUnits: (u) => set({ displayUnits: u }),
       setPingTarget: (t) => set({ pingTarget: t }),
+      setTimeFormat: (f) => set({ timeFormat: f }),
+      setDateFormat: (f) => set({ dateFormat: f }),
+      setStartOfWeek: (d) => set({ startOfWeek: d }),
     }),
     {
       name: "fluxnet-settings",

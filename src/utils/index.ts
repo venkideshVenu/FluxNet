@@ -20,6 +20,7 @@ export {
   getStoredCompactMode,
   getStoredHudMode,
   resolveColorMode,
+  getFilteredThemes,
   LS_THEME,
   LS_MODE,
   LS_PILL_MODE,

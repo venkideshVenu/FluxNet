@@ -4,16 +4,32 @@ export type ColorMode = "light" | "dark" | "system";
 
 type Rgb = { r: number; g: number; b: number };
 
-type ThemeSwatch = { color: string; label: string };
+type ThemeSwatch = {
+  color: string;
+  label: string;
+  modes: ("light" | "dark")[];
+};
 
 export const THEMES: ThemeSwatch[] = [
-  { color: "#7C6FF7", label: "Violet" },
-  { color: "#22C97A", label: "Mint" },
-  { color: "#4FBBF7", label: "Sky" },
-  { color: "#F59E0B", label: "Amber" },
-  { color: "#EF4444", label: "Coral" },
-  { color: "#1A1830", label: "Midnight" },
+  { color: "#7C6FF7", label: "Violet", modes: ["light", "dark"] },
+  { color: "#22C97A", label: "Mint", modes: ["light", "dark"] },
+  { color: "#4FBBF7", label: "Sky", modes: ["light", "dark"] },
+  { color: "#F59E0B", label: "Amber", modes: ["light", "dark"] },
+  { color: "#EF4444", label: "Coral", modes: ["light", "dark"] },
+  { color: "#FFFFFF", label: "White", modes: ["dark"] },
+  { color: "#1A1830", label: "Midnight", modes: ["light"] },
 ];
+
+/**
+ * Returns accent colors appropriate for the given effective theme.
+ * Dark mode: no dark colors (excludes Midnight, includes White)
+ * Light mode: no light colors (excludes White, includes Midnight)
+ */
+export function getFilteredThemes(
+  effectiveTheme: "light" | "dark",
+): ThemeSwatch[] {
+  return THEMES.filter((t) => t.modes.includes(effectiveTheme));
+}
 
 export const LS_THEME = "fluxnet_accent_index" as const;
 export const LS_MODE = "fluxnet_color_mode" as const;
@@ -67,9 +83,6 @@ export function applyAccent(color: string) {
   );
 }
 
-/**
- * Returns the effective theme ("light" or "dark") based on system preference.
- */
 export function getSystemTheme(): "light" | "dark" {
   if (
     typeof window !== "undefined" &&
@@ -80,10 +93,6 @@ export function getSystemTheme(): "light" | "dark" {
   return "light";
 }
 
-/**
- * Resolves a ColorMode to the effective "light" or "dark" value.
- * If mode is "system", uses the OS preference.
- */
 export function resolveColorMode(mode: ColorMode): "light" | "dark" {
   if (mode === "system") return getSystemTheme();
   return mode;
