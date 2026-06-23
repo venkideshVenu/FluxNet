@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { invoke } from "@/api";
 import { WIDGET_REGISTRY, WidgetLabel } from "@/config";
-import { applyColorMode, getStorageItem } from "@/utils";
+import { applyColorMode } from "@/utils";
 
 /**
  * Applies initial widget settings and listens for live changes.
@@ -14,26 +14,42 @@ export function useWidgetSettings(label: WidgetLabel) {
     // Apply initial color mode
     applyColorMode(config.getStoredMode());
 
-    // Always-on-top: use stored value, fallback to defaultAlwaysOnTop
-    const storedAOT = getStorageItem(
-      config.alwaysOnTopKey as keyof import("@/utils").StorageSchema,
-      config.defaultAlwaysOnTop ? "true" : "false",
-    );
-    const aot = storedAOT === "true";
-    invoke("set_widget_always_on_top", {
-      label,
-      value: aot,
-    }).catch(console.error);
+    // Always-on-top: ensure localStorage has a value, then apply
+    const storedAOT = localStorage.getItem(config.alwaysOnTopKey);
+    let aot: boolean;
+    if (storedAOT === null) {
+      // First launch: write default to localStorage
+      aot = config.defaultAlwaysOnTop;
+      localStorage.setItem(config.alwaysOnTopKey, String(aot));
+    } else {
+      aot = storedAOT === "true";
+    }
 
-    // Opacity: use stored value, fallback to defaultOpacity
-    const storedOpacity = getStorageItem(
-      config.opacityKey as keyof import("@/utils").StorageSchema,
-      config.defaultOpacity,
-    );
-    const opacity = Number(storedOpacity) / 100;
-    invoke("set_widget_opacity", { label, value: opacity }).catch(
-      console.error,
-    );
+    // Small delay to ensure window is fully ready before setting always-on-top
+    const aotTimer = setTimeout(() => {
+      invoke("set_widget_always_on_top", {
+        label,
+        value: aot,
+      }).catch(console.error);
+    }, 300);
+
+    // Opacity: ensure localStorage has a value, then apply
+    const storedOpacity = localStorage.getItem(config.opacityKey);
+    let opacityValue: number;
+    if (storedOpacity === null) {
+      opacityValue = config.defaultOpacity;
+      localStorage.setItem(config.opacityKey, String(opacityValue));
+    } else {
+      opacityValue = Number(storedOpacity);
+      if (!Number.isFinite(opacityValue)) opacityValue = config.defaultOpacity;
+    }
+
+    const opacityTimer = setTimeout(() => {
+      invoke("set_widget_opacity", {
+        label,
+        value: opacityValue / 100,
+      }).catch(console.error);
+    }, 350);
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key === config.alwaysOnTopKey && event.newValue !== null) {
@@ -56,7 +72,6 @@ export function useWidgetSettings(label: WidgetLabel) {
       }
     };
 
-    // Listen for OS theme changes when widget is in "system" mode
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
       const currentMode = config.getStoredMode();
@@ -69,6 +84,8 @@ export function useWidgetSettings(label: WidgetLabel) {
     mediaQuery.addEventListener("change", handleSystemChange);
 
     return () => {
+      clearTimeout(aotTimer);
+      clearTimeout(opacityTimer);
       window.removeEventListener("storage", handleStorage);
       mediaQuery.removeEventListener("change", handleSystemChange);
     };

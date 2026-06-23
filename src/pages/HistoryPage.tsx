@@ -24,7 +24,7 @@ import type {
   UsageStats,
 } from "@/types";
 
-type Tab = "hourly" | "daily" | "monthly";
+type Tab = "today" | "week" | "monthly";
 
 function fmt(result: { value: string; unit: string }): string {
   return `${result.value} ${result.unit}`;
@@ -39,7 +39,7 @@ const TOOLTIP_STYLE: React.CSSProperties = {
 };
 
 export function HistoryPage() {
-  const [tab, setTab] = useState<Tab>("daily");
+  const [tab, setTab] = useState<Tab>("today");
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [hourly, setHourly] = useState<HourlyUsage[]>([]);
   const [daily, setDaily] = useState<DailyUsage[]>([]);
@@ -47,6 +47,8 @@ export function HistoryPage() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
+  const timeFormat = useSettingsStore((s) => s.timeFormat);
+  const startOfWeek = useSettingsStore((s) => s.startOfWeek);
 
   useEffect(() => {
     async function load(isBackground = false) {
@@ -79,80 +81,124 @@ export function HistoryPage() {
     return () => clearInterval(id);
   }, []);
 
-  const hourlyChart = useMemo(() => {
-    const sorted = [...hourly].sort((a, b) => a.hourStart - b.hourStart);
-    return sorted.map((point) => ({
-      label: new Date(point.hourStart * 1000).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-      fullLabel: new Date(point.hourStart * 1000).toLocaleString([], {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-      downloadRaw: point.totalDownloadBytes,
-      uploadRaw: point.totalUploadBytes,
-    }));
-  }, [hourly]);
+  // ─── Today: filter hourly data to only today's hours ──────────────────────
+  const todayChart = useMemo(() => {
+    const now = new Date();
+    const todayStart =
+      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() /
+      1000;
+    const todayHours = hourly.filter((h) => h.hourStart >= todayStart);
+    const sorted = [...todayHours].sort((a, b) => a.hourStart - b.hourStart);
 
-  const hourlyMaxBytes = useMemo(
+    return sorted.map((point) => {
+      const date = new Date(point.hourStart * 1000);
+      const hour = date.getHours();
+      const nextHour = (hour + 1) % 24;
+
+      let label: string;
+      if (timeFormat === "24h") {
+        label = `${hour.toString().padStart(2, "0")}:00–${nextHour.toString().padStart(2, "0")}:00`;
+      } else {
+        const fmt12 = (h: number) => {
+          const period = h >= 12 ? "PM" : "AM";
+          const h12 = h % 12 || 12;
+          return `${h12}${period}`;
+        };
+        label = `${fmt12(hour)}–${fmt12(nextHour)}`;
+      }
+
+      return {
+        label,
+        fullLabel: label,
+        downloadRaw: point.totalDownloadBytes,
+        uploadRaw: point.totalUploadBytes,
+      };
+    });
+  }, [hourly, timeFormat]);
+
+  const todayMaxBytes = useMemo(
     () =>
-      hourlyChart.reduce(
+      todayChart.reduce(
         (max, p) => Math.max(max, p.downloadRaw, p.uploadRaw),
         0,
       ),
-    [hourlyChart],
+    [todayChart],
   );
-  const hourlyUnit = useMemo(
-    () => getAdaptiveBytesUnit(hourlyMaxBytes),
-    [hourlyMaxBytes],
+  const todayUnit = useMemo(
+    () => getAdaptiveBytesUnit(todayMaxBytes),
+    [todayMaxBytes],
   );
-  const hourlyChartData = useMemo(
+  const todayChartData = useMemo(
     () =>
-      hourlyChart.map((p) => ({
+      todayChart.map((p) => ({
         ...p,
-        download: +(p.downloadRaw / hourlyUnit.divisor).toFixed(2),
-        upload: +(p.uploadRaw / hourlyUnit.divisor).toFixed(2),
+        download: +(p.downloadRaw / todayUnit.divisor).toFixed(2),
+        upload: +(p.uploadRaw / todayUnit.divisor).toFixed(2),
       })),
-    [hourlyChart, hourlyUnit.divisor],
+    [todayChart, todayUnit.divisor],
   );
 
-  const dailyChart = useMemo(() => {
-    const sorted = [...daily].sort((a, b) => a.day.localeCompare(b.day));
-    return sorted.map((point) => ({
-      label: formatDayLabel(point.day),
-      fullLabel: point.day,
-      downloadRaw: point.totalDownloadBytes,
-      uploadRaw: point.totalUploadBytes,
-    }));
-  }, [daily]);
+  // ─── This Week: filter daily data to current week ─────────────────────────
+  const weekChart = useMemo(() => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0=Sun, 1=Mon, ...
+    const weekStartDay =
+      startOfWeek === "monday" ? 1 : startOfWeek === "saturday" ? 6 : 0;
 
-  const dailyMaxBytes = useMemo(
+    // Calculate days since start of week
+    let daysSinceStart = currentDay - weekStartDay;
+    if (daysSinceStart < 0) daysSinceStart += 7;
+
+    const weekStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - daysSinceStart,
+    );
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`;
+
+    const weekDays = daily.filter((d) => d.day >= weekStartStr);
+    const sorted = [...weekDays].sort((a, b) => a.day.localeCompare(b.day));
+
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    return sorted.map((point) => {
+      const [y, m, d] = point.day.split("-").map(Number);
+      const date = new Date(y, m - 1, d);
+      const dayName = dayNames[date.getDay()];
+      const label = `${dayName} ${d}`;
+
+      return {
+        label,
+        fullLabel: point.day,
+        downloadRaw: point.totalDownloadBytes,
+        uploadRaw: point.totalUploadBytes,
+      };
+    });
+  }, [daily, startOfWeek]);
+
+  const weekMaxBytes = useMemo(
     () =>
-      dailyChart.reduce(
+      weekChart.reduce(
         (max, p) => Math.max(max, p.downloadRaw, p.uploadRaw),
         0,
       ),
-    [dailyChart],
+    [weekChart],
   );
-  const dailyUnit = useMemo(
-    () => getAdaptiveBytesUnit(dailyMaxBytes),
-    [dailyMaxBytes],
+  const weekUnit = useMemo(
+    () => getAdaptiveBytesUnit(weekMaxBytes),
+    [weekMaxBytes],
   );
-  const dailyChartData = useMemo(
+  const weekChartData = useMemo(
     () =>
-      dailyChart.map((p) => ({
+      weekChart.map((p) => ({
         ...p,
-        download: +(p.downloadRaw / dailyUnit.divisor).toFixed(2),
-        upload: +(p.uploadRaw / dailyUnit.divisor).toFixed(2),
+        download: +(p.downloadRaw / weekUnit.divisor).toFixed(2),
+        upload: +(p.uploadRaw / weekUnit.divisor).toFixed(2),
       })),
-    [dailyChart, dailyUnit.divisor],
+    [weekChart, weekUnit.divisor],
   );
 
+  // ─── Monthly ──────────────────────────────────────────────────────────────
   const sortedMonthly = useMemo(
     () => [...monthly].sort((a, b) => a.month.localeCompare(b.month)),
     [monthly],
@@ -215,8 +261,8 @@ export function HistoryPage() {
 
   const currentMonthly = sortedMonthly.at(-1) ?? null;
   const tabs: { id: Tab; label: string }[] = [
-    { id: "hourly", label: "Last 48 hours" },
-    { id: "daily", label: "Last 30 days" },
+    { id: "today", label: "Today" },
+    { id: "week", label: "This Week" },
     { id: "monthly", label: "Monthly" },
   ];
 
@@ -290,19 +336,19 @@ export function HistoryPage() {
             ))}
           </div>
 
-          {tab === "hourly" && (
+          {tab === "today" && (
             <div className="mb-6">
               <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-                Data transferred per hour ({hourlyUnit.unitLabel})
+                Data transferred per hour today ({todayUnit.unitLabel})
               </div>
               <div className="bg-panel border border-border rounded-lg p-5">
-                {hourlyChartData.length === 0 ? (
-                  <EmptyMessage text="No hourly data yet. Data appears after the first completed hour of monitoring." />
+                {todayChartData.length === 0 ? (
+                  <EmptyMessage text="No data yet for today. Data appears after the first completed hour of monitoring." />
                 ) : (
                   <>
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart
-                        data={hourlyChartData}
+                        data={todayChartData}
                         barGap={1}
                         barCategoryGap="20%"
                       >
@@ -313,13 +359,13 @@ export function HistoryPage() {
                         />
                         <XAxis
                           dataKey="label"
-                          tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                          tick={{ fill: "var(--text-muted)", fontSize: 9 }}
                           tickLine={false}
                           axisLine={false}
-                          interval="equidistantPreserveStart"
+                          interval={0}
                           angle={-45}
                           textAnchor="end"
-                          height={50}
+                          height={55}
                         />
                         <YAxis
                           tick={{ fill: "var(--text-muted)", fontSize: 11 }}
@@ -332,10 +378,7 @@ export function HistoryPage() {
                           contentStyle={TOOLTIP_STYLE}
                           labelStyle={{ color: "var(--text-muted)" }}
                           itemStyle={{ color: "var(--text)" }}
-                          labelFormatter={(_, payload) =>
-                            payload?.[0]?.payload?.fullLabel ?? ""
-                          }
-                          formatter={makeFormatter(hourlyUnit.unitLabel)}
+                          formatter={makeFormatter(todayUnit.unitLabel)}
                         />
                         <Bar
                           dataKey="download"
@@ -353,26 +396,26 @@ export function HistoryPage() {
                         />
                       </BarChart>
                     </ResponsiveContainer>
-                    <ChartLegend unitLabel={hourlyUnit.unitLabel} />
+                    <ChartLegend unitLabel={todayUnit.unitLabel} />
                   </>
                 )}
               </div>
             </div>
           )}
 
-          {tab === "daily" && (
+          {tab === "week" && (
             <div className="mb-6">
               <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-                Data transferred per day ({dailyUnit.unitLabel})
+                Data transferred per day this week ({weekUnit.unitLabel})
               </div>
               <div className="bg-panel border border-border rounded-lg p-5">
-                {dailyChartData.length === 0 ? (
-                  <EmptyMessage text="No daily data yet. Data appears after the first full day of monitoring." />
+                {weekChartData.length === 0 ? (
+                  <EmptyMessage text="No data yet for this week. Data appears after the first full day of monitoring." />
                 ) : (
                   <>
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart
-                        data={dailyChartData}
+                        data={weekChartData}
                         barGap={2}
                         barCategoryGap="15%"
                       >
@@ -383,13 +426,10 @@ export function HistoryPage() {
                         />
                         <XAxis
                           dataKey="label"
-                          tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                           tickLine={false}
                           axisLine={false}
-                          interval={Math.max(
-                            0,
-                            Math.floor(dailyChartData.length / 8) - 1,
-                          )}
+                          interval={0}
                         />
                         <YAxis
                           tick={{ fill: "var(--text-muted)", fontSize: 11 }}
@@ -405,7 +445,7 @@ export function HistoryPage() {
                           labelFormatter={(_, payload) =>
                             payload?.[0]?.payload?.fullLabel ?? ""
                           }
-                          formatter={makeFormatter(dailyUnit.unitLabel)}
+                          formatter={makeFormatter(weekUnit.unitLabel)}
                         />
                         <Bar
                           dataKey="download"
@@ -423,7 +463,7 @@ export function HistoryPage() {
                         />
                       </BarChart>
                     </ResponsiveContainer>
-                    <ChartLegend unitLabel={dailyUnit.unitLabel} />
+                    <ChartLegend unitLabel={weekUnit.unitLabel} />
                   </>
                 )}
               </div>
@@ -562,25 +602,6 @@ function ChartLegend({ unitLabel }: { unitLabel: string }) {
       <span className="ml-auto text-[10px] text-text-muted">{unitLabel}</span>
     </div>
   );
-}
-
-function formatDayLabel(day: string): string {
-  const [, month, dayNum] = day.split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${months[parseInt(month, 10) - 1]} ${parseInt(dayNum, 10)}`;
 }
 
 function formatMonthLabel(month: string): string {

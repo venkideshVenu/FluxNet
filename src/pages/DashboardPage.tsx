@@ -30,12 +30,11 @@ export function DashboardPage() {
     history,
     dismissError,
   } = useNetworkStore();
-
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
+  const timeFormat = useSettingsStore((s) => s.timeFormat);
   const navigate = useNavigate();
 
-  // Chart viewport state: offset from the end (0 = latest data visible)
   const [chartOffset, setChartOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; offset: number } | null>(null);
@@ -46,7 +45,6 @@ export function DashboardPage() {
   const pkDl = formatSpeed(peakDownload, displayUnits);
   const pkUl = formatSpeed(peakUpload, displayUnits);
 
-  // Compute visible window of history
   const totalPoints = history.length;
   const maxOffset = Math.max(0, totalPoints - DEFAULT_VISIBLE_POINTS);
   const clampedOffset = Math.min(chartOffset, maxOffset);
@@ -73,14 +71,36 @@ export function DashboardPage() {
     [maxRawValue, displayUnits],
   );
 
+  const formatTime = useCallback(
+    (timestamp: number) => {
+      const date = new Date(timestamp * 1000);
+      if (timeFormat === "24h") {
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+      }
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+    },
+    [timeFormat],
+  );
+
   const chartData = useMemo(
     () =>
-      visibleHistory.map((p, i) => ({
-        t: i,
+      visibleHistory.map((p) => ({
+        t: p.t,
+        timeLabel: formatTime(p.t),
         upload: +(p.upload / chartDivisor).toFixed(2),
         download: +(p.download / chartDivisor).toFixed(2),
       })),
-    [visibleHistory, chartDivisor],
+    [visibleHistory, chartDivisor, formatTime],
   );
 
   const maxChartValue = useMemo(
@@ -97,7 +117,6 @@ export function DashboardPage() {
     [maxChartValue],
   );
 
-  // Chart drag handlers
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (totalPoints <= DEFAULT_VISIBLE_POINTS) return;
@@ -112,13 +131,10 @@ export function DashboardPage() {
       if (!isDragging || !dragStartRef.current) return;
       const container = chartContainerRef.current;
       if (!container) return;
-
       const dx = e.clientX - dragStartRef.current.x;
       const containerWidth = container.clientWidth;
-      // Convert pixel drag to data points
       const pointsPerPixel = DEFAULT_VISIBLE_POINTS / containerWidth;
       const pointsDelta = Math.round(dx * pointsPerPixel);
-      // Dragging right = go back in time (increase offset)
       const newOffset = Math.max(
         0,
         Math.min(maxOffset, dragStartRef.current.offset + pointsDelta),
@@ -159,7 +175,6 @@ export function DashboardPage() {
     return "Live";
   }, [data.interfaceName, isConnected]);
 
-  // Time range label for visible window
   const timeRangeLabel = useMemo(() => {
     const visibleCount = visibleHistory.length;
     const intervalSec = pollIntervalMs / 1000;
@@ -215,16 +230,10 @@ export function DashboardPage() {
           </div>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 text-[11px] font-medium rounded-[20px] px-2.5 py-1 ${
-            !isConnected
-              ? "bg-danger-bg text-danger-text"
-              : "bg-[rgba(34,209,96,0.15)] text-[#2ee67a]"
-          }`}
+          className={`inline-flex items-center gap-1.5 text-[11px] font-medium rounded-[20px] px-2.5 py-1 ${!isConnected ? "bg-danger-bg text-danger-text" : "bg-[rgba(34,209,96,0.15)] text-[#2ee67a]"}`}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              !isConnected ? "bg-danger" : "bg-[#2ee67a] animate-pulse"
-            }`}
+            className={`w-1.5 h-1.5 rounded-full ${!isConnected ? "bg-danger" : "bg-[#2ee67a] animate-pulse"}`}
           />
           {connectionLabel}
         </span>
@@ -267,7 +276,7 @@ export function DashboardPage() {
       )}
 
       <div className="grid grid-cols-4 gap-3 mb-6">
-        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Download
           </div>
@@ -281,8 +290,7 @@ export function DashboardPage() {
             ↓ Live
           </span>
         </div>
-
-        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Upload
           </div>
@@ -296,8 +304,7 @@ export function DashboardPage() {
             ↑ Live
           </span>
         </div>
-
-        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Peak Download
           </div>
@@ -311,8 +318,7 @@ export function DashboardPage() {
             ↓ Session
           </span>
         </div>
-
-        <div className="bg-panel border border-border rounded-lg px-4.5 py-4 transition-shadow hover:shadow-[0_2px_12px_rgba(124,111,247,0.08)]">
+        <div className="bg-panel border border-border rounded-lg px-4.5 py-4">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-2">
             Peak Upload
           </div>
@@ -352,13 +358,7 @@ export function DashboardPage() {
         </div>
         <div
           ref={chartContainerRef}
-          className={`bg-panel border border-border rounded-lg p-5 ${
-            totalPoints > DEFAULT_VISIBLE_POINTS
-              ? isDragging
-                ? "cursor-grabbing"
-                : "cursor-grab"
-              : ""
-          }`}
+          className={`bg-panel border border-border rounded-lg p-5 ${totalPoints > DEFAULT_VISIBLE_POINTS ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -401,7 +401,13 @@ export function DashboardPage() {
                 stroke="var(--border)"
                 vertical={false}
               />
-              <XAxis dataKey="t" hide />
+              <XAxis
+                dataKey="timeLabel"
+                tick={{ fontSize: 9, fill: "var(--text-muted)" }}
+                tickLine={false}
+                axisLine={false}
+                interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
+              />
               <YAxis
                 tick={{ fontSize: 10, fill: "var(--text-muted)" }}
                 axisLine={false}
@@ -426,6 +432,7 @@ export function DashboardPage() {
                   `${val ?? 0} ${chartUnitLabel}`,
                   name === "upload" ? "Upload" : "Download",
                 ]}
+                labelFormatter={(label) => String(label)}
               />
               <Area
                 type="monotone"
@@ -469,7 +476,6 @@ export function DashboardPage() {
             )}
           </div>
 
-          {/* Scrollbar indicator */}
           {totalPoints > DEFAULT_VISIBLE_POINTS && (
             <div className="mt-3 h-1 bg-border rounded-full overflow-hidden">
               <div
