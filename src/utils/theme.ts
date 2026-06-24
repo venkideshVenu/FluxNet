@@ -22,8 +22,6 @@ export const THEMES: ThemeSwatch[] = [
 
 /**
  * Returns accent colors appropriate for the given effective theme.
- * Dark mode: no dark colors (excludes Midnight, includes White)
- * Light mode: no light colors (excludes White, includes Midnight)
  */
 export function getFilteredThemes(
   effectiveTheme: "light" | "dark",
@@ -62,9 +60,24 @@ function rgbToHex({ r, g, b }: Rgb): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+/** Detect if a color is perceptually "white" or very light */
+function isWhiteAccent(color: string): boolean {
+  const rgb = hexToRgb(color);
+  if (!rgb) return false;
+  // Luminance check - if all channels are > 240, treat as white
+  return rgb.r > 240 && rgb.g > 240 && rgb.b > 240;
+}
+
 export function applyAccent(color: string) {
-  const root = document.documentElement.style;
-  root.setProperty("--accent", color);
+  const root = document.documentElement;
+  root.style.setProperty("--accent", color);
+
+  // Set attribute for white accent detection (used by toggle knob, sidebar text)
+  if (isWhiteAccent(color)) {
+    root.setAttribute("data-accent-is-white", "true");
+  } else {
+    root.removeAttribute("data-accent-is-white");
+  }
 
   const rgb = hexToRgb(color);
   if (!rgb) return;
@@ -72,15 +85,34 @@ export function applyAccent(color: string) {
   const white = { r: 255, g: 255, b: 255 };
   const black = { r: 0, g: 0, b: 0 };
 
-  root.setProperty("--accent-strong", rgbToHex(mixRgb(rgb, black, 0.25)));
-  root.setProperty("--accent-soft", rgbToHex(mixRgb(rgb, white, 0.9)));
-  root.setProperty("--accent-soft-2", rgbToHex(mixRgb(rgb, white, 0.94)));
-  root.setProperty("--accent-border", rgbToHex(mixRgb(rgb, white, 0.7)));
-  root.setProperty("--accent-muted", rgbToHex(mixRgb(rgb, white, 0.8)));
-  root.setProperty(
-    "--accent-shadow",
-    `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`,
-  );
+  // For white accent, generate darker derivatives for readability
+  if (isWhiteAccent(color)) {
+    root.style.setProperty("--accent-strong", "#333333");
+    root.style.setProperty("--accent-soft", "rgba(255,255,255,0.1)");
+    root.style.setProperty("--accent-soft-2", "rgba(255,255,255,0.06)");
+    root.style.setProperty("--accent-border", "rgba(255,255,255,0.3)");
+    root.style.setProperty("--accent-muted", "rgba(255,255,255,0.2)");
+    root.style.setProperty("--accent-shadow", "rgba(255,255,255,0.1)");
+  } else {
+    root.style.setProperty(
+      "--accent-strong",
+      rgbToHex(mixRgb(rgb, black, 0.25)),
+    );
+    root.style.setProperty("--accent-soft", rgbToHex(mixRgb(rgb, white, 0.9)));
+    root.style.setProperty(
+      "--accent-soft-2",
+      rgbToHex(mixRgb(rgb, white, 0.94)),
+    );
+    root.style.setProperty(
+      "--accent-border",
+      rgbToHex(mixRgb(rgb, white, 0.7)),
+    );
+    root.style.setProperty("--accent-muted", rgbToHex(mixRgb(rgb, white, 0.8)));
+    root.style.setProperty(
+      "--accent-shadow",
+      `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`,
+    );
+  }
 }
 
 export function getSystemTheme(): "light" | "dark" {
