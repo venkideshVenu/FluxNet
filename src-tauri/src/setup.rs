@@ -3,6 +3,7 @@ use crate::commands::network::{
     APP_SHUTTING_DOWN, InterfacesCache, SharedInterfacesCache, SharedMonitorState,
 };
 use crate::commands::ping::SharedPingState;
+use crate::commands::visibility::hud_size_for_design;
 use crate::persistence::app_settings::SettingsStore;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::WidgetState;
@@ -140,16 +141,12 @@ fn adjust_widget_sizes_for_dpi(app: &App) {
         let _ = window.set_max_size(Some(size));
     }
 
-    // HUD: size depends on stored design preference
+    // HUD: size depends on stored design preference, using the shared constant
     if let Some(hud_window) = app.get_webview_window("hud") {
         let widget_store = app.state::<Arc<WidgetStore>>();
         let design = widget_store.read(|s| s.get_hud_design().to_string());
 
-        let (w, h): (f64, f64) = if design == "vertical" {
-            (130.0, 105.0)
-        } else {
-            (320.0, 36.0)
-        };
+        let (w, h) = hud_size_for_design(&design);
 
         let size = tauri::Size::Logical(tauri::LogicalSize {
             width: w,

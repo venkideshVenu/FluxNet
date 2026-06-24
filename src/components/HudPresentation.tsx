@@ -24,6 +24,7 @@ export const HudPresentation = memo(function HudPresentation(
 });
 
 /* ── Horizontal ────────────────────────────────────────────────────────── */
+// Window size: 380 × 36 (was 320 × 36) — gives loss room to breathe
 
 function HudHorizontal({
   downloadValue,
@@ -34,7 +35,7 @@ function HudHorizontal({
   lossPercent,
 }: HudPresentationProps) {
   const latencyText = latencyMs === null ? "—" : `${Math.round(latencyMs)}ms`;
-  const lossText = `${lossPercent.toFixed(0)}%`;
+  const lossText = `${lossPercent.toFixed(1)}%`;
 
   const pingColour =
     latencyMs === null
@@ -78,14 +79,15 @@ function HudHorizontal({
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{ backgroundColor: pingColour }}
           />
-          <span className="w-[42px] text-right">{latencyText}</span>
+          {/* widened from 42px → 50px so "999ms" never wraps */}
+          <span className="w-[50px] text-right">{latencyText}</span>
         </div>
 
         {/* Download */}
         <div className="flex items-center gap-0.5 text-(--hud-dn) font-mono text-[12px] font-medium tabular-nums shrink-0">
           <span>↓</span>
-          <span className="w-[32px] text-right">{downloadValue}</span>
-          <span className="text-[9px] text-(--hud-muted) w-[28px]">
+          <span className="w-[34px] text-right">{downloadValue}</span>
+          <span className="text-[9px] text-(--hud-muted) w-[30px]">
             {downloadUnit}
           </span>
         </div>
@@ -93,18 +95,23 @@ function HudHorizontal({
         {/* Upload */}
         <div className="flex items-center gap-0.5 text-(--hud-up) font-mono text-[12px] font-medium tabular-nums shrink-0">
           <span>↑</span>
-          <span className="w-[32px] text-right">{uploadValue}</span>
-          <span className="text-[9px] text-(--hud-muted) w-[28px]">
+          <span className="w-[34px] text-right">{uploadValue}</span>
+          <span className="text-[9px] text-(--hud-muted) w-[30px]">
             {uploadUnit}
           </span>
         </div>
 
-        {/* Loss */}
-        <div
-          className="font-mono text-[12px] font-semibold tabular-nums shrink-0 w-[24px] text-right"
-          style={{ color: lossColour }}
-        >
-          {lossText}
+        {/* Loss — added "LOSS" label so it's identifiable, widened slot */}
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-(--hud-muted)">
+            LOSS
+          </span>
+          <span
+            className="font-mono text-[12px] font-semibold tabular-nums w-[36px] text-right"
+            style={{ color: lossColour }}
+          >
+            {lossText}
+          </span>
         </div>
       </div>
     </div>
@@ -112,6 +119,7 @@ function HudHorizontal({
 }
 
 /* ── Vertical Card ─────────────────────────────────────────────────────── */
+// Window size: 150 × 130 (was 130 × 105) — more breathing room, larger text
 
 function HudVertical({
   downloadValue,
@@ -152,19 +160,19 @@ function HudVertical({
           flex flex-col
           justify-center
           select-none
-          py-1.5
-          px-2.5
-          gap-0.5
+          py-2
+          px-3
+          gap-1
         "
       >
-        {/* Ping row */}
+        {/* Ping row — bumped to 13px, dot slightly larger */}
         <div className="flex items-center gap-1.5">
           <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
+            className="w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: pingColour }}
           />
           <span
-            className="font-mono text-[11px] font-semibold tabular-nums"
+            className="font-mono text-[13px] font-semibold tabular-nums leading-none"
             style={{ color: pingColour }}
           >
             {latencyText}
@@ -172,34 +180,38 @@ function HudVertical({
         </div>
 
         {/* Separator */}
-        <div className="h-px bg-(--hud-rule) my-0.5" />
+        <div className="h-px bg-(--hud-rule)" />
 
-        {/* Speed rows */}
-        <div className="flex flex-col gap-0">
-          <div className="flex items-center gap-1 text-(--hud-dn) font-mono text-[10px] font-medium tabular-nums">
-            <span>↓</span>
-            <span className="w-[28px] text-right">{downloadValue}</span>
-            <span className="text-[8px] text-(--hud-muted)">
+        {/* Download row — bumped to 12px */}
+        <div className="flex items-center justify-between text-(--hud-dn) font-mono text-[12px] font-medium tabular-nums">
+          <span className="text-[10px] font-bold">↓</span>
+          <span>
+            {downloadValue}{" "}
+            <span className="text-[9px] text-(--hud-muted)">
               {downloadUnit}
             </span>
-          </div>
-          <div className="flex items-center gap-1 text-(--hud-up) font-mono text-[10px] font-medium tabular-nums">
-            <span>↑</span>
-            <span className="w-[28px] text-right">{uploadValue}</span>
-            <span className="text-[8px] text-(--hud-muted)">{uploadUnit}</span>
-          </div>
+          </span>
+        </div>
+
+        {/* Upload row */}
+        <div className="flex items-center justify-between text-(--hud-up) font-mono text-[12px] font-medium tabular-nums">
+          <span className="text-[10px] font-bold">↑</span>
+          <span>
+            {uploadValue}{" "}
+            <span className="text-[9px] text-(--hud-muted)">{uploadUnit}</span>
+          </span>
         </div>
 
         {/* Separator */}
-        <div className="h-px bg-(--hud-rule) my-0.5" />
+        <div className="h-px bg-(--hud-rule)" />
 
-        {/* Loss row */}
-        <div className="flex items-center gap-1">
-          <span className="font-mono text-[8px] font-bold uppercase tracking-wider text-(--hud-muted)">
+        {/* Loss row — bumped to 12px */}
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-(--hud-muted)">
             LOSS
           </span>
           <span
-            className="font-mono text-[10px] font-semibold tabular-nums"
+            className="font-mono text-[12px] font-semibold tabular-nums"
             style={{ color: lossColour }}
           >
             {lossPercent.toFixed(1)}%

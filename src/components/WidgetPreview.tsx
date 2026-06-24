@@ -148,10 +148,10 @@ export function WidgetPreview({
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
   const effectiveTheme = resolveColorMode(colorMode);
 
-  // Determine HUD frame size based on design
+  // Updated to match the new window sizes: horizontal 380×36, vertical 150×130
   const resolvedHudFrame =
     hudFrameClassName ??
-    (hudDesign === "vertical" ? "w-[130px] h-[105px]" : "w-[320px] h-[36px]");
+    (hudDesign === "vertical" ? "w-[150px] h-[130px]" : "w-[380px] h-[36px]");
 
   return (
     <div

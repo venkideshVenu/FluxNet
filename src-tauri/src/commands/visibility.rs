@@ -6,6 +6,24 @@ use tauri::{AppHandle, Manager};
 
 pub type WidgetStore = PersistentStore<WidgetState>;
 
+// ── Window size constants ─────────────────────────────────────────────────────
+
+/// Horizontal HUD: widened from 320→380 so the LOSS column is always visible.
+const HUD_HORIZONTAL_W: f64 = 380.0;
+const HUD_HORIZONTAL_H: f64 = 36.0;
+
+/// Vertical HUD: enlarged from 130×105→150×130 for readable font sizes.
+const HUD_VERTICAL_W: f64 = 150.0;
+const HUD_VERTICAL_H: f64 = 130.0;
+
+pub fn hud_size_for_design(design: &str) -> (f64, f64) {
+    if design == "vertical" {
+        (HUD_VERTICAL_W, HUD_VERTICAL_H)
+    } else {
+        (HUD_HORIZONTAL_W, HUD_HORIZONTAL_H)
+    }
+}
+
 // ── Internal helper ───────────────────────────────────────────────────────────
 
 pub fn apply_widget_visibility(
@@ -85,12 +103,7 @@ pub fn set_hud_design(design: String, app: AppHandle) -> Result<(), String> {
         .get_webview_window("hud")
         .ok_or_else(|| "hud window not found".to_string())?;
 
-    let (w, h): (f64, f64) = if design == "vertical" {
-        (130.0, 105.0)
-    } else {
-        (320.0, 36.0)
-    };
-
+    let (w, h) = hud_size_for_design(&design);
     let size = tauri::Size::Logical(tauri::LogicalSize::new(w, h));
 
     window

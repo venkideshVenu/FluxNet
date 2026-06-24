@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ColorMode, getStoredHudDesign, setStoredHudDesign } from "@/utils";
+import { ColorMode, getStoredHudDesign } from "@/utils";
 import { Toggle } from "@/components";
 import { WIDGET_LABELS, WidgetLabel } from "@/config";
 import { useWidgetPanelState } from "@/hooks";
