@@ -73,3 +73,51 @@ pub fn set_widget_opacity(label: String, value: f64, app: AppHandle) -> Result<(
         ))
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn set_hud_design(design: String, app: AppHandle) -> Result<(), String> {
+    match design.as_str() {
+        "horizontal" | "vertical" => {}
+        _ => return Err(format!("invalid hud design: {design}")),
+    }
+
+    let window = app
+        .get_webview_window("hud")
+        .ok_or_else(|| "hud window not found".to_string())?;
+
+    let (w, h): (f64, f64) = if design == "vertical" {
+        (130.0, 105.0)
+    } else {
+        (320.0, 36.0)
+    };
+
+    let size = tauri::Size::Logical(tauri::LogicalSize::new(w, h));
+
+    window
+        .set_min_size(Some(size.clone()))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_max_size(Some(size.clone()))
+        .map_err(|e| e.to_string())?;
+    window.set_size(size).map_err(|e| e.to_string())?;
+
+    let store = app
+        .try_state::<Arc<WidgetStore>>()
+        .ok_or_else(|| "Widget store not yet initialized".to_string())?;
+    store.update(&app, |state| state.set_hud_design(&design));
+
+    let _ = window.eval(&format!(
+        "window.__FLUXNET_HUD_DESIGN='{}';window.dispatchEvent(new Event('fluxnet_hud_design_changed'));",
+        design
+    ));
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_hud_design(app: AppHandle) -> Result<String, String> {
+    let store = app
+        .try_state::<Arc<WidgetStore>>()
+        .ok_or_else(|| "Widget store not yet initialized".to_string())?;
+    Ok(store.read(|state| state.get_hud_design().to_string()))
+}

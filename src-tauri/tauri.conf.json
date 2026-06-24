@@ -59,8 +59,8 @@
       {
         "label": "hud",
         "title": "FluxNet HUD",
-        "width": 180,
-        "height": 160,
+        "width": 320,
+        "height": 36,
         "resizable": false,
         "decorations": false,
         "transparent": true,

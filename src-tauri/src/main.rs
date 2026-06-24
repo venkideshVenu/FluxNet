@@ -24,7 +24,10 @@ use commands::storage::{
     get_daily_summary, get_history_range, get_hourly_summary, get_monthly_summary,
     get_usage_stats_cmd,
 };
-use commands::visibility::{set_widget_always_on_top, set_widget_opacity, set_widget_visibility};
+use commands::visibility::{
+    get_hud_design, set_hud_design, set_widget_always_on_top, set_widget_opacity,
+    set_widget_visibility,
+};
 use persistence::app_settings::SettingsStore;
 use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
@@ -124,7 +127,6 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // When a second instance is launched, focus the existing main window
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.unminimize();
@@ -151,6 +153,9 @@ fn main() {
             set_widget_opacity,
             set_widget_always_on_top,
             set_widget_visibility,
+            // HUD design
+            set_hud_design,
+            get_hud_design,
             // Ping
             get_ping_stats,
             // Storage / history

@@ -2,11 +2,11 @@ use crate::background::sampler::start_sampler;
 use crate::commands::network::{
     APP_SHUTTING_DOWN, InterfacesCache, SharedInterfacesCache, SharedMonitorState,
 };
-
 use crate::commands::ping::SharedPingState;
 use crate::persistence::app_settings::SettingsStore;
 use crate::persistence::persistent_store::PersistentStore;
-use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
+use crate::persistence::widget_state::WidgetState;
+use crate::persistence::widget_state::{StoredPosition, StoredVisibility};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
 use crate::window_positions::{PositionSender, spawn_position_writer};
@@ -123,12 +123,7 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
 /// Adjust widget window sizes based on the monitor's scale factor.
 /// This ensures consistent physical pixel sizes across different DPI displays.
 fn adjust_widget_sizes_for_dpi(app: &App) {
-    // These are LOGICAL sizes - Tauri handles DPI scaling automatically
-    let widget_sizes: &[(&str, f64, f64)] = &[
-        ("pill", 250.0, 32.0),
-        ("compact", 189.0, 172.0),
-        ("hud", 300.0, 44.0),
-    ];
+    let widget_sizes: &[(&str, f64, f64)] = &[("pill", 250.0, 32.0), ("compact", 189.0, 172.0)];
 
     for (label, logical_w, logical_h) in widget_sizes {
         let Some(window) = app.get_webview_window(label) else {
@@ -143,6 +138,26 @@ fn adjust_widget_sizes_for_dpi(app: &App) {
         let _ = window.set_size(size.clone());
         let _ = window.set_min_size(Some(size.clone()));
         let _ = window.set_max_size(Some(size));
+    }
+
+    // HUD: size depends on stored design preference
+    if let Some(hud_window) = app.get_webview_window("hud") {
+        let widget_store = app.state::<Arc<WidgetStore>>();
+        let design = widget_store.read(|s| s.get_hud_design().to_string());
+
+        let (w, h): (f64, f64) = if design == "vertical" {
+            (130.0, 105.0)
+        } else {
+            (320.0, 36.0)
+        };
+
+        let size = tauri::Size::Logical(tauri::LogicalSize {
+            width: w,
+            height: h,
+        });
+        let _ = hud_window.set_size(size.clone());
+        let _ = hud_window.set_min_size(Some(size.clone()));
+        let _ = hud_window.set_max_size(Some(size));
     }
 }
 

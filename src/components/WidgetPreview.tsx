@@ -4,7 +4,7 @@ import { CompactPresentation } from "./CompactPresentation";
 import { HudPresentation } from "./HudPresentation";
 import type { PillPresentationProps } from "./PillPresentation";
 import type { CompactPresentationProps } from "./CompactPresentation";
-import type { HudPresentationProps } from "./HudPresentation";
+import type { HudPresentationProps, HudDesign } from "./HudPresentation";
 import { WIDGET_REGISTRY, WidgetLabel, WidgetRegistryEntry } from "@/config";
 
 export interface PillViewConfig {
@@ -132,6 +132,7 @@ export interface WidgetPreviewProps {
   intervalMs?: number;
   frameClassName?: string;
   hudFrameClassName?: string;
+  hudDesign?: HudDesign;
 }
 
 export function WidgetPreview({
@@ -140,11 +141,17 @@ export function WidgetPreview({
   opacity = 100,
   intervalMs = 1000,
   frameClassName = "flex items-center justify-center py-5 px-4",
-  hudFrameClassName = "w-full max-w-[320px] h-[44px]",
+  hudFrameClassName,
+  hudDesign,
 }: WidgetPreviewProps) {
   const Preview = view.previewComponent;
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
   const effectiveTheme = resolveColorMode(colorMode);
+
+  // Determine HUD frame size based on design
+  const resolvedHudFrame =
+    hudFrameClassName ??
+    (hudDesign === "vertical" ? "w-[130px] h-[105px]" : "w-[320px] h-[36px]");
 
   return (
     <div
@@ -153,9 +160,9 @@ export function WidgetPreview({
       data-theme={effectiveTheme}
     >
       {view.entry.label === "hud" ? (
-        <div className={hudFrameClassName}>
+        <div className={resolvedHudFrame}>
           {/* @ts-expect-error — Preview and previewProps are correctly matched */}
-          <Preview {...previewProps} />
+          <Preview {...previewProps} design={hudDesign ?? "horizontal"} />
         </div>
       ) : (
         <div>
