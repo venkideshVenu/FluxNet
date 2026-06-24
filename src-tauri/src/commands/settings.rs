@@ -1,43 +1,15 @@
 use crate::persistence::app_settings::SettingsStore;
-use std::net::IpAddr;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
-fn is_valid_ping_target(s: &str) -> bool {
-    let s = s.trim();
-    if s.is_empty() {
-        return false;
-    }
-    if s.parse::<IpAddr>().is_ok() {
-        return true;
-    }
-    if s.len() > 253 {
-        return false;
-    }
-    s.chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_')
+#[tauri::command]
+pub fn get_ping_target(_app: AppHandle) -> Result<String, String> {
+    Ok("1.1.1.1".to_string())
 }
 
 #[tauri::command]
-pub fn get_ping_target(app: AppHandle) -> Result<String, String> {
-    let store = app
-        .try_state::<Arc<SettingsStore>>()
-        .ok_or_else(|| "Settings not yet initialized".to_string())?;
-    Ok(store.read(|s| s.ping_target.clone()))
-}
-
-#[tauri::command]
-pub fn set_ping_target(app: AppHandle, target: String) -> Result<(), String> {
-    let store = app
-        .try_state::<Arc<SettingsStore>>()
-        .ok_or_else(|| "Settings not yet initialized".to_string())?;
-    let trimmed = target.trim().to_string();
-    if !is_valid_ping_target(&trimmed) {
-        return Err(format!(
-            "'{trimmed}' is not a valid IP address or hostname."
-        ));
-    }
-    store.update(&app, |s| s.ping_target = trimmed);
+pub fn set_ping_target(_app: AppHandle, _target: String) -> Result<(), String> {
+    // No-op: ping target is hardcoded to 1.1.1.1
     Ok(())
 }
 

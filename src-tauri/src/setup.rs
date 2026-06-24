@@ -269,7 +269,6 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         rw_db,
         ping_state,
         task_token,
-        settings_store,
         app_handle.clone(),
     );
     app.manage(sampler_handle);
