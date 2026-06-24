@@ -1,10 +1,12 @@
 html[data-app="compact"] body {
   background: transparent;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 html[data-app="compact"] #root {
-  display: flex;
+  display: inline-flex;
   align-items: flex-start;
   justify-content: flex-start;
   padding: 0;

@@ -62,8 +62,6 @@ const GLOBAL_CSS = `
   }
 `;
 
-// ─── Theme Toggle ─────────────────────────────────────────────────────────────
-
 function ThemeToggle() {
   const [isDark, setIsDark] = useState(() => {
     const current = document.documentElement.getAttribute("data-theme");
@@ -162,8 +160,6 @@ function ThemeToggle() {
   );
 }
 
-// ─── Step Dots ────────────────────────────────────────────────────────────────
-
 function StepDots({ current }: { current: number }) {
   return (
     <div
@@ -190,8 +186,6 @@ function StepDots({ current }: { current: number }) {
     </div>
   );
 }
-
-// ─── Footer ───────────────────────────────────────────────────────────────────
 
 function PersistentFooter({
   onBack,
@@ -318,8 +312,6 @@ function PersistentFooter({
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome");
   const [direction, setDirection] = useState<Direction>("forward");
@@ -338,7 +330,6 @@ export function OnboardingPage() {
   const [finishing, setFinishing] = useState(false);
   const [ifaceError, setIfaceError] = useState<string | null>(null);
   const interfacesFetched = useRef(false);
-  // Track the visible step and the previous one for animation
   const [visibleStep, setVisibleStep] = useState<Step>(step);
   const [animState, setAnimState] = useState<"active" | "transitioning">(
     "active",
@@ -362,7 +353,6 @@ export function OnboardingPage() {
           10_000,
         );
         setInterfaces(result);
-        // Auto-detect best interface
         const recommended =
           result.find(
             (i) =>
@@ -372,6 +362,12 @@ export function OnboardingPage() {
         if (recommended) {
           setSelectedIface(recommended.name);
           setDetectedIface(recommended);
+        } else {
+          setDetectedIface(null);
+          // If there are interfaces but none are Up, pre-select first one for manual
+          if (result.length > 0) {
+            setSelectedIface(result[0].name);
+          }
         }
         interfacesFetched.current = true;
         setLoadingIfaces(false);
@@ -390,7 +386,6 @@ export function OnboardingPage() {
     loadInterfaces();
   }, [loadInterfaces]);
 
-  // Step transition with simple opacity
   useEffect(() => {
     if (step !== visibleStep) {
       setAnimState("transitioning");
@@ -529,11 +524,7 @@ export function OnboardingPage() {
         return {
           showBack: true,
           nextLabel: "Next",
-          nextDisabled:
-            loadingIfaces ||
-            (!useAutoInterface &&
-              !selectedIface &&
-              interfaces.some((i) => i.status === "Up")),
+          nextDisabled: loadingIfaces,
           loading: false,
           onBack: () => nav("back"),
           onNext: () => nav("forward"),
@@ -635,8 +626,6 @@ export function OnboardingPage() {
   );
 }
 
-// ─── Content Components ───────────────────────────────────────────────────────
-
 function WelcomeContent() {
   return (
     <div
@@ -709,8 +698,9 @@ function InterfaceContent({
   onRetry: () => void;
 }) {
   const up = interfaces.filter((i) => i.status === "Up");
-  const down = interfaces.filter((i) => i.status !== "Up").slice(0, 2);
+  const down = interfaces.filter((i) => i.status !== "Up").slice(0, 4);
   const list = [...up, ...down];
+  const hasActiveInterface = detectedIface !== null;
 
   return (
     <div
@@ -791,7 +781,7 @@ function InterfaceContent({
         </div>
       )}
 
-      {!loading && !error && detectedIface && (
+      {!loading && !error && hasActiveInterface && (
         <>
           {/* Auto mode card */}
           <button
@@ -854,7 +844,7 @@ function InterfaceContent({
                   marginTop: 2,
                 }}
               >
-                {detectedIface.name} · {detectedIface.interface_type} ·
+                {detectedIface!.name} · {detectedIface!.interface_type} ·
                 Connected
               </div>
             </div>
@@ -1024,7 +1014,112 @@ function InterfaceContent({
         </>
       )}
 
-      {!loading && !error && !detectedIface && list.length === 0 && (
+      {/* No active interfaces - show all available interfaces for manual selection */}
+      {!loading && !error && !hasActiveInterface && interfaces.length > 0 && (
+        <>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 12,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "var(--warning-bg)",
+              border:
+                "1px solid color-mix(in srgb, var(--warning) 25%, transparent)",
+            }}
+          >
+            <span style={{ fontSize: 11, color: "var(--text)" }}>
+              No active connections detected. You can select an interface
+              manually or configure it later.
+            </span>
+          </div>
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            {interfaces.map((iface) => {
+              const isSel = iface.name === selected;
+              return (
+                <button
+                  key={iface.if_index}
+                  type="button"
+                  onClick={() => onSelect(iface.name)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    textAlign: "left",
+                    border: `1px solid ${isSel ? "var(--accent-border)" : "var(--border)"}`,
+                    background: isSel
+                      ? "color-mix(in srgb, var(--accent) 12%, transparent)"
+                      : "transparent",
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      border: `2px solid ${isSel ? "var(--accent)" : "var(--border-strong)"}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {isSel && (
+                      <div
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: "var(--accent)",
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: isSel ? "var(--accent)" : "var(--text)",
+                      }}
+                    >
+                      {iface.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-subtle)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {iface.description || iface.interface_type} ·{" "}
+                      {iface.status}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {!loading && !error && interfaces.length === 0 && (
         <div
           style={{
             display: "flex",
@@ -1038,7 +1133,7 @@ function InterfaceContent({
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-            No active interfaces found
+            No interfaces found
           </div>
           <div
             style={{ fontSize: 11, color: "var(--text-muted)", maxWidth: 240 }}
@@ -1136,6 +1231,7 @@ function WidgetContent({
                 textAlign: "left",
               }}
             >
+              {/* Always render preview in dark mode regardless of page theme */}
               <div
                 data-theme="dark"
                 style={{
@@ -1145,6 +1241,7 @@ function WidgetContent({
                   alignItems: "center",
                   justifyContent: "center",
                   overflow: "hidden",
+                  isolation: "isolate",
                 }}
               >
                 <div
@@ -1185,7 +1282,7 @@ function WidgetContent({
                   <div
                     style={{
                       fontSize: 10,
-                      color: "var(--text-subtle)",
+                      color: "var(--text-muted)",
                       marginTop: 1,
                     }}
                   >

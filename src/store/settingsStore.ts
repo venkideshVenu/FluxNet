@@ -26,7 +26,7 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       pollIntervalMs: 1000,
       displayUnits: "bytes",
-      pingTarget: "8.8.8.8",
+      pingTarget: "1.1.1.1",
       timeFormat: "12h",
       dateFormat: "MM/DD/YYYY",
       startOfWeek: "sunday",

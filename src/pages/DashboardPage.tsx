@@ -175,14 +175,13 @@ export function DashboardPage() {
     return "Live";
   }, [data.interfaceName, isConnected]);
 
-  const timeRangeLabel = useMemo(() => {
-    const visibleCount = visibleHistory.length;
-    const intervalSec = pollIntervalMs / 1000;
-    const totalSec = visibleCount * intervalSec;
-    if (totalSec < 60) return `${totalSec.toFixed(0)}s`;
-    if (totalSec < 3600) return `${(totalSec / 60).toFixed(1)} min`;
-    return `${(totalSec / 3600).toFixed(1)} hr`;
-  }, [visibleHistory.length, pollIntervalMs]);
+  // Determine chart cursor style
+  const chartCursorClass =
+    totalPoints > DEFAULT_VISIBLE_POINTS
+      ? isDragging
+        ? "cursor-grabbing"
+        : "cursor-grab"
+      : "cursor-pointer";
 
   if (!isInitialized) {
     return (
@@ -338,8 +337,7 @@ export function DashboardPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em]">
-            Bandwidth history — {visibleHistory.length} samples (
-            {timeRangeLabel})
+            Bandwidth history
             {!isAtLatest && (
               <span className="ml-2 text-accent opacity-80">
                 · viewing older data
@@ -358,7 +356,7 @@ export function DashboardPage() {
         </div>
         <div
           ref={chartContainerRef}
-          className={`bg-panel border border-border rounded-lg p-5 ${totalPoints > DEFAULT_VISIBLE_POINTS ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""}`}
+          className={`bg-panel border border-border rounded-lg p-5 ${chartCursorClass}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -475,18 +473,6 @@ export function DashboardPage() {
               </span>
             )}
           </div>
-
-          {totalPoints > DEFAULT_VISIBLE_POINTS && (
-            <div className="mt-3 h-1 bg-border rounded-full overflow-hidden">
-              <div
-                className="h-full bg-accent rounded-full transition-all duration-100"
-                style={{
-                  width: `${Math.max(10, (DEFAULT_VISIBLE_POINTS / totalPoints) * 100)}%`,
-                  marginLeft: `${((maxOffset - clampedOffset) / maxOffset) * (100 - Math.max(10, (DEFAULT_VISIBLE_POINTS / totalPoints) * 100))}%`,
-                }}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>

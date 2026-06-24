@@ -19,13 +19,18 @@ html[data-app="pill"] body {
   overflow: hidden;
   cursor: default;
   display: flex;
+  margin: 0;
+  padding: 0;
 }
 
 html[data-app="pill"] #root {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 0;
+  margin: 0;
   box-sizing: border-box;
   overflow: visible;
+  width: max-content;
+  height: max-content;
 }

@@ -19,7 +19,6 @@ export function GamingHud() {
       onMouseDown={handleDrag}
       onKeyDown={handleKeyNudge}
       tabIndex={0}
-      title="Drag handle to move · Arrow keys to nudge"
       className="w-full h-full"
     >
       <HudPresentation

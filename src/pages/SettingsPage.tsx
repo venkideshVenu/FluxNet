@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, DisplayUnits, useNetworkStore } from "@/store";
 import type {
   TimeFormat,
   DateFormat,
   StartOfWeek,
-} from "@/store/settingsStore";
+} from "@/store";
 import {
   THEMES,
   applyAccent,
@@ -17,41 +17,32 @@ import {
   getFilteredThemes,
   resolveColorMode,
 } from "@/utils";
-import { FluxSelect } from "@/components";
+import { FluxSelect, useToast } from "@/components";
 
 export function SettingsPage() {
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
-  const pingTarget = useSettingsStore((s) => s.pingTarget);
   const timeFormat = useSettingsStore((s) => s.timeFormat);
   const dateFormat = useSettingsStore((s) => s.dateFormat);
   const startOfWeek = useSettingsStore((s) => s.startOfWeek);
   const setPollInterval = useSettingsStore((s) => s.setPollInterval);
   const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
-  const setPingTarget = useSettingsStore((s) => s.setPingTarget);
   const setTimeFormat = useSettingsStore((s) => s.setTimeFormat);
   const setDateFormat = useSettingsStore((s) => s.setDateFormat);
   const setStartOfWeek = useSettingsStore((s) => s.setStartOfWeek);
   const resetPeaks = useNetworkStore((s) => s.resetPeaks);
+  const { showToast } = useToast();
 
   const [startWithOS, setStartWithOS] = useState(false);
   const [autostartAvailable, setAutostartAvailable] = useState(true);
   const [autostartError, setAutostartError] = useState<string | null>(null);
   const [selectedTheme, setSelectedTheme] = useState(getStoredAccentIndex);
   const [colorMode, setColorMode] = useState<ColorMode>(getStoredColorMode);
-  const [localPingTarget, setLocalPingTarget] = useState(pingTarget);
-  const pingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
 
   useEffect(() => {
     invoke<number>("get_refresh_interval")
       .then((ms) => setPollInterval(ms))
-      .catch(console.warn);
-    invoke<string>("get_ping_target")
-      .then((target) => {
-        setPingTarget(target);
-        setLocalPingTarget(target);
-      })
       .catch(console.warn);
     invoke<boolean>("plugin:autostart|is_enabled")
       .then((enabled) => {
@@ -64,11 +55,8 @@ export function SettingsPage() {
         setAutostartError("Autostart plugin not available.");
         console.warn("autostart not available:", err);
       });
-  }, [setPollInterval, setPingTarget]);
+  }, [setPollInterval]);
 
-  useEffect(() => {
-    setLocalPingTarget(pingTarget);
-  }, [pingTarget]);
   useEffect(() => {
     applyAccent(THEMES[selectedTheme]?.color ?? THEMES[0].color);
   }, [selectedTheme]);
@@ -114,27 +102,6 @@ export function SettingsPage() {
     }
   };
 
-  const handlePingTarget = useCallback(
-    (target: string) => {
-      setLocalPingTarget(target);
-      if (pingDebounceRef.current) clearTimeout(pingDebounceRef.current);
-      const isValid = /^[a-zA-Z0-9.\-:]+$/.test(target) && target.length > 0;
-      if (isValid) {
-        pingDebounceRef.current = setTimeout(() => {
-          setPingTarget(target);
-          invoke("set_ping_target", { target }).catch(console.warn);
-        }, 500);
-      }
-    },
-    [setPingTarget],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (pingDebounceRef.current) clearTimeout(pingDebounceRef.current);
-    };
-  }, []);
-
   const handleTheme = (index: number) => {
     setSelectedTheme(index);
     setStorageItem("fluxnet_accent_index", index);
@@ -146,6 +113,7 @@ export function SettingsPage() {
   const handleResetPeaks = () => {
     resetPeaks();
     invoke("reset_peaks").catch(console.warn);
+    showToast("Session peaks have been reset", "success");
   };
   const handleMinimizeToTray = async (value: boolean) => {
     setMinimizeToTray(value);
@@ -154,7 +122,6 @@ export function SettingsPage() {
     );
   };
 
-  // Get filtered themes based on current effective theme
   const effectiveTheme = resolveColorMode(colorMode);
   const filteredThemes = getFilteredThemes(effectiveTheme);
 
@@ -197,7 +164,7 @@ export function SettingsPage() {
               ]}
             />
           </div>
-          <div className="flex items-center justify-between px-4.5 py-3.25 border-b border-accent-soft-2">
+          <div className="flex items-center justify-between px-4.5 py-3.25">
             <div>
               <div className="text-[13px] text-text font-[450]">
                 Display units
@@ -216,23 +183,6 @@ export function SettingsPage() {
                 { value: "bytes", label: "Bytes/s (KB/s, MB/s, GB/s)" },
                 { value: "bits", label: "Bits/s (Kbps, Mbps, Gbps)" },
               ]}
-            />
-          </div>
-          <div className="flex items-center justify-between px-4.5 py-3.25">
-            <div>
-              <div className="text-[13px] text-text font-[450]">
-                Ping target
-              </div>
-              <div className="text-[11px] text-text-muted mt-0.5">
-                IP or hostname to ping for latency
-              </div>
-            </div>
-            <input
-              type="text"
-              className="text-[12px] font-mono text-text bg-panel border border-border rounded-[7px] px-2.5 py-1.25 outline-none w-40 transition-colors focus:border-accent-border"
-              value={localPingTarget}
-              onChange={(e) => handlePingTarget(e.target.value)}
-              placeholder="e.g. 1.1.1.1"
             />
           </div>
         </div>
@@ -387,7 +337,7 @@ export function SettingsPage() {
               aria-checked={minimizeToTray}
             >
               <div
-                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform ${minimizeToTray ? "translate-x-4.25" : "translate-x-0"}`}
+                className={`w-4.25 h-4.25 rounded-full bg-toggle-knob transition-transform ${minimizeToTray ? "translate-x-4.25" : "translate-x-0"}`}
               />
             </div>
           </div>
@@ -412,7 +362,7 @@ export function SettingsPage() {
               aria-checked={startWithOS}
             >
               <div
-                className={`w-4.25 h-4.25 rounded-full bg-white transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
+                className={`w-4.25 h-4.25 rounded-full bg-toggle-knob transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${startWithOS ? "translate-x-4.25" : "translate-x-0"}`}
               />
             </div>
           </div>

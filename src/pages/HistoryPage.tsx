@@ -38,6 +38,20 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   color: "var(--text)",
 };
 
+function formatDateString(dateStr: string, format: string): string {
+  // dateStr is "YYYY-MM-DD"
+  const [y, m, d] = dateStr.split("-");
+  switch (format) {
+    case "DD/MM/YYYY":
+      return `${d}/${m}/${y}`;
+    case "YYYY-MM-DD":
+      return dateStr;
+    case "MM/DD/YYYY":
+    default:
+      return `${m}/${d}/${y}`;
+  }
+}
+
 export function HistoryPage() {
   const [tab, setTab] = useState<Tab>("today");
   const [stats, setStats] = useState<UsageStats | null>(null);
@@ -48,6 +62,7 @@ export function HistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const timeFormat = useSettingsStore((s) => s.timeFormat);
+  const dateFormat = useSettingsStore((s) => s.dateFormat);
   const startOfWeek = useSettingsStore((s) => s.startOfWeek);
 
   useEffect(() => {
@@ -81,7 +96,6 @@ export function HistoryPage() {
     return () => clearInterval(id);
   }, []);
 
-  // ─── Today: filter hourly data to only today's hours ──────────────────────
   const todayChart = useMemo(() => {
     const now = new Date();
     const todayStart =
@@ -138,27 +152,21 @@ export function HistoryPage() {
     [todayChart, todayUnit.divisor],
   );
 
-  // ─── This Week: filter daily data to current week ─────────────────────────
   const weekChart = useMemo(() => {
     const now = new Date();
-    const currentDay = now.getDay(); // 0=Sun, 1=Mon, ...
+    const currentDay = now.getDay();
     const weekStartDay =
       startOfWeek === "monday" ? 1 : startOfWeek === "saturday" ? 6 : 0;
-
-    // Calculate days since start of week
     let daysSinceStart = currentDay - weekStartDay;
     if (daysSinceStart < 0) daysSinceStart += 7;
-
     const weekStart = new Date(
       now.getFullYear(),
       now.getMonth(),
       now.getDate() - daysSinceStart,
     );
     const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`;
-
     const weekDays = daily.filter((d) => d.day >= weekStartStr);
     const sorted = [...weekDays].sort((a, b) => a.day.localeCompare(b.day));
-
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     return sorted.map((point) => {
@@ -166,15 +174,14 @@ export function HistoryPage() {
       const date = new Date(y, m - 1, d);
       const dayName = dayNames[date.getDay()];
       const label = `${dayName} ${d}`;
-
       return {
         label,
-        fullLabel: point.day,
+        fullLabel: formatDateString(point.day, dateFormat),
         downloadRaw: point.totalDownloadBytes,
         uploadRaw: point.totalUploadBytes,
       };
     });
-  }, [daily, startOfWeek]);
+  }, [daily, startOfWeek, dateFormat]);
 
   const weekMaxBytes = useMemo(
     () =>
@@ -198,7 +205,6 @@ export function HistoryPage() {
     [weekChart, weekUnit.divisor],
   );
 
-  // ─── Monthly ──────────────────────────────────────────────────────────────
   const sortedMonthly = useMemo(
     () => [...monthly].sort((a, b) => a.month.localeCompare(b.month)),
     [monthly],
@@ -325,11 +331,7 @@ export function HistoryPage() {
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`border px-3 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${
-                  tab === item.id
-                    ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]"
-                    : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"
-                }`}
+                className={`border px-3 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${tab === item.id ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]" : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"}`}
               >
                 {item.label}
               </button>

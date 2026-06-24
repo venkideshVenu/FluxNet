@@ -49,7 +49,7 @@ export function CompactWidget() {
       }
     };
     syncTodayTotals();
-    const id = setInterval(syncTodayTotals, 30_000); // Was 5000, now 30000
+    const id = setInterval(syncTodayTotals, 30_000);
     return () => {
       alive = false;
       clearInterval(id);
@@ -65,7 +65,6 @@ export function CompactWidget() {
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
-      title="Drag handle to move · Arrow keys to nudge"
       className="focus-visible:outline-2 focus-visible:outline-[rgba(124,111,247,0.8)] focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
     >
       <CompactPresentation
