@@ -125,9 +125,9 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
 fn adjust_widget_sizes_for_dpi(app: &App) {
     // These are LOGICAL sizes - Tauri handles DPI scaling automatically
     let widget_sizes: &[(&str, f64, f64)] = &[
-        ("pill", 270.0, 40.0),
-        ("compact", 200.0, 180.0),
-        ("hud", 200.0, 175.0),
+        ("pill", 250.0, 32.0),
+        ("compact", 189.0, 172.0),
+        ("hud", 300.0, 44.0),
     ];
 
     for (label, logical_w, logical_h) in widget_sizes {

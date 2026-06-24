@@ -140,7 +140,7 @@ export function WidgetPreview({
   opacity = 100,
   intervalMs = 1000,
   frameClassName = "flex items-center justify-center py-5 px-4",
-  hudFrameClassName = "w-full max-w-52 aspect-[6/5]",
+  hudFrameClassName = "w-full max-w-[320px] h-[44px]",
 }: WidgetPreviewProps) {
   const Preview = view.previewComponent;
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);

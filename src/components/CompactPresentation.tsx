@@ -114,7 +114,7 @@ export const CompactPresentation = memo(function CompactPresentation({
         <span className="inline-flex items-center gap-1.75">
           <span className="inline-flex items-baseline gap-1 tabular-nums">
             <span className="w-1.75 h-1.75 rounded-sm inline-block shrink-0 bg-net-download" />
-            <span className="text-[11px] font-semibold text-[#eae9ff] in-data-[theme='light']:text-[#131020]">
+            <span className="text-[12px] font-semibold text-[#eae9ff] in-data-[theme='light']:text-[#131020]">
               {todayDownload.value}
             </span>
             <span className="text-[9px] text-[#5b5890] in-data-[theme='light']:text-[#5a5478]">
@@ -123,7 +123,7 @@ export const CompactPresentation = memo(function CompactPresentation({
           </span>
           <span className="inline-flex items-baseline gap-1 tabular-nums">
             <span className="w-1.75 h-1.75 rounded-sm inline-block shrink-0 bg-net-upload" />
-            <span className="text-[11px] font-semibold text-[#eae9ff] in-data-[theme='light']:text-[#131020]">
+            <span className="text-[12px] font-semibold text-[#eae9ff] in-data-[theme='light']:text-[#131020]">
               {todayUpload.value}
             </span>
             <span className="text-[9px] text-[#5b5890] in-data-[theme='light']:text-[#5a5478]">
