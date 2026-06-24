@@ -53,6 +53,9 @@ function HudHorizontal({
         ? "var(--hud-amber)"
         : "var(--hud-danger)";
 
+  const compactDownload = `${downloadValue}${downloadUnit.replace("/s", "")}`;
+  const compactUpload = `${uploadValue}${uploadUnit.replace("/s", "")}`;
+
   return (
     <div className="w-full h-full p-0.5">
       <div
@@ -66,52 +69,47 @@ function HudHorizontal({
           px-3
           flex
           items-center
-          gap-3
+          justify-between
           select-none
+          font-mono
+          text-[12px]
+          tabular-nums
         "
       >
         {/* Ping */}
         <div
-          className="flex items-center gap-1 font-mono text-[12px] font-semibold tabular-nums shrink-0"
+          className="flex items-center gap-1 shrink-0"
           style={{ color: pingColour }}
         >
           <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
+            className="w-1.5 h-1.5 rounded-full"
             style={{ backgroundColor: pingColour }}
           />
-          {/* widened from 42px → 50px so "999ms" never wraps */}
-          <span className="w-[50px] text-right">{latencyText}</span>
+          <span className="font-semibold">{latencyText}</span>
         </div>
 
-        {/* Download */}
-        <div className="flex items-center gap-0.5 text-(--hud-dn) font-mono text-[12px] font-medium tabular-nums shrink-0">
-          <span>↓</span>
-          <span className="w-[34px] text-right">{downloadValue}</span>
-          <span className="text-[9px] text-(--hud-muted) w-[30px]">
-            {downloadUnit}
-          </span>
+        {/* Traffic */}
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-1 text-(--hud-dn)">
+            <span>↓</span>
+            <span>{compactDownload}</span>
+          </div>
+
+          <div className="flex items-center gap-1 text-(--hud-up)">
+            <span>↑</span>
+            <span>{compactUpload}</span>
+          </div>
         </div>
 
-        {/* Upload */}
-        <div className="flex items-center gap-0.5 text-(--hud-up) font-mono text-[12px] font-medium tabular-nums shrink-0">
-          <span>↑</span>
-          <span className="w-[34px] text-right">{uploadValue}</span>
-          <span className="text-[9px] text-(--hud-muted) w-[30px]">
-            {uploadUnit}
-          </span>
-        </div>
-
-        {/* Loss — added "LOSS" label so it's identifiable, widened slot */}
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-(--hud-muted)">
+        {/* Loss */}
+        <div
+          className="flex items-center gap-1 shrink-0 font-semibold"
+          style={{ color: lossColour }}
+        >
+          <span className="text-[9px] uppercase tracking-wide text-(--hud-muted)">
             LOSS
           </span>
-          <span
-            className="font-mono text-[12px] font-semibold tabular-nums w-[36px] text-right"
-            style={{ color: lossColour }}
-          >
-            {lossText}
-          </span>
+          <span>{lossText}</span>
         </div>
       </div>
     </div>
@@ -160,17 +158,20 @@ function HudVertical({
           flex flex-col
           justify-center
           select-none
+          cursor-grab
           py-2
           px-3
           gap-1
         "
       >
         {/* Ping row — bumped to 13px, dot slightly larger */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between">
           <span
+            data-tauri-drag-region
             className="w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: pingColour }}
           />
+
           <span
             className="font-mono text-[13px] font-semibold tabular-nums leading-none"
             style={{ color: pingColour }}

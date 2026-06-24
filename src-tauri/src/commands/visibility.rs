@@ -9,11 +9,11 @@ pub type WidgetStore = PersistentStore<WidgetState>;
 // ── Window size constants ─────────────────────────────────────────────────────
 
 /// Horizontal HUD: widened from 320→380 so the LOSS column is always visible.
-const HUD_HORIZONTAL_W: f64 = 380.0;
+const HUD_HORIZONTAL_W: f64 = 300.0;
 const HUD_HORIZONTAL_H: f64 = 36.0;
 
 /// Vertical HUD: enlarged from 130×105→150×130 for readable font sizes.
-const HUD_VERTICAL_W: f64 = 150.0;
+const HUD_VERTICAL_W: f64 = 120.0;
 const HUD_VERTICAL_H: f64 = 130.0;
 
 pub fn hud_size_for_design(design: &str) -> (f64, f64) {

@@ -124,7 +124,7 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
 /// Adjust widget window sizes based on the monitor's scale factor.
 /// This ensures consistent physical pixel sizes across different DPI displays.
 fn adjust_widget_sizes_for_dpi(app: &App) {
-    let widget_sizes: &[(&str, f64, f64)] = &[("pill", 250.0, 32.0), ("compact", 189.0, 172.0)];
+    let widget_sizes: &[(&str, f64, f64)] = &[("pill", 232.0, 32.0), ("compact", 189.0, 172.0)];
 
     for (label, logical_w, logical_h) in widget_sizes {
         let Some(window) = app.get_webview_window(label) else {

@@ -26,7 +26,7 @@
       {
         "label": "pill",
         "title": "FluxNet",
-        "width": 250,
+        "width": 232,
         "height": 32,
         "center": true,
         "resizable": false,
@@ -59,7 +59,7 @@
       {
         "label": "hud",
         "title": "FluxNet HUD",
-        "width": 380,
+        "width": 300,
         "height": 36,
         "resizable": false,
         "decorations": false,
