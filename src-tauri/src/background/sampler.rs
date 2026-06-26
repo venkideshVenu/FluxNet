@@ -3,7 +3,6 @@ use crate::commands::network::{
 };
 use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
-use crate::persistence::app_settings::SettingsStore;
 use crate::storage::DbState;
 use crate::storage::aggregation::{
     rollup_daily, rollup_daily_at, rollup_hourly, rollup_hourly_at, rollup_monthly,
@@ -13,7 +12,7 @@ use crate::storage::repository::{cleanup_old_samples, insert_sample};
 use chrono::{Datelike, Duration as ChronoDuration, Local, TimeZone, Timelike};
 use parking_lot::Mutex;
 use std::collections::HashSet;
-use std::net::{IpAddr, ToSocketAddrs};
+use std::net::{IpAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::Networks;
@@ -39,18 +38,6 @@ const IFACE_LIST_REFRESH_TICKS: u32 = 600; // 5 minutes
 
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
-/// Resolve a ping target string to an IpAddr.
-fn resolve_ping_target(target: &str) -> IpAddr {
-    if let Ok(ip) = target.parse::<IpAddr>() {
-        return ip;
-    }
-    if let Ok(mut addrs) = format!("{}:0", target).to_socket_addrs() {
-        if let Some(addr) = addrs.next() {
-            return addr.ip();
-        }
-    }
-    "1.1.1.1".parse().unwrap()
-}
 
 // ── Startup backfill ──────────────────────────────────────────────────────────
 
@@ -231,7 +218,6 @@ pub fn start_sampler(
     db: DbState,
     ping_state: SharedPingState,
     cancel_token: CancellationToken,
-    settings_store: Arc<SettingsStore>,
     app_handle: AppHandle,
 ) -> SamplerHandle {
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
@@ -346,8 +332,8 @@ pub fn start_sampler(
 
                     // Periodic ping (every 5 seconds)
                     if tick_counter % PING_INTERVAL_TICKS == 0 {
-                        let target_str = settings_store.read(|s| s.ping_target.clone());
-                        let target = resolve_ping_target(&target_str);
+                        let target: IpAddr = "1.1.1.1".parse().unwrap();
+
                         let result = measure_ping(target).await;
                         let stats = {
                             let mut ps = ping_state.lock();

@@ -27,8 +27,8 @@ export function Toggle({
       tabIndex={0}
     >
       <div
-        className={`w-4 h-4 rounded-full bg-white transition-all shadow-[0_1px_3px_rgba(0,0,0,0.2)] ${
-          checked ? "translate-x-4.5" : "translate-x-0"
+        className={`w-4 h-4 rounded-full transition-all shadow-[0_1px_3px_rgba(0,0,0,0.2)] ${
+          checked ? "translate-x-4.5 bg-toggle-knob" : "translate-x-0 bg-white"
         }`}
       />
     </div>

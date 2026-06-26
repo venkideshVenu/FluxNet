@@ -2,11 +2,12 @@ use crate::background::sampler::start_sampler;
 use crate::commands::network::{
     APP_SHUTTING_DOWN, InterfacesCache, SharedInterfacesCache, SharedMonitorState,
 };
-
 use crate::commands::ping::SharedPingState;
+use crate::commands::visibility::hud_size_for_design;
 use crate::persistence::app_settings::SettingsStore;
 use crate::persistence::persistent_store::PersistentStore;
-use crate::persistence::widget_state::{StoredPosition, StoredVisibility, WidgetState};
+use crate::persistence::widget_state::WidgetState;
+use crate::persistence::widget_state::{StoredPosition, StoredVisibility};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
 use crate::window_positions::{PositionSender, spawn_position_writer};
@@ -123,32 +124,37 @@ fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
 /// Adjust widget window sizes based on the monitor's scale factor.
 /// This ensures consistent physical pixel sizes across different DPI displays.
 fn adjust_widget_sizes_for_dpi(app: &App) {
-    let widget_sizes: &[(&str, u32, u32)] =
-        &[("pill", 270, 40), ("compact", 190, 175), ("hud", 220, 185)];
+    let widget_sizes: &[(&str, f64, f64)] = &[("pill", 232.0, 32.0), ("compact", 189.0, 172.0)];
 
     for (label, logical_w, logical_h) in widget_sizes {
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
 
-        let scale = window.scale_factor().unwrap_or(1.0);
+        let size = tauri::Size::Logical(tauri::LogicalSize {
+            width: *logical_w,
+            height: *logical_h,
+        });
 
-        // Set size using physical pixels to ensure consistent appearance
-        let phys_w = (*logical_w as f64 * scale) as u32;
-        let phys_h = (*logical_h as f64 * scale) as u32;
+        let _ = window.set_size(size.clone());
+        let _ = window.set_min_size(Some(size.clone()));
+        let _ = window.set_max_size(Some(size));
+    }
 
-        let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
-            width: phys_w,
-            height: phys_h,
-        }));
-        let _ = window.set_min_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
-            width: phys_w,
-            height: phys_h,
-        })));
-        let _ = window.set_max_size(Some(tauri::Size::Physical(tauri::PhysicalSize {
-            width: phys_w,
-            height: phys_h,
-        })));
+    // HUD: size depends on stored design preference, using the shared constant
+    if let Some(hud_window) = app.get_webview_window("hud") {
+        let widget_store = app.state::<Arc<WidgetStore>>();
+        let design = widget_store.read(|s| s.get_hud_design().to_string());
+
+        let (w, h) = hud_size_for_design(&design);
+
+        let size = tauri::Size::Logical(tauri::LogicalSize {
+            width: w,
+            height: h,
+        });
+        let _ = hud_window.set_size(size.clone());
+        let _ = hud_window.set_min_size(Some(size.clone()));
+        let _ = hud_window.set_max_size(Some(size));
     }
 }
 
@@ -275,7 +281,6 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
         rw_db,
         ping_state,
         task_token,
-        settings_store,
         app_handle.clone(),
     );
     app.manage(sampler_handle);

@@ -1,16 +1,18 @@
 html[data-app="compact"] body {
   background: transparent;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 html[data-app="compact"] #root {
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: stretch;
+  justify-content: stretch;
   padding: 0;
   margin: 0;
   box-sizing: border-box;
   overflow: visible;
-  width: max-content;
-  height: max-content;
+  width: 100%;
+  height: 100%;
 }

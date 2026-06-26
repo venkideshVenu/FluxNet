@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { ColorMode } from "@/utils";
+import { useEffect, useState } from "react";
+import { ColorMode, getStoredHudDesign } from "@/utils";
 import { Toggle } from "@/components";
 import { WIDGET_LABELS, WidgetLabel } from "@/config";
 import { useWidgetPanelState } from "@/hooks";
 import { WIDGET_VIEWS, WidgetPreview } from "@/components";
+import type { HudDesign } from "@/components/HudPresentation";
 
 const WIDGET_DESCRIPTIONS: Record<WidgetLabel, string> = {
   pill: "Minimal floating pill — shows download and upload speed at a glance",
@@ -28,7 +29,54 @@ const COLOR_MODE_OPTIONS: {
   { value: "light", label: "Light", icon: <IconSun /> },
 ];
 
+const HUD_DESIGN_OPTIONS: {
+  value: HudDesign;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { value: "horizontal", label: "Horizontal", icon: <IconHorizontal /> },
+  { value: "vertical", label: "Vertical", icon: <IconVertical /> },
+];
+
 // ── Icons ───────────────────────────────────────────────────────────────────
+
+function IconHorizontal() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="7" width="20" height="10" rx="5" />
+    </svg>
+  );
+}
+
+function IconVertical() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="5" y="2" width="14" height="20" rx="3" />
+      <line x1="5" y1="8" x2="19" y2="8" />
+      <line x1="5" y1="16" x2="19" y2="16" />
+    </svg>
+  );
+}
 
 function IconMonitor() {
   return (
@@ -190,6 +238,7 @@ function IconChevronDown({ className }: { className?: string }) {
   );
 }
 
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function OpacitySlider({
@@ -293,6 +342,22 @@ function IntervalSelector({
   );
 }
 
+function HudDesignSelector({
+  value,
+  onChange,
+}: {
+  value: HudDesign;
+  onChange: (design: HudDesign) => void;
+}) {
+  return (
+    <SegmentedControl
+      options={HUD_DESIGN_OPTIONS}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
 function SettingRow({
   label,
   description,
@@ -346,11 +411,15 @@ function SettingsSummary({
   opacity,
   intervalMs,
   alwaysOnTop,
+  hudDesign,
+  widgetLabel,
 }: {
   colorMode: ColorMode;
   opacity: number;
   intervalMs: number;
   alwaysOnTop: boolean;
+  hudDesign?: HudDesign;
+  widgetLabel: WidgetLabel;
 }) {
   const modeLabel =
     colorMode === "system" ? "System" : colorMode === "dark" ? "Dark" : "Light";
@@ -371,6 +440,12 @@ function SettingsSummary({
           Always on top
         </span>
       )}
+      {widgetLabel === "hud" && hudDesign && (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-surface border border-border text-text-muted">
+          {hudDesign === "vertical" ? <IconVertical /> : <IconHorizontal />}{" "}
+          {hudDesign === "vertical" ? "Vertical" : "Horizontal"}
+        </span>
+      )}
     </div>
   );
 }
@@ -382,6 +457,29 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const config = view.entry;
   const state = useWidgetPanelState(config);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // HUD design state
+  const [hudDesign, setHudDesign] = useState<HudDesign>(getStoredHudDesign);
+
+  const handleHudDesignChange = async (design: HudDesign) => {
+    setHudDesign(design);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("set_hud_design", { design });
+    } catch (e) {
+      console.error("Failed to set hud design:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (widgetLabel === "hud") {
+      import("@tauri-apps/api/core").then(({ invoke }) => {
+        invoke<string>("get_hud_design")
+          .then((d) => setHudDesign(d as HudDesign))
+          .catch(() => {});
+      });
+    }
+  }, [widgetLabel]);
 
   const opacityDescription =
     state.opacity >= 95
@@ -478,6 +576,8 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
           opacity={state.opacity}
           intervalMs={state.intervalMs}
           alwaysOnTop={state.alwaysOnTop}
+          hudDesign={widgetLabel === "hud" ? hudDesign : undefined}
+          widgetLabel={widgetLabel}
         />
       )}
 
@@ -491,6 +591,7 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
               colorMode={state.colorMode}
               opacity={state.opacity}
               intervalMs={state.intervalMs}
+              hudDesign={widgetLabel === "hud" ? hudDesign : undefined}
             />
             <div className="flex items-center gap-3 pb-3 text-[10px] text-text-muted">
               <span className="font-mono bg-surface border border-border rounded-full px-2 py-0.5">
@@ -529,6 +630,21 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
             </SettingsGroup>
 
             <SettingsGroup title="Appearance" icon={<IconPalette />}>
+              {widgetLabel === "hud" && (
+                <SettingRow
+                  label="Design layout"
+                  description={
+                    hudDesign === "vertical"
+                      ? "Vertical card with separated sections"
+                      : "Compact horizontal pill bar"
+                  }
+                >
+                  <HudDesignSelector
+                    value={hudDesign}
+                    onChange={handleHudDesignChange}
+                  />
+                </SettingRow>
+              )}
               <SettingRow label="Theme mode" description={themeDescription}>
                 <ColorModeSelector
                   value={state.colorMode}

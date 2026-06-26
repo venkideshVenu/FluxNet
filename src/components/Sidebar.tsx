@@ -4,7 +4,6 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: <IconDashboard /> },
   { to: "/history", label: "History", icon: <IconHistory /> },
   { to: "/interfaces", label: "Interfaces", icon: <IconWifi /> },
-  // { to: "/alerts", label: "Alerts", icon: <IconBell /> },
   { to: "/widgets", label: "Widgets", icon: <IconWidgets /> },
 ];
 
@@ -15,13 +14,11 @@ export function Sidebar() {
       aria-label="Main navigation"
     >
       <div className="flex items-center justify-center px-4 pt-4 pb-3.5 border-b border-border">
-        {/* Light mode: dark logo for contrast on white bg */}
         <img
           className="w-full max-w-40 h-auto block in-data-[theme='dark']:hidden"
           src="/branding/logo-horizontal-dark.png"
           alt="FluxNet"
         />
-        {/* Dark mode: light logo for contrast on dark bg */}
         <img
           className="w-full max-w-40 h-auto hidden in-data-[theme='dark']:block"
           src="/branding/logo-horizontal-light.png"
@@ -38,8 +35,8 @@ export function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] no-underline transition-colors duration-150 cursor-pointer font-[450] ${
                 isActive
-                  ? "bg-accent-soft text-accent-strong font-[550]"
-                  : "text-text-subtle hover:bg-accent-soft-2 hover:text-accent-strong"
+                  ? "bg-accent-soft text-sidebar-active font-[550]"
+                  : "text-text-subtle hover:bg-accent-soft-2 hover:text-sidebar-active"
               }`
             }
           >
@@ -63,8 +60,8 @@ export function Sidebar() {
           className={({ isActive }) =>
             `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] no-underline transition-colors duration-150 cursor-pointer font-[450] ${
               isActive
-                ? "bg-accent-soft text-accent-strong font-[550]"
-                : "text-text-subtle hover:bg-accent-soft-2 hover:text-accent-strong"
+                ? "bg-accent-soft text-sidebar-active font-[550]"
+                : "text-text-subtle hover:bg-accent-soft-2 hover:text-sidebar-active"
             }`
           }
         >
@@ -143,25 +140,6 @@ function IconWifi() {
     </svg>
   );
 }
-
-// function IconBell() {
-//   return (
-//     <svg
-//       width="15"
-//       height="15"
-//       viewBox="0 0 24 24"
-//       fill="none"
-//       stroke="currentColor"
-//       strokeWidth="2"
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       aria-hidden="true"
-//     >
-//       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-//       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-//     </svg>
-//   );
-// }
 
 function IconSettings() {
   return (

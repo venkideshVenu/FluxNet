@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "FluxNet",
-  "version": "0.1.1",
-  "identifier": "com.venki.fluxnet",
+  "version": "0.1.2",
+  "identifier": "com.fluxnet.app",
   "build": {
     "beforeDevCommand": "pnpm dev:web",
     "devUrl": "http://localhost:1420",
@@ -19,6 +19,7 @@
         "minWidth": 900,
         "minHeight": 500,
         "resizable": true,
+        "maximizable": false,
         "decorations": true,
         "visible": false,
         "url": "index.html"
@@ -26,8 +27,8 @@
       {
         "label": "pill",
         "title": "FluxNet",
-        "width": 270,
-        "height": 40,
+        "width": 232,
+        "height": 32,
         "center": true,
         "resizable": false,
         "decorations": false,
@@ -43,8 +44,8 @@
       {
         "label": "compact",
         "title": "FluxNet",
-        "width": 225,
-        "height": 185,
+        "width": 189,
+        "height": 172,
         "x": 1680,
         "y": 420,
         "resizable": false,
@@ -59,8 +60,8 @@
       {
         "label": "hud",
         "title": "FluxNet HUD",
-        "width": 220,
-        "height": 185,
+        "width": 300,
+        "height": 36,
         "resizable": false,
         "decorations": false,
         "transparent": true,

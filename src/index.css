@@ -27,6 +27,8 @@
   --color-danger-bg: var(--danger-bg);
   --color-danger-text: var(--danger-text);
   --color-danger-border: var(--danger-border);
+  --color-toggle-knob: var(--toggle-knob);
+  --color-sidebar-active: var(--sidebar-active);
 
   --font-sans: "DM Sans", "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
@@ -109,6 +111,16 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
+  }
+
+  :root {
+    --toggle-knob: #ffffff;
+    --sidebar-active: var(--accent-strong);
+  }
+
+  :root[data-accent-is-white="true"] {
+    --toggle-knob: #000000;
+    --sidebar-active: var(--text);
   }
 }
 

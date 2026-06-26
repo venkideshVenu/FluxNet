@@ -42,7 +42,7 @@ pub fn spawn_theme_watcher(app: AppHandle, tray_id: TrayIconId) {
 #[cfg(target_os = "windows")]
 fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
     use windows::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RegCloseKey,
+        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET,
         RegNotifyChangeKeyValue, RegOpenKeyExW,
     };
     use windows::core::w;
@@ -88,8 +88,6 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
         if result.is_err() {
             tracing::warn!("RegNotifyChangeKeyValue failed: {result:?}");
 
-            // FIX: Close the old key BEFORE reopening, preventing an HKEY handle leak.
-            unsafe { RegCloseKey(hkey) };
 
             std::thread::sleep(std::time::Duration::from_secs(30));
 

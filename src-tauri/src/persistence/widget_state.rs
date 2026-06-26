@@ -8,6 +8,10 @@ pub struct WidgetState {
     /// Per-widget configuration (visibility + always_on_top).
     pub configs: HashMap<String, StoredConfig>,
 
+    /// HUD design layout: "horizontal" or "vertical"
+    #[serde(default)]
+    pub hud_design: String,
+
     // Legacy field kept for migration compatibility — new code writes `configs`.
     #[serde(default, skip_serializing)]
     pub visibility: HashMap<String, StoredVisibility>,
@@ -31,9 +35,6 @@ pub struct StoredConfig {
 impl Default for StoredConfig {
     fn default() -> Self {
         Self {
-            // Default to NOT visible — on fresh install widgets start hidden.
-            // Once user enables them and quits, `visible: true` is persisted
-            // and they'll be restored on next launch.
             visible: false,
             always_on_top: false,
         }
@@ -86,5 +87,17 @@ impl WidgetState {
 
     pub fn get_config(&self, label: &str) -> StoredConfig {
         self.configs.get(label).copied().unwrap_or_default()
+    }
+
+    pub fn set_hud_design(&mut self, design: &str) {
+        self.hud_design = design.to_string();
+    }
+
+    pub fn get_hud_design(&self) -> &str {
+        if self.hud_design.is_empty() {
+            "horizontal"
+        } else {
+            &self.hud_design
+        }
     }
 }
