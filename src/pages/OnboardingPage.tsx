@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { invokeWithTimeout, setStorageItem } from "@/utils";
-import { WIDGET_VIEWS, WidgetPreview } from "@/components";
+import { ThemeToggle, WIDGET_VIEWS, WidgetPreview } from "@/components";
+import type { HudDesign } from "@/components/HudPresentation";
 
 type InterfaceInfo = {
   name: string;
@@ -61,104 +62,6 @@ const GLOBAL_CSS = `
     .ob-progress { transition: none !important; }
   }
 `;
-
-function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() => {
-    const current = document.documentElement.getAttribute("data-theme");
-    if (current === "dark") return true;
-    if (current === "light") return false;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-
-  const toggle = () => {
-    const nextIsDark = !isDark;
-    setIsDark(nextIsDark);
-    const mode = nextIsDark ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", mode);
-    localStorage.setItem("fluxnet_color_mode", mode);
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: "fluxnet_color_mode",
-        oldValue: isDark ? "dark" : "light",
-        newValue: mode,
-        storageArea: localStorage,
-        url: window.location.href,
-      }),
-    );
-  };
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const current = document.documentElement.getAttribute("data-theme");
-      setIsDark(current === "dark");
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label="Toggle theme"
-      style={{
-        position: "fixed",
-        top: 10,
-        right: 10,
-        zIndex: 50,
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        background: "var(--panel)",
-        border: "1px solid var(--border)",
-        color: "var(--text-muted)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-      }}
-    >
-      {isDark ? (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-        </svg>
-      ) : (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
-      )}
-    </button>
-  );
-}
 
 function StepDots({ current }: { current: number }) {
   return (
@@ -325,6 +228,7 @@ export function OnboardingPage() {
   const [selectedWidgets, setSelectedWidgets] = useState<Set<WidgetStyle>>(
     new Set(["pill"]),
   );
+  const [hudDesign, setHudDesign] = useState<HudDesign>("horizontal");
   const [startWithWindows, setStartWithWindows] = useState(true);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [finishing, setFinishing] = useState(false);
@@ -445,6 +349,9 @@ export function OnboardingPage() {
           }).catch(() => {}),
         ),
       );
+      await invokeWithTimeout("set_hud_design", { design: hudDesign }).catch(
+        () => {},
+      );
       await invokeWithTimeout("set_onboarding_completed");
       setStorageItem("fluxnet_configured", "true");
     } catch {
@@ -460,6 +367,7 @@ export function OnboardingPage() {
     detectedIface,
     useAutoInterface,
     selectedWidgets,
+    hudDesign,
     startWithWindows,
     minimizeToTray,
   ]);
@@ -484,7 +392,12 @@ export function OnboardingPage() {
         );
       case "widget":
         return (
-          <WidgetContent selected={selectedWidgets} onToggle={toggleWidget} />
+          <WidgetContent
+            selected={selectedWidgets}
+            onToggle={toggleWidget}
+            hudDesign={hudDesign}
+            onHudDesignChange={setHudDesign}
+          />
         );
       case "startup":
         return (
@@ -1164,15 +1077,19 @@ function InterfaceContent({
 const WIDGET_OPTS: { id: WidgetStyle; label: string; desc: string }[] = [
   { id: "pill", label: "Pill", desc: "Minimal inline bar" },
   { id: "compact", label: "Compact", desc: "Full stats & daily totals" },
-  { id: "hud", label: "HUD", desc: "Gaming & full-screen" },
+  { id: "hud", label: "HUD", desc: "Gaming overlay" },
 ];
 
 function WidgetContent({
   selected,
   onToggle,
+  hudDesign,
+  onHudDesignChange,
 }: {
   selected: Set<WidgetStyle>;
   onToggle: (id: WidgetStyle) => void;
+  hudDesign: HudDesign;
+  onHudDesignChange: (d: HudDesign) => void;
 }) {
   const hint =
     selected.size === 0
@@ -1215,6 +1132,7 @@ function WidgetContent({
       >
         {WIDGET_OPTS.map((opt) => {
           const checked = selected.has(opt.id);
+          const isHud = opt.id === "hud";
           return (
             <button
               key={opt.id}
@@ -1235,13 +1153,16 @@ function WidgetContent({
               <div
                 data-theme="dark"
                 style={{
-                  height: 170,
+                  height: 200,
                   background: "#0d0f14",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
                   overflow: "hidden",
                   isolation: "isolate",
+                  gap: 10,
+                  position: "relative",
                 }}
               >
                 <div
@@ -1254,9 +1175,51 @@ function WidgetContent({
                     view={WIDGET_VIEWS[opt.id]}
                     colorMode="dark"
                     frameClassName="flex items-center justify-center"
-                    hudFrameClassName="w-[160px] aspect-[6/5]"
+                    hudDesign={isHud ? hudDesign : undefined}
                   />
                 </div>
+                {/* HUD design toggle — shown only when HUD card is selected */}
+                {isHud && checked && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      bottom: 10,
+                      display: "flex",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "rgba(0,0,0,0.45)",
+                      backdropFilter: "blur(6px)",
+                    }}
+                  >
+                    {(["horizontal", "vertical"] as HudDesign[]).map((d) => {
+                      const active = hudDesign === d;
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => onHudDesignChange(d)}
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            border: "none",
+                            cursor: "pointer",
+                            letterSpacing: "0.02em",
+                            background: active
+                              ? "var(--accent)"
+                              : "transparent",
+                            color: active ? "#fff" : "rgba(255,255,255,0.5)",
+                            transition: "background 0.15s, color 0.15s",
+                          }}
+                        >
+                          {d === "horizontal" ? "Horizontal" : "Vertical"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div
                 style={{
@@ -1278,6 +1241,24 @@ function WidgetContent({
                     }}
                   >
                     {opt.label}
+                    {isHud && checked && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 9,
+                          fontWeight: 500,
+                          color: "var(--accent)",
+                          background: "var(--accent-soft)",
+                          border: "1px solid var(--accent-border)",
+                          borderRadius: 4,
+                          padding: "1px 5px",
+                          textTransform: "capitalize",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        {hudDesign}
+                      </span>
+                    )}
                   </div>
                   <div
                     style={{

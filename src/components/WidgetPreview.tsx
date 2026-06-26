@@ -151,7 +151,7 @@ export function WidgetPreview({
   // Updated to match the new window sizes
   const resolvedHudFrame =
     hudFrameClassName ??
-    (hudDesign === "vertical" ? "w-[120px] h-[130px]" : "w-[300px] h-[36px]");
+    (hudDesign === "vertical" ? "w-[120px] h-[130px]" : "w-[240px] h-[36px]");
 
   return (
     <div
