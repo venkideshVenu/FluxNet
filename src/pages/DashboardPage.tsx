@@ -345,13 +345,12 @@ export function DashboardPage() {
             )}
           </div>
           {!isAtLatest && (
-            <button
-              type="button"
+            <span
               onClick={jumpToLatest}
-              className="text-[10px] font-semibold text-accent bg-accent-soft border border-accent-border rounded-full px-2.5 py-1 cursor-pointer hover:bg-accent-soft-2 transition-colors"
+              className="text-[10px] font-semibold text-accent cursor-pointer hover:underline"
             >
               ← Jump to latest
-            </button>
+            </span>
           )}
         </div>
         <div

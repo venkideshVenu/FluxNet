@@ -70,6 +70,7 @@ function HudHorizontal({
           flex
           items-center
           justify-between
+          mouse:cursor-grab
           select-none
           font-mono
           text-[12px]

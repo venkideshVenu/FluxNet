@@ -36,10 +36,7 @@ export const PillPresentation = memo(function PillPresentation({
       : "bg-[#8a8590]";
 
   return (
-    <div
-      className="inline-flex items-center bg-(--pill-bg) border border-(--pill-border) text-(--pill-text) rounded-full px-2.5 py-1.25 gap-1.75 w-max cursor-grab active:cursor-grabbing"
-      role="status"
-    >
+    <div className="inline-flex items-center justify-center bg-(--pill-bg) border border-(--pill-border) ... rounded-full px-2.5 py-1.25 gap-1.75 w-full cursor-grab active:cursor-grabbing">
       <div className="flex items-center gap-1.5 w-16.5 shrink-0">
         <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-8.5 text-right tabular-nums overflow-hidden whitespace-nowrap text-net-download">
           {downloadValue}

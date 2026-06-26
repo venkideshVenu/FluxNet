@@ -26,7 +26,7 @@ export const CompactPresentation = memo(function CompactPresentation({
 }: CompactPresentationProps) {
   return (
     <div
-      className="w-full max-w-37.75 rounded-xl px-2 py-2 flex flex-col gap-0 cursor-default font-mono antialiased bg-[rgb(18,16,32)] border border-[#2a2650] in-data-[theme='light']:bg-[#f0eff8] in-data-[theme='light']:border-[rgba(60,50,140,0.18)]"
+      className="w-full h-full rounded-xl px-2 py-2 flex flex-col gap-0 cursor-default font-mono antialiased bg-[rgb(18,16,32)] border border-[#2a2650] in-data-[theme='light']:bg-[#f0eff8] in-data-[theme='light']:border-[rgba(60,50,140,0.18)]"
       role="status"
     >
       {/* Header */}
@@ -108,27 +108,25 @@ export const CompactPresentation = memo(function CompactPresentation({
 
       {/* Today */}
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[8px] tracking-[0.11em] uppercase text-[#5b5890] in-data-[theme='light']:text-[#3d3760]">
+        <span className="text-[8px] tracking-[0.11em] uppercase text-[#5b5890] in-data-[theme='light']:text-[#3d3760] shrink-0">
           Today
         </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-flex items-baseline gap-0.5 tabular-nums">
-            {" "}
+        <span className="inline-flex items-center gap-1 shrink-0">
+          <span className="inline-flex items-baseline gap-0.5 tabular-nums shrink-0">
             <span className="w-1.75 h-1.75 rounded-sm inline-block shrink-0 bg-net-download" />
             <span className="text-[12px] font-semibold text-[#eae9ff] in-data-[theme='light']:text-[#131020]">
               {todayDownload.value}
             </span>
-            <span className="text-[9px] text-[#5b5890] in-data-[theme='light']:text-[#5a5478]">
+            <span className="text-[9px] text-[#5b5890] in-data-[theme='light']:text-[#5a5478] shrink-0">
               {todayDownload.unit}
             </span>
           </span>
-          <span className="inline-flex items-baseline gap-0.5 tabular-nums">
-            {" "}
+          <span className="inline-flex items-baseline gap-0.5 tabular-nums shrink-0">
             <span className="w-1.75 h-1.75 rounded-sm inline-block shrink-0 bg-net-upload" />
             <span className="text-[12px] font-semibold text-[#eae9ff] in-data-[theme='light']:text-[#131020]">
               {todayUpload.value}
             </span>
-            <span className="text-[9px] text-[#5b5890] in-data-[theme='light']:text-[#5a5478]">
+            <span className="text-[9px] text-[#5b5890] in-data-[theme='light']:text-[#5a5478] shrink-0">
               {todayUpload.unit}
             </span>
           </span>

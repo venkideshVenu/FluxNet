@@ -1,6 +1,6 @@
 [package]
 name = "fluxnet"
-version = "0.1.1"
+version = "0.1.2"
 description = "Real-time network monitoring desktop application built with Tauri, Rust, and React"
 authors = ["Venkidesh"]
 license = "GPL-3.0-or-later"
