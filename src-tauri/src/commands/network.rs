@@ -522,36 +522,34 @@ fn read_interfaces_from_sysinfo() -> Vec<InterfaceInfo> {
 #[cfg(windows)]
 fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
     let mut interfaces = Vec::new();
-    let mut buf_len: u32 = 0;
-    let mut ret = unsafe {
-        GetAdaptersAddresses(
-            AF_UNSPEC.0 as u32,
-            GAA_FLAG_INCLUDE_ALL_INTERFACES,
-            None,
-            None,
-            &mut buf_len,
-        )
-    };
-    if ret != ERROR_BUFFER_OVERFLOW.0 && ret != NO_ERROR.0 {
-        return interfaces;
+
+    // `IP_ADAPTER_ADDRESSES_LH` contains pointers, so the buffer must be
+    // 8-byte aligned: back it with u64s rather than bytes. Retry when an
+    // adapter appears between the size query and the real call.
+    let mut buf_len: u32 = 16 * 1024;
+    let mut buffer: Vec<u64>;
+    let mut attempts = 0;
+    loop {
+        buffer = vec![0u64; (buf_len as usize).div_ceil(8)];
+        let ret = unsafe {
+            GetAdaptersAddresses(
+                AF_UNSPEC.0 as u32,
+                GAA_FLAG_INCLUDE_ALL_INTERFACES,
+                None,
+                Some(buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH),
+                &mut buf_len,
+            )
+        };
+        attempts += 1;
+        if ret == NO_ERROR.0 {
+            break;
+        }
+        if ret != ERROR_BUFFER_OVERFLOW.0 || attempts >= 4 {
+            tracing::warn!("GetAdaptersAddresses failed with code {ret}");
+            return interfaces;
+        }
     }
-    if buf_len == 0 {
-        return interfaces;
-    }
-    let mut buffer = vec![0u8; buf_len as usize];
     let adapter_ptr = buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH;
-    ret = unsafe {
-        GetAdaptersAddresses(
-            AF_UNSPEC.0 as u32,
-            GAA_FLAG_INCLUDE_ALL_INTERFACES,
-            None,
-            Some(adapter_ptr),
-            &mut buf_len,
-        )
-    };
-    if ret != NO_ERROR.0 {
-        return interfaces;
-    }
     let mut current = adapter_ptr;
     while !current.is_null() {
         let adapter = unsafe { &*current };

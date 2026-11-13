@@ -128,7 +128,9 @@ fn ping_icmp_v4(target: std::net::Ipv4Addr, timeout: Duration) -> PingResult {
     let timeout_ms = timeout.as_millis() as u32;
 
     let reply_size = std::mem::size_of::<ICMP_ECHO_REPLY>() + send_data.len() + 8;
-    let mut reply_buffer = vec![0u8; reply_size];
+    // ICMP_ECHO_REPLY contains a pointer, so back the buffer with u64s to
+    // guarantee 8-byte alignment for the cast below.
+    let mut reply_buffer = vec![0u64; reply_size.div_ceil(8)];
 
     let num_replies = unsafe {
         IcmpSendEcho(
@@ -137,7 +139,7 @@ fn ping_icmp_v4(target: std::net::Ipv4Addr, timeout: Duration) -> PingResult {
             send_data.as_ptr(),
             send_data.len() as u16,
             std::ptr::null(),
-            reply_buffer.as_mut_ptr(),
+            reply_buffer.as_mut_ptr() as *mut u8,
             reply_size as u32,
             timeout_ms,
         )
