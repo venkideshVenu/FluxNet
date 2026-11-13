@@ -10,6 +10,7 @@
 //! handler on Windows (it deadlocks), so callers of [`get_or_create`] are
 //! `async` commands or run on a spawned task (see [`spawn_on_app`]).
 
+use crate::appearance;
 use crate::commands::network::{APP_SHUTTING_DOWN, WIDGET_LABELS, is_widget_label};
 use crate::commands::visibility::hud_size_for_design;
 use crate::placement::{self, Display, Rect};
@@ -95,8 +96,13 @@ pub fn get_or_create(app: &AppHandle, label: &str) -> Result<WebviewWindow, Stri
         .find(|w| w.label == label)
         .ok_or_else(|| format!("no window config for '{label}'"))?;
 
-    let window = WebviewWindowBuilder::from_config(app, config)
-        .and_then(|builder| builder.build())
+    let mut builder = WebviewWindowBuilder::from_config(app, config)
+        .map_err(|e| format!("failed to configure '{label}' window: {e}"))?;
+    if label == MAIN_LABEL {
+        builder = appearance::with_backdrop(builder);
+    }
+    let window = builder
+        .build()
         .map_err(|e| format!("failed to create '{label}' window: {e}"))?;
 
     tracing::info!("Created '{label}' window");
