@@ -1,58 +1,57 @@
 import { useEffect } from "react";
+import { fetchAppearance, setWindowTheme } from "@/api";
 import {
-  THEMES,
-  applyAccent,
+  applyAppearance,
   applyColorMode,
-  getStoredAccentIndex,
   getStoredColorMode,
-  LS_THEME,
   LS_MODE,
+  type ColorMode,
 } from "@/utils";
 
-/**
- * Applies the stored accent and colour mode. Storage can be unavailable
- * (blocked, or in some test environments), so failures fall back to the
- * defaults instead of throwing.
- */
-function applyStoredTheme() {
+/** Applies the stored colour mode to the page and the native window frame. */
+export function applyThemeMode(mode: ColorMode = safeStoredMode()) {
+  applyColorMode(mode);
+  void setWindowTheme(mode === "system" ? null : mode);
+}
+
+function safeStoredMode(): ColorMode {
   try {
-    const swatch = THEMES[getStoredAccentIndex()] ?? THEMES[0];
-    applyAccent(swatch.color);
-    applyColorMode(getStoredColorMode());
-  } catch (err) {
-    console.warn("FluxNet: could not apply stored theme", err);
+    return getStoredColorMode();
+  } catch {
+    return "system";
   }
 }
 
-// Apply once at load (not in useEffect) to prevent a flash of the wrong theme
-applyStoredTheme();
+/** Re-reads the Windows accent colour and backdrop support. */
+export async function refreshAppearance() {
+  applyAppearance(await fetchAppearance());
+}
 
+/**
+ * Keeps the dashboard in step with the user's theme choice, the system
+ * light/dark setting and the Windows accent colour.
+ */
 export function useThemeSync() {
   useEffect(() => {
-    const apply = applyStoredTheme;
-
-    // Re-apply in case something changed between module load and mount
-    apply();
+    applyThemeMode();
+    void refreshAppearance();
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === LS_THEME || e.key === LS_MODE) {
-        apply();
-      }
+      if (e.key === LS_MODE) applyThemeMode();
     };
-
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
-      const mode = getStoredColorMode();
-      if (mode === "system") {
-        applyColorMode("system");
-      }
+      if (safeStoredMode() === "system") applyColorMode("system");
     };
+    // The accent may have changed in Windows Settings while we were away.
+    const handleFocus = () => void refreshAppearance();
 
     window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
     mediaQuery.addEventListener("change", handleSystemChange);
-
     return () => {
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
       mediaQuery.removeEventListener("change", handleSystemChange);
     };
   }, []);

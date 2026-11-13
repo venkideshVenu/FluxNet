@@ -61,3 +61,17 @@ export async function getWindowPosition(): Promise<{ x: number; y: number }> {
 export async function setWindowPosition(x: number, y: number): Promise<void> {
   await tauriGetCurrentWindow().setPosition(new PhysicalPosition(x, y));
 }
+
+/**
+ * Sets the native theme of the current window (title bar and, on Windows 11,
+ * the Mica tint). `null` follows the system.
+ */
+export async function setWindowTheme(
+  theme: "light" | "dark" | null,
+): Promise<void> {
+  try {
+    await tauriGetCurrentWindow().setTheme(theme);
+  } catch {
+    // Not supported on this platform or window: the UI still themes itself.
+  }
+}

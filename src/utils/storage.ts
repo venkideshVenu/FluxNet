@@ -5,7 +5,6 @@ export type StorageSchema = {
   fluxnet_pill_interval_ms: number;
   fluxnet_compact_interval_ms: number;
   fluxnet_hud_interval_ms: number;
-  fluxnet_accent_index: number;
   fluxnet_color_mode: string;
   fluxnet_pill_mode: string;
   fluxnet_compact_mode: string;
@@ -14,6 +13,7 @@ export type StorageSchema = {
   fluxnet_compact_always_on_top: string;
   fluxnet_hud_always_on_top: string;
   fluxnet_configured: string;
+  fluxnet_interface_mode: string;
 };
 
 export function getStorageItem<K extends keyof StorageSchema>(

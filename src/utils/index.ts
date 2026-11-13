@@ -6,22 +6,19 @@ export {
   getAdaptiveBytesUnit,
 } from "./formatSpeed";
 export type { SpeedResult, BytesResult, DisplayUnits } from "./formatSpeed";
-export { computeChartScale } from "./chartScale";
+export { computeChartScale, chartTicks } from "./chartScale";
 export { invokeWithTimeout } from "./invokeWithTimeout";
 export { getStorageItem, setStorageItem } from "./storage";
 export type { StorageSchema } from "./storage";
 export {
-  THEMES,
-  applyAccent,
   applyColorMode,
-  getStoredAccentIndex,
   getStoredColorMode,
   getStoredPillMode,
   getStoredCompactMode,
   getStoredHudMode,
+  getSystemTheme,
+  isColorMode,
   resolveColorMode,
-  getFilteredThemes,
-  LS_THEME,
   LS_MODE,
   LS_PILL_MODE,
   LS_COMPACT_MODE,
@@ -52,3 +49,5 @@ export {
   LS_HUD_DESIGN,
 } from "./windowPrefs";
 export { setStorageWithNotify } from "./storageEvents";
+export { applyAppearance, accentCss, isAccentPalette } from "./appearance";
+export type { AccentPalette, Appearance } from "./appearance";
