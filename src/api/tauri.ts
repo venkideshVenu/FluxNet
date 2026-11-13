@@ -16,13 +16,18 @@ import {
   getCurrentWindow as tauriGetCurrentWindow,
   type Window as TauriWindow,
 } from "@tauri-apps/api/window";
-import { WebviewWindow as TauriWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event";
 
 // Re-export with consistent naming
 export const invoke = tauriInvoke;
+export const listen = tauriListen;
 export const getCurrentWindow = tauriGetCurrentWindow;
-export const WebviewWindow = TauriWebviewWindow;
-export type { TauriWindow };
+export type { TauriWindow, UnlistenFn };
+
+/** App-wide event emitted by the backend whenever a widget is shown or destroyed. */
+export const WIDGET_VISIBILITY_EVENT = "widget-visibility-changed";
+
+export type WidgetVisibilityPayload = { label: string; visible: boolean };
 
 /**
  * Get the window label for the current window.
