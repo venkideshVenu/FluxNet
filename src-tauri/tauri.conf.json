@@ -31,15 +31,12 @@
         "title": "FluxNet",
         "width": 232,
         "height": 32,
-        "center": true,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "skipTaskbar": true,
         "shadow": false,
         "visible": false,
-        "x": 40,
-        "y": 40,
         "dragDropEnabled": false,
         "url": "index.html"
       },
@@ -49,8 +46,6 @@
         "title": "FluxNet",
         "width": 189,
         "height": 172,
-        "x": 1680,
-        "y": 420,
         "resizable": false,
         "decorations": false,
         "transparent": true,
@@ -73,8 +68,6 @@
         "skipTaskbar": true,
         "shadow": false,
         "dragDropEnabled": false,
-        "x": 1680,
-        "y": 200,
         "visible": false,
         "url": "index.html"
       }
