@@ -9,8 +9,9 @@
 //! Windows must not be created from a synchronous Tauri command on Windows
 //! (it deadlocks), so commands that call [`get_or_create`] are `async`.
 
-use crate::commands::network::{APP_SHUTTING_DOWN, is_widget_label};
+use crate::commands::network::{APP_SHUTTING_DOWN, WIDGET_LABELS, is_widget_label};
 use crate::commands::visibility::hud_size_for_design;
+use crate::placement::{self, Display};
 use crate::window_positions::{PositionSender, WidgetStore};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -167,9 +168,8 @@ fn prepare_widget(app: &AppHandle, window: &WebviewWindow, label: &str) {
         let (position, config) =
             store.read(|s| (s.positions.get(label).copied(), s.get_config(label)));
 
-        if let Some(pos) = position {
-            let (x, y) = clamp_position(window, pos.x, pos.y);
-            tracing::info!("Restoring '{label}' position to ({x}, {y})");
+        if let Some((x, y)) = initial_position(app, label, position.map(|p| (p.x, p.y))) {
+            tracing::info!("Placing '{label}' at ({x}, {y}) (saved={position:?})");
             let _ = window.set_position(Position::Physical(PhysicalPosition { x, y }));
         }
         let _ = window.set_always_on_top(config.always_on_top);
@@ -179,6 +179,14 @@ fn prepare_widget(app: &AppHandle, window: &WebviewWindow, label: &str) {
     let label = label.to_string();
     let window_for_events = window.clone();
     window.on_window_event(move |event| match event {
+        WindowEvent::ScaleFactorChanged { .. } => {
+            // Moving between monitors with different DPI (or changing Windows
+            // display scaling) leaves the min/max lock at the old physical
+            // size. Re-apply the logical size so the widget keeps its shape.
+            if let Some((w, h)) = widget_logical_size(&app_handle, &label) {
+                lock_logical_size(&window_for_events, w, h);
+            }
+        }
         WindowEvent::CloseRequested { .. } => {
             // Let the close go ahead (destroying the webview) but keep the
             // position so the widget reopens where it was.
@@ -201,26 +209,40 @@ fn prepare_widget(app: &AppHandle, window: &WebviewWindow, label: &str) {
     });
 }
 
-/// Keeps a restored position inside the work area of the monitor that
-/// contains it, falling back to the primary monitor.
-fn clamp_position(window: &WebviewWindow, x: i32, y: i32) -> (i32, i32) {
-    let monitor = match window.current_monitor() {
-        Ok(Some(m)) => Some(m),
-        _ => window.primary_monitor().ok().flatten(),
-    };
-    let Some(monitor) = monitor else {
-        return (x, y);
-    };
-    let Ok(window_size) = window.outer_size() else {
-        return (x, y);
-    };
-    let wa = monitor.work_area();
-    let left = wa.position.x;
-    let right = wa.position.x + wa.size.width as i32;
-    let top = wa.position.y;
-    let bottom = wa.position.y + wa.size.height as i32;
-    (
-        x.clamp(left, (right - window_size.width as i32).max(left)),
-        y.clamp(top, (bottom - window_size.height as i32).max(top)),
-    )
+/// Snapshot of the connected monitors' work areas for [`placement`].
+fn displays(app: &AppHandle) -> (Vec<Display>, usize) {
+    let monitors = app.available_monitors().unwrap_or_default();
+    let primary_pos = app.primary_monitor().ok().flatten().map(|m| *m.position());
+    let primary = monitors
+        .iter()
+        .position(|m| Some(*m.position()) == primary_pos)
+        .unwrap_or(0);
+    let displays = monitors
+        .iter()
+        .map(|m| {
+            let wa = m.work_area();
+            Display {
+                x: wa.position.x,
+                y: wa.position.y,
+                width: wa.size.width,
+                height: wa.size.height,
+                scale: m.scale_factor(),
+            }
+        })
+        .collect();
+    (displays, primary)
+}
+
+/// Saved position (kept on the monitor it was on, or moved to the nearest one
+/// if that monitor is gone), or a resolution-aware default on first run.
+fn initial_position(app: &AppHandle, label: &str, saved: Option<(i32, i32)>) -> Option<(i32, i32)> {
+    let (logical_w, logical_h) = widget_logical_size(app, label)?;
+    let (displays, primary) = displays(app);
+    match saved {
+        Some((x, y)) => placement::restore_position(&displays, primary, x, y, logical_w, logical_h),
+        None => {
+            let slot = WIDGET_LABELS.iter().position(|l| *l == label).unwrap_or(0);
+            placement::default_position(&displays, primary, slot, logical_w, logical_h)
+        }
+    }
 }

@@ -6,6 +6,7 @@ mod commands;
 mod dto;
 mod monitor;
 mod persistence;
+mod placement;
 mod setup;
 mod storage;
 mod theme;
