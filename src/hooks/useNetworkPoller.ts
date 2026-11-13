@@ -10,7 +10,7 @@ import {
   LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
 } from "@/utils";
-import { useStoredInterval } from "@/hooks";
+import { useStoredInterval } from "./useStoredInterval";
 
 /**
  * Core polling hook — thin coordinator.
