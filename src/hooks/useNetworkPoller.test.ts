@@ -172,7 +172,7 @@ describe("useNetworkPoller", () => {
 
   // ── Dashboard / Compact path ─────────────────────────────────────────
 
-  describe("dashboard/compact window (full snapshot)", () => {
+  describe("dashboard window (full snapshot)", () => {
     beforeEach(() => {
       mockWindowLabel = "main";
     });
