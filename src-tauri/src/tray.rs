@@ -73,10 +73,12 @@ pub fn build_tray(app_handle: AppHandle) -> tauri::Result<()> {
                 };
                 perform_shutdown(app_handle, &cancel_token, &store);
             }
-            "toggle_pill" => toggle_widget(app_handle, "pill"),
-            "toggle_compact" => toggle_widget(app_handle, "compact"),
-            "toggle_hud" => toggle_widget(app_handle, "hud"),
-            "dashboard" => open_dashboard(app_handle),
+            "toggle_pill" => app_windows::spawn_on_app(app_handle, |a| toggle_widget(a, "pill")),
+            "toggle_compact" => {
+                app_windows::spawn_on_app(app_handle, |a| toggle_widget(a, "compact"))
+            }
+            "toggle_hud" => app_windows::spawn_on_app(app_handle, |a| toggle_widget(a, "hud")),
+            "dashboard" => app_windows::spawn_on_app(app_handle, open_dashboard),
             _ => {}
         })
         .on_tray_icon_event(move |tray, event| {
@@ -92,8 +94,7 @@ pub fn build_tray(app_handle: AppHandle) -> tauri::Result<()> {
                 }
                 LAST_TRAY_CLICK_NS.store(now, Ordering::Relaxed);
 
-                let app = tray.app_handle();
-                open_dashboard(app);
+                app_windows::spawn_on_app(tray.app_handle(), open_dashboard);
             }
         })
         .build(app)?;
@@ -112,10 +113,7 @@ fn toggle_widget(app_handle: &AppHandle, widget_id: &str) {
         }
     };
 
-    let visible = app_handle
-        .get_webview_window(widget_id)
-        .and_then(|w| w.is_visible().ok())
-        .unwrap_or(false);
+    let visible = store.read(|s| s.get_config(widget_id).visible);
     let _ = apply_widget_visibility(app_handle, &store, widget_id, !visible);
 }
 

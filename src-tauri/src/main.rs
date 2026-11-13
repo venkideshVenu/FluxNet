@@ -27,8 +27,8 @@ use commands::storage::{
     get_usage_stats_cmd,
 };
 use commands::visibility::{
-    get_hud_design, set_hud_design, set_widget_always_on_top, set_widget_opacity,
-    set_widget_visibility,
+    get_hud_design, get_widget_visibility, set_hud_design, set_widget_always_on_top,
+    set_widget_opacity, set_widget_visibility,
 };
 use persistence::app_settings::SettingsStore;
 use std::sync::Arc;
@@ -129,7 +129,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            app_windows::open_dashboard(app);
+            app_windows::spawn_on_app(app, app_windows::open_dashboard);
         }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -151,6 +151,7 @@ fn main() {
             set_widget_opacity,
             set_widget_always_on_top,
             set_widget_visibility,
+            get_widget_visibility,
             // HUD design
             set_hud_design,
             get_hud_design,
