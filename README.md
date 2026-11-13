@@ -14,7 +14,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-purple)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
 [![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/venkideshVenu/fluxnet/build.yml?branch=main)](https://github.com/venkideshVenu/fluxnet/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/venkideshVenu/fluxnet/ci.yml?branch=main)](https://github.com/venkideshVenu/fluxnet/actions)
 [![Downloads](https://img.shields.io/github/downloads/venkideshVenu/fluxnet/total)](https://github.com/venkideshVenu/fluxnet/releases)
 
 ---
