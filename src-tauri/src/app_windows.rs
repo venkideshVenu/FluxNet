@@ -12,7 +12,7 @@
 
 use crate::commands::network::{APP_SHUTTING_DOWN, WIDGET_LABELS, is_widget_label};
 use crate::commands::visibility::hud_size_for_design;
-use crate::placement::{self, Display};
+use crate::placement::{self, Display, Rect};
 use crate::window_positions::{PositionSender, WidgetStore};
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -288,10 +288,18 @@ fn displays(app: &AppHandle) -> (Vec<Display>, usize) {
         .map(|m| {
             let wa = m.work_area();
             Display {
-                x: wa.position.x,
-                y: wa.position.y,
-                width: wa.size.width,
-                height: wa.size.height,
+                bounds: Rect {
+                    x: m.position().x,
+                    y: m.position().y,
+                    width: m.size().width,
+                    height: m.size().height,
+                },
+                work: Rect {
+                    x: wa.position.x,
+                    y: wa.position.y,
+                    width: wa.size.width,
+                    height: wa.size.height,
+                },
                 scale: m.scale_factor(),
             }
         })

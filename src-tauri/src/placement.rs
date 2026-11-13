@@ -4,17 +4,16 @@
 //! layouts (mixed DPI, monitors left of / above the primary, unplugged
 //! displays). All coordinates are physical pixels in the virtual desktop.
 
-/// A monitor's work area (screen minus taskbar) and its DPI scale.
+/// An axis-aligned rectangle in physical pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Display {
+pub struct Rect {
     pub x: i32,
     pub y: i32,
     pub width: u32,
     pub height: u32,
-    pub scale: f64,
 }
 
-impl Display {
+impl Rect {
     fn right(&self) -> i32 {
         self.x.saturating_add(self.width as i32)
     }
@@ -33,24 +32,26 @@ impl Display {
         let dy = (self.y - y).max(0).max(y - (self.bottom() - 1)) as i64;
         dx * dx + dy * dy
     }
+
+    /// Moves a `w`x`h` box at `(x, y)` fully inside this rectangle where
+    /// possible; a box larger than the rectangle is pinned to its top-left.
+    fn clamp(&self, x: i32, y: i32, w: u32, h: u32) -> (i32, i32) {
+        let max_x = (self.right() - w as i32).max(self.x);
+        let max_y = (self.bottom() - h as i32).max(self.y);
+        (x.clamp(self.x, max_x), y.clamp(self.y, max_y))
+    }
+}
+
+/// A monitor: its full bounds, its work area (bounds minus taskbar) and DPI scale.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Display {
+    pub bounds: Rect,
+    pub work: Rect,
+    pub scale: f64,
 }
 
 /// Gap kept between a default-placed widget and the work-area edge (logical px).
 pub const EDGE_MARGIN: f64 = 24.0;
-
-/// Picks the display a saved top-left position belongs to: the one that
-/// contains it, else the nearest one (the monitor it was on may be unplugged),
-/// else the primary.
-pub fn display_for_point(displays: &[Display], primary: usize, x: i32, y: i32) -> Option<Display> {
-    if let Some(d) = displays.iter().find(|d| d.contains(x, y)) {
-        return Some(*d);
-    }
-    displays
-        .iter()
-        .min_by_key(|d| d.distance_sq(x, y))
-        .copied()
-        .or_else(|| displays.get(primary).copied())
-}
 
 /// Physical size of a window with the given logical size on `display`.
 pub fn physical_size(display: &Display, logical_w: f64, logical_h: f64) -> (u32, u32) {
@@ -65,15 +66,12 @@ pub fn physical_size(display: &Display, logical_w: f64, logical_h: f64) -> (u32,
     )
 }
 
-/// Moves a window so it lies fully inside `display` where possible. If the
-/// window is larger than the work area it is pinned to the top-left.
-pub fn clamp_to_display(display: &Display, x: i32, y: i32, w: u32, h: u32) -> (i32, i32) {
-    let max_x = (display.right() - w as i32).max(display.x);
-    let max_y = (display.bottom() - h as i32).max(display.y);
-    (x.clamp(display.x, max_x), y.clamp(display.y, max_y))
-}
-
 /// Where to restore a widget whose last top-left position was `(x, y)`.
+///
+/// The widget belongs to the monitor containing its centre (or the nearest
+/// monitor if that one is unplugged) and is kept within that monitor's full
+/// bounds. Full bounds rather than the work area, so a speed meter parked
+/// over the taskbar stays there.
 pub fn restore_position(
     displays: &[Display],
     primary: usize,
@@ -82,13 +80,32 @@ pub fn restore_position(
     logical_w: f64,
     logical_h: f64,
 ) -> Option<(i32, i32)> {
-    let display = display_for_point(displays, primary, x, y)?;
-    let (w, h) = physical_size(&display, logical_w, logical_h);
-    Some(clamp_to_display(&display, x, y, w, h))
+    let centre = |d: &Display| {
+        let (w, h) = physical_size(d, logical_w, logical_h);
+        (
+            x.saturating_add(w as i32 / 2),
+            y.saturating_add(h as i32 / 2),
+        )
+    };
+    let display = displays
+        .iter()
+        .find(|d| {
+            let (cx, cy) = centre(d);
+            d.bounds.contains(cx, cy)
+        })
+        .or_else(|| {
+            displays.iter().min_by_key(|d| {
+                let (cx, cy) = centre(d);
+                d.bounds.distance_sq(cx, cy)
+            })
+        })
+        .or_else(|| displays.get(primary))?;
+    let (w, h) = physical_size(display, logical_w, logical_h);
+    Some(display.bounds.clamp(x, y, w, h))
 }
 
-/// First-run position: stacked down the right edge of the primary display,
-/// so it works on any resolution instead of assuming a 1920px-wide screen.
+/// First-run position: stacked down the right edge of the primary display's
+/// work area, so it works on any resolution and never sits under the taskbar.
 pub fn default_position(
     displays: &[Display],
     primary: usize,
@@ -98,25 +115,43 @@ pub fn default_position(
 ) -> Option<(i32, i32)> {
     let display = displays.get(primary).or_else(|| displays.first())?;
     let (w, h) = physical_size(display, logical_w, logical_h);
-    let margin = (EDGE_MARGIN * display.scale.max(1.0)).round() as i32;
+    let scale = display.scale.max(1.0);
+    let margin = (EDGE_MARGIN * scale).round() as i32;
     // 180 logical px per slot fits the tallest widget (compact, 172px).
-    let step = (180.0 * display.scale.max(1.0)).round() as i32;
-    let x = display.right() - w as i32 - margin;
-    let y = display.y + margin + step * slot as i32;
-    Some(clamp_to_display(display, x, y, w, h))
+    let step = (180.0 * scale).round() as i32;
+    let x = display.work.right() - w as i32 - margin;
+    let y = display.work.y + margin + step * slot as i32;
+    Some(display.work.clamp(x, y, w, h))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn d(x: i32, y: i32, width: u32, height: u32, scale: f64) -> Display {
-        Display {
+    fn r(x: i32, y: i32, width: u32, height: u32) -> Rect {
+        Rect {
             x,
             y,
             width,
             height,
+        }
+    }
+
+    /// A monitor without a taskbar (work area == bounds).
+    fn d(x: i32, y: i32, width: u32, height: u32, scale: f64) -> Display {
+        Display {
+            bounds: r(x, y, width, height),
+            work: r(x, y, width, height),
             scale,
+        }
+    }
+
+    /// 1920x1080 at 100% with a 40px taskbar at the bottom.
+    fn with_taskbar(x: i32, y: i32) -> Display {
+        Display {
+            bounds: r(x, y, 1920, 1080),
+            work: r(x, y, 1920, 1040),
+            scale: 1.0,
         }
     }
 
@@ -165,11 +200,42 @@ mod tests {
 
     #[test]
     fn window_larger_than_display_pins_top_left() {
-        let displays = vec![d(100, 50, 200, 100, 1.0)];
-        assert_eq!(
-            clamp_to_display(&displays[0], 500, 500, 400, 300),
-            (100, 50)
-        );
+        assert_eq!(r(100, 50, 200, 100).clamp(500, 500, 400, 300), (100, 50));
+    }
+
+    #[test]
+    fn widget_over_the_taskbar_stays_there() {
+        let displays = vec![with_taskbar(0, 0)];
+        let pos = restore_position(&displays, 0, 1500, 1044, 232.0, 32.0);
+        assert_eq!(pos, Some((1500, 1044)));
+    }
+
+    #[test]
+    fn vertically_stacked_monitors_keep_widget_on_upper_taskbar() {
+        // Monitor B sits directly above A; the pill is on B's taskbar.
+        let displays = vec![with_taskbar(0, 0), with_taskbar(0, -1080)];
+        let pos = restore_position(&displays, 0, 800, -36, 232.0, 32.0);
+        assert_eq!(pos, Some((800, -36)));
+    }
+
+    #[test]
+    fn widget_straddling_two_monitors_goes_to_the_one_holding_its_centre() {
+        let displays = vec![d(0, 0, 1920, 1080, 1.0), d(1920, 0, 1920, 1080, 1.0)];
+        // 232px wide starting at 1800: centre x = 1916 → left monitor.
+        let pos = restore_position(&displays, 0, 1800, 500, 232.0, 32.0);
+        assert_eq!(pos, Some((1920 - 232, 500)));
+        // Starting at 1850: centre x = 1966 → right monitor.
+        let pos = restore_position(&displays, 0, 1850, 500, 232.0, 32.0);
+        assert_eq!(pos, Some((1920, 500)));
+    }
+
+    #[test]
+    fn default_position_avoids_the_taskbar() {
+        let displays = vec![with_taskbar(0, 0)];
+        for slot in 0..3 {
+            let (_, y) = default_position(&displays, 0, slot, 189.0, 172.0).unwrap();
+            assert!(y + 172 <= 1040);
+        }
     }
 
     #[test]
