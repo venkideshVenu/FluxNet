@@ -115,7 +115,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     // ══════════════════════════════════════════════════════════════════════════
 
     // ── Database ──────────────────────────────────────────────────────────────
-    let rw_db = DbState::open(&app_data_dir).expect("failed to open read-write DB");
+    let rw_db = DbState::open_or_recover(&app_data_dir).expect("failed to open read-write DB");
     let ro_db = ReadOnlyDb::open(&app_data_dir).expect("failed to open read-only DB");
     app.manage(rw_db.clone());
     app.manage(ro_db);
