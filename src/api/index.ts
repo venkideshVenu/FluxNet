@@ -13,7 +13,6 @@ export type {
 
 export {
   fetchUsageStats,
-  fetchHistoryRange,
   fetchHourlySummary,
   fetchDailySummary,
   fetchMonthlySummary,

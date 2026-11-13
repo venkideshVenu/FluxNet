@@ -40,7 +40,6 @@ type NetworkStore = {
   history: HistoryPoint[];
 
   setData: (data: NetworkData) => void;
-  setConnected: (v: boolean) => void;
   setError: (err: string | null) => void;
   setSnapshot: (snap: {
     currentUpload: number;
@@ -69,7 +68,6 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
 
   setData: (data) =>
     set({ data, isConnected: true, isInitialized: true, lastError: null }),
-  setConnected: (isConnected) => set({ isConnected }),
   setError: (lastError) => set({ lastError, isConnected: false }),
   dismissError: () => set({ lastError: null }),
 

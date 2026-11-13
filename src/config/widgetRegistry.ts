@@ -38,9 +38,6 @@ export interface WidgetRegistryEntry {
   getStoredInterval: IntervalGetter;
   getStoredAlwaysOnTop: AlwaysOnTopGetter;
   getStoredMode: ColorModeGetter;
-  invokeAlwaysOnTop: string;
-  invokeOpacity: string;
-  invokeVisibility: string;
   defaultOpacity: number;
   defaultAlwaysOnTop: boolean; // <-- added
 }
@@ -58,9 +55,6 @@ export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
     getStoredInterval: getStoredPillIntervalMs,
     getStoredAlwaysOnTop: getStoredPillAlwaysOnTop,
     getStoredMode: getStoredPillMode,
-    invokeAlwaysOnTop: "set_pill_always_on_top",
-    invokeOpacity: "set_pill_opacity",
-    invokeVisibility: "set_widget_visibility",
     defaultOpacity: 100, // changed from 88
     defaultAlwaysOnTop: true, // added
   },
@@ -76,9 +70,6 @@ export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
     getStoredInterval: getStoredCompactIntervalMs,
     getStoredAlwaysOnTop: getStoredCompactAlwaysOnTop,
     getStoredMode: getStoredCompactMode,
-    invokeAlwaysOnTop: "set_compact_always_on_top",
-    invokeOpacity: "set_compact_opacity",
-    invokeVisibility: "set_widget_visibility",
     defaultOpacity: 100,
     defaultAlwaysOnTop: true,
   },
@@ -94,9 +85,6 @@ export const WIDGET_REGISTRY: Record<WidgetLabel, WidgetRegistryEntry> = {
     getStoredInterval: getStoredHudIntervalMs,
     getStoredAlwaysOnTop: getStoredHudAlwaysOnTop,
     getStoredMode: getStoredHudMode,
-    invokeAlwaysOnTop: "set_hud_always_on_top",
-    invokeOpacity: "set_hud_opacity",
-    invokeVisibility: "set_widget_visibility",
     defaultOpacity: 100,
     defaultAlwaysOnTop: true,
   },

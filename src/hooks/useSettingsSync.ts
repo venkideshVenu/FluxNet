@@ -11,7 +11,6 @@ const SETTINGS_KEY = "fluxnet-settings";
 export function useSettingsSync() {
   const setDisplayUnits = useSettingsStore((s) => s.setDisplayUnits);
   const setPollInterval = useSettingsStore((s) => s.setPollInterval);
-  const setPingTarget = useSettingsStore((s) => s.setPingTarget);
   const setTimeFormat = useSettingsStore((s) => s.setTimeFormat);
   const setDateFormat = useSettingsStore((s) => s.setDateFormat);
   const setStartOfWeek = useSettingsStore((s) => s.setStartOfWeek);
@@ -36,9 +35,6 @@ export function useSettingsSync() {
         ) {
           setPollInterval(state.pollIntervalMs);
         }
-        if (state.pingTarget && state.pingTarget !== current.pingTarget) {
-          setPingTarget(state.pingTarget);
-        }
         if (state.timeFormat && state.timeFormat !== current.timeFormat) {
           setTimeFormat(state.timeFormat as TimeFormat);
         }
@@ -58,7 +54,6 @@ export function useSettingsSync() {
   }, [
     setDisplayUnits,
     setPollInterval,
-    setPingTarget,
     setTimeFormat,
     setDateFormat,
     setStartOfWeek,
