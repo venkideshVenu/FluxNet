@@ -637,3 +637,77 @@ pub fn select_interface_outside_lock(networks: &Networks) -> String {
     }
     String::new()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_by_description_before_if_type() {
+        let wifi = IF_TYPE_IEEE80211;
+        assert_eq!(
+            classify_interface_type(wifi, "Wi-Fi", "Intel Wi-Fi 6E AX211"),
+            "wifi"
+        );
+        assert_eq!(
+            classify_interface_type(6, "Ethernet", "Realtek PCIe GbE"),
+            "ethernet"
+        );
+        assert_eq!(
+            classify_interface_type(6, "NordLynx", "NordLynx Tunnel"),
+            "vpn"
+        );
+        assert_eq!(
+            classify_interface_type(53, "OpenVPN", "TAP-Windows Adapter V9"),
+            "vpn"
+        );
+        assert_eq!(
+            classify_interface_type(6, "vEthernet (WSL)", "Hyper-V Virtual Ethernet Adapter"),
+            "virtual"
+        );
+        assert_eq!(
+            classify_interface_type(6, "Bluetooth Network Connection", "Bluetooth Device (PAN)"),
+            "bluetooth"
+        );
+        assert_eq!(
+            classify_interface_type(6, "Ethernet 3", "Remote NDIS based Internet Sharing Device"),
+            "usb"
+        );
+        assert_eq!(
+            classify_interface_type(243, "Cellular", "Mobile Broadband"),
+            "cellular"
+        );
+        assert_eq!(classify_interface_type(IF_TYPE_TUNNEL, "x", "y"), "tunnel");
+        assert_eq!(classify_interface_type(1, "x", "y"), "other");
+    }
+
+    #[test]
+    fn hides_loopback_and_driver_noise() {
+        assert!(is_noise_interface(
+            "Loopback",
+            "Software Loopback",
+            IF_TYPE_SOFTWARE_LOOPBACK
+        ));
+        assert!(is_noise_interface(
+            "Local Area Connection* 2",
+            "Wi-Fi Direct Virtual",
+            71
+        ));
+        assert!(is_noise_interface("Ethernet", "WAN Miniport (IP)", 6));
+        assert!(is_noise_interface(
+            "Ethernet 4",
+            "Npcap Loopback Adapter",
+            6
+        ));
+        assert!(!is_noise_interface("Wi-Fi", "Intel Wi-Fi 6E AX211", 71));
+        assert!(!is_noise_interface("Ethernet", "Realtek PCIe GbE", 6));
+    }
+
+    #[test]
+    fn widget_labels_are_recognised() {
+        for label in WIDGET_LABELS {
+            assert!(is_widget_label(label));
+        }
+        assert!(!is_widget_label("main"));
+    }
+}
