@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { WINDOW_LABEL, pollNetworkData } from "@/api";
 import { useNetworkStore, useSettingsStore } from "@/store";
 import {
+  clampPollInterval,
   getStoredCompactIntervalMs,
   getStoredHudIntervalMs,
   getStoredPillIntervalMs,
@@ -39,25 +40,28 @@ export function useNetworkPoller() {
     getStoredHudIntervalMs,
   );
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const visibleRef = useRef(!document.hidden);
-
   useEffect(() => {
-    const handleVisibility = () => {
-      visibleRef.current = !document.hidden;
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+    // Polls are chained (the next one is scheduled after the previous one
+    // settles), so a slow backend can never leave several requests in flight
+    // and an older response can never overwrite a newer one. `cancelled`
+    // drops results that arrive after unmount or an interval change.
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-  useEffect(() => {
+    const intervalMs = clampPollInterval(
+      WINDOW_LABEL === "pill"
+        ? pillIntervalMs
+        : WINDOW_LABEL === "hud"
+          ? hudIntervalMs
+          : WINDOW_LABEL === "compact"
+            ? compactIntervalMs
+            : dashboardIntervalMs,
+    );
+
     const poll = async () => {
-      // Skip polling if document is hidden (saves CPU/RAM)
-      if (!visibleRef.current && WINDOW_LABEL === "main") return;
-
       try {
         const result = await pollNetworkData(WINDOW_LABEL);
+        if (cancelled) return;
 
         if (result.liveData) {
           setData(result.liveData);
@@ -76,6 +80,7 @@ export function useNetworkPoller() {
 
         accumulate(result.currentUpload, result.currentDownload);
       } catch (err) {
+        if (cancelled) return;
         const message =
           err instanceof Error ? err.message : "Failed to poll network data";
         console.error("FluxNet poll error:", err);
@@ -83,20 +88,19 @@ export function useNetworkPoller() {
       }
     };
 
-    poll();
+    const tick = async () => {
+      // The hidden dashboard skips work; widgets stay live while visible.
+      if (!(WINDOW_LABEL === "main" && document.hidden)) {
+        await poll();
+      }
+      if (!cancelled) timer = setTimeout(tick, intervalMs);
+    };
 
-    const intervalMs =
-      WINDOW_LABEL === "pill"
-        ? pillIntervalMs
-        : WINDOW_LABEL === "hud"
-          ? hudIntervalMs
-          : WINDOW_LABEL === "compact"
-            ? compactIntervalMs
-            : dashboardIntervalMs;
+    tick();
 
-    timerRef.current = setInterval(poll, intervalMs);
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
     };
   }, [
     dashboardIntervalMs,

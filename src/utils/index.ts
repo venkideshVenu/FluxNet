@@ -35,6 +35,9 @@ export {
   LS_PILL_INTERVAL,
   LS_COMPACT_INTERVAL,
   LS_HUD_INTERVAL,
+  clampPollInterval,
+  MIN_POLL_INTERVAL_MS,
+  MAX_POLL_INTERVAL_MS,
 } from "./polling";
 export {
   getStoredPillAlwaysOnTop,

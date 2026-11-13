@@ -401,5 +401,161 @@ describe("useNetworkPoller", () => {
 
       expect(mockPollNetworkData).toHaveBeenCalledTimes(1);
     });
+
+    it("does not write to the store after unmount", async () => {
+      let resolve!: (v: unknown) => void;
+      mockPollNetworkData.mockReturnValue(
+        new Promise((r) => {
+          resolve = r;
+        }),
+      );
+
+      const { unmount } = renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalled());
+      unmount();
+
+      await act(async () => {
+        resolve({
+          currentUpload: 9,
+          currentDownload: 9,
+          liveData: {
+            uploadBytesPerSec: 9,
+            downloadBytesPerSec: 9,
+            interfaceName: "late",
+          },
+        });
+      });
+
+      expect(useNetworkStore.getState().data.interfaceName).toBe("");
+    });
+  });
+
+  // ── Ordering ──────────────────────────────────────────────────────────
+
+  describe("ordering", () => {
+    beforeEach(() => {
+      mockWindowLabel = "pill";
+    });
+
+    it("never has two polls in flight while the backend is slow", async () => {
+      let resolveFirst!: (v: unknown) => void;
+      mockPollNetworkData.mockReturnValueOnce(
+        new Promise((r) => {
+          resolveFirst = r;
+        }),
+      );
+
+      renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalledTimes(1));
+
+      // Several intervals pass while the first request is still pending.
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(mockPollNetworkData).toHaveBeenCalledTimes(1);
+
+      mockPollNetworkData.mockResolvedValue({
+        currentUpload: 2,
+        currentDownload: 2,
+        liveData: {
+          uploadBytesPerSec: 2,
+          downloadBytesPerSec: 2,
+          interfaceName: "new",
+        },
+      });
+      await act(async () => {
+        resolveFirst({
+          currentUpload: 1,
+          currentDownload: 1,
+          liveData: {
+            uploadBytesPerSec: 1,
+            downloadBytesPerSec: 1,
+            interfaceName: "old",
+          },
+        });
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() =>
+        expect(useNetworkStore.getState().data.interfaceName).toBe("new"),
+      );
+    });
+  });
+
+  // ── Hidden dashboard ──────────────────────────────────────────────────
+
+  describe("visibility", () => {
+    afterEach(() => {
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: false,
+      });
+    });
+
+    it("skips polling while the dashboard is hidden", async () => {
+      mockWindowLabel = "main";
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: true,
+      });
+      mockPollNetworkData.mockResolvedValue({});
+
+      renderHook(() => useNetworkPoller());
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(mockPollNetworkData).not.toHaveBeenCalled();
+    });
+
+    it("keeps widgets polling even when hidden", async () => {
+      mockWindowLabel = "pill";
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: true,
+      });
+      mockPollNetworkData.mockResolvedValue({
+        currentUpload: 0,
+        currentDownload: 0,
+        liveData: {
+          uploadBytesPerSec: 0,
+          downloadBytesPerSec: 0,
+          interfaceName: "eth0",
+        },
+      });
+
+      renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalled());
+    });
+  });
+
+  // ── Interval clamping ─────────────────────────────────────────────────
+
+  describe("interval clamping", () => {
+    it("never polls faster than 500ms even if 0 is configured", async () => {
+      mockWindowLabel = "main";
+      useSettingsStore.setState({ pollIntervalMs: 0 });
+      mockPollNetworkData.mockResolvedValue({
+        currentUpload: 0,
+        currentDownload: 0,
+        snapshot: {
+          peakUpload: 0,
+          peakDownload: 0,
+          interfaceName: "eth0",
+          isConnected: true,
+          history: [],
+        },
+      });
+
+      renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalledTimes(1));
+
+      // An unclamped 0ms interval would have fired many times by now.
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(mockPollNetworkData).toHaveBeenCalledTimes(1);
+    });
   });
 });
