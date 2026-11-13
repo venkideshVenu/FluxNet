@@ -9,21 +9,27 @@ import {
   LS_MODE,
 } from "@/utils";
 
-// Apply theme immediately (not in useEffect) to prevent flash
-const initialMode = getStoredColorMode();
-const initialAccentIndex = getStoredAccentIndex();
-const initialSwatch = THEMES[initialAccentIndex] ?? THEMES[0];
-applyAccent(initialSwatch.color);
-applyColorMode(initialMode);
+/**
+ * Applies the stored accent and colour mode. Storage can be unavailable
+ * (blocked, or in some test environments), so failures fall back to the
+ * defaults instead of throwing.
+ */
+function applyStoredTheme() {
+  try {
+    const swatch = THEMES[getStoredAccentIndex()] ?? THEMES[0];
+    applyAccent(swatch.color);
+    applyColorMode(getStoredColorMode());
+  } catch (err) {
+    console.warn("FluxNet: could not apply stored theme", err);
+  }
+}
+
+// Apply once at load (not in useEffect) to prevent a flash of the wrong theme
+applyStoredTheme();
 
 export function useThemeSync() {
   useEffect(() => {
-    const apply = () => {
-      const index = getStoredAccentIndex();
-      const swatch = THEMES[index] ?? THEMES[0];
-      applyAccent(swatch.color);
-      applyColorMode(getStoredColorMode());
-    };
+    const apply = applyStoredTheme;
 
     // Re-apply in case something changed between module load and mount
     apply();

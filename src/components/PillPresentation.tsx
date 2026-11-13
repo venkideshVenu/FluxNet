@@ -60,6 +60,9 @@ export const PillPresentation = memo(function PillPresentation({
       </div>
       <div
         className={`w-1.75 h-1.75 ml-0.5 rounded-full ${dotColor}`}
+        data-state={
+          !hasInterface ? "no-interface" : isConnected ? "live" : "dead"
+        }
         aria-hidden="true"
       />
     </div>

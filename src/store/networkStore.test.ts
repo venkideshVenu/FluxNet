@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useNetworkStore } from "./networkStore";
+import { useNetworkStore, MAX_HISTORY_POINTS } from "./networkStore";
 
 describe("networkStore", () => {
   beforeEach(() => {
@@ -66,8 +66,9 @@ describe("networkStore", () => {
       expect(state.history).toHaveLength(1);
     });
 
-    it("caps history at 300 points", () => {
-      const bigHistory = Array.from({ length: 500 }, (_, i) => ({
+    it("caps history at MAX_HISTORY_POINTS", () => {
+      const total = MAX_HISTORY_POINTS + 200;
+      const bigHistory = Array.from({ length: total }, (_, i) => ({
         upload: i,
         download: i * 2,
         t: i,
@@ -82,8 +83,10 @@ describe("networkStore", () => {
         history: bigHistory,
       });
 
-      expect(useNetworkStore.getState().history).toHaveLength(300);
-      // Should keep the LAST 300 points
+      expect(useNetworkStore.getState().history).toHaveLength(
+        MAX_HISTORY_POINTS,
+      );
+      // Should keep the most recent points
       expect(useNetworkStore.getState().history[0].t).toBe(200);
     });
 

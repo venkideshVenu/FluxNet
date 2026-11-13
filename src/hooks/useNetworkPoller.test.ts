@@ -7,14 +7,14 @@ import { useNetworkStore, useSettingsStore } from "@/store";
 
 let mockWindowLabel = "pill";
 
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ label: mockWindowLabel }),
-}));
-
-// Mock the network API layer
+// Mock the network API layer. WINDOW_LABEL is a getter so each test can
+// switch windows; the real export is computed once at module load.
 const mockPollNetworkData = vi.fn();
 vi.mock("@/api", () => ({
   pollNetworkData: (...args: unknown[]) => mockPollNetworkData(...args),
+  get WINDOW_LABEL() {
+    return mockWindowLabel;
+  },
 }));
 
 // Mock useStoredInterval to return a controlled value
@@ -48,7 +48,7 @@ function resetStores() {
 
 describe("useNetworkPoller", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     resetStores();
     mockPollNetworkData.mockReset();
   });

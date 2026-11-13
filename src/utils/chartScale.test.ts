@@ -34,8 +34,8 @@ describe("formatBytes", () => {
 });
 
 describe("formatLinkSpeed", () => {
-  it("returns '0 bps' for zero", () => {
-    expect(formatLinkSpeed(0)).toBe("0 bps");
+  it("returns a dash for zero (link speed unknown)", () => {
+    expect(formatLinkSpeed(0)).toBe("—");
   });
 
   it("formats megabits", () => {
@@ -52,8 +52,8 @@ describe("formatLinkSpeed", () => {
   });
 
   it("handles invalid input", () => {
-    expect(formatLinkSpeed(-1)).toBe("0 bps");
-    expect(formatLinkSpeed(NaN)).toBe("0 bps");
-    expect(formatLinkSpeed(Infinity)).toBe("0 bps");
+    expect(formatLinkSpeed(-1)).toBe("—");
+    expect(formatLinkSpeed(NaN)).toBe("—");
+    expect(formatLinkSpeed(Infinity)).toBe("—");
   });
 });
