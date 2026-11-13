@@ -1,19 +1,39 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useNetworkStore } from "@/store";
-import { formatLinkSpeed, invokeWithTimeout, setStorageItem } from "@/utils";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
-  Wifi,
-  Network,
-  Cable,
   Bluetooth,
-  Smartphone,
-  Shield,
-  Monitor,
+  Cable,
+  Network,
+  RefreshCw,
   Route,
-  CircleOff,
+  Shield,
+  Smartphone,
+  Sparkles,
+  Usb,
+  Monitor,
+  Wifi,
 } from "lucide-react";
+import { useNetworkStore } from "@/store";
+import {
+  formatLinkSpeed,
+  getStorageItem,
+  invokeWithTimeout,
+  setStorageItem,
+} from "@/utils";
+import {
+  Button,
+  Card,
+  InfoBar,
+  Page,
+  PageHeader,
+  ProgressRing,
+  RadioDot,
+  SettingsCard,
+  SettingsGroup,
+  ToggleSwitch,
+  cx,
+} from "@/components/fluent";
 
-type InterfaceInfo = {
+export type InterfaceInfo = {
   name: string;
   description: string;
   if_index: number;
@@ -23,357 +43,300 @@ type InterfaceInfo = {
   interface_type: string;
 };
 
-type MonitoringMode = "auto" | "manual";
+const POLL_INTERVAL_MS = 3000;
 
-function getInterfaceIcon(
-  interfaceType: string,
-  isUp: boolean,
-): React.ReactNode {
-  if (!isUp) return <CircleOff size={18} />;
-  switch (interfaceType) {
+const TYPE_LABELS: Record<string, string> = {
+  wifi: "Wi-Fi",
+  ethernet: "Ethernet",
+  usb: "USB tethering",
+  bluetooth: "Bluetooth",
+  cellular: "Cellular",
+  vpn: "VPN",
+  virtual: "Virtual",
+  tunnel: "Tunnel",
+};
+
+export function typeLabel(type: string): string {
+  return TYPE_LABELS[type.toLowerCase()] ?? "Other";
+}
+
+export function adapterIcon(type: string) {
+  switch (type.toLowerCase()) {
     case "wifi":
-      return <Wifi size={18} />;
+      return <Wifi />;
     case "ethernet":
-      return <Cable size={18} />;
+      return <Cable />;
     case "usb":
-      return <Cable size={18} />;
+      return <Usb />;
     case "bluetooth":
-      return <Bluetooth size={18} />;
+      return <Bluetooth />;
     case "cellular":
-      return <Smartphone size={18} />;
+      return <Smartphone />;
     case "vpn":
-      return <Shield size={18} />;
+      return <Shield />;
     case "virtual":
-      return <Monitor size={18} />;
+      return <Monitor />;
     case "tunnel":
-      return <Route size={18} />;
+      return <Route />;
     default:
-      return <Network size={18} />;
+      return <Network />;
   }
 }
 
-const POLL_INTERVAL_MS = 3000;
+export const isUp = (i: InterfaceInfo) => i.status.toLowerCase() === "up";
+
+/** The adapter automatic mode picks: connected Ethernet/Wi-Fi first. */
+export function pickAutomatic(list: InterfaceInfo[]): InterfaceInfo | undefined {
+  return (
+    list.find(
+      (i) => isUp(i) && ["ethernet", "wifi"].includes(i.interface_type.toLowerCase()),
+    ) ?? list.find(isUp)
+  );
+}
+
+function statusText(i: InterfaceInfo): string {
+  return isUp(i) ? "Connected" : i.status;
+}
 
 export function InterfacesPage() {
   const currentInterface = useNetworkStore((s) => s.data.interfaceName);
-  const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
-  const [selecting, setSelecting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [interfaces, setInterfaces] = useState<InterfaceInfo[] | null>(null);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectError, setSelectError] = useState<string | null>(null);
-  const [monitoringMode, setMonitoringMode] = useState<MonitoringMode>("auto");
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [automatic, setAutomatic] = useState(
+    () => getStorageItem("fluxnet_interface_mode", "auto") !== "manual",
+  );
+  const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const loadInterfaces = useCallback(async () => {
     try {
       const result = await invokeWithTimeout<InterfaceInfo[]>("get_interfaces");
       setInterfaces(result);
-      setError(null);
+      setLoadError(null);
     } catch (err) {
-      console.error("Failed to load interfaces:", err);
-      setError(err instanceof Error ? err.message : String(err));
+      setLoadError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
   useEffect(() => {
-    loadInterfaces();
+    void loadInterfaces();
     // Skip refreshes while the dashboard is hidden (minimized or in the tray).
-    timerRef.current = setInterval(() => {
-      if (!document.hidden) loadInterfaces();
+    const id = setInterval(() => {
+      if (!document.hidden) void loadInterfaces();
     }, POLL_INTERVAL_MS);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => clearInterval(id);
   }, [loadInterfaces]);
 
-  const prevInterfaceRef = useRef(currentInterface);
-  useEffect(() => {
-    if (prevInterfaceRef.current !== currentInterface) {
-      prevInterfaceRef.current = currentInterface;
-      loadInterfaces();
-    }
-  }, [currentInterface, loadInterfaces]);
+  const select = useCallback(
+    async (name: string) => {
+      setSwitching(name);
+      setSelectError(null);
+      try {
+        await invokeWithTimeout("set_interface", { name });
+        setStorageItem("fluxnet_configured", "true");
+        await loadInterfaces();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setSelectError(`Couldn't switch to ${name}. ${msg}`);
+      } finally {
+        setSwitching(null);
+      }
+    },
+    [loadInterfaces],
+  );
 
-  const select = async (name: string) => {
-    setSelecting(name);
-    setSelectError(null);
-    try {
-      await invokeWithTimeout("set_interface", { name });
-      setStorageItem("fluxnet_configured", "true");
-      await loadInterfaces();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setSelectError(`Failed to select "${name}": ${msg}`);
-    } finally {
-      setSelecting(null);
+  const list = interfaces ?? [];
+  const automaticPick = pickAutomatic(list);
+  const sorted = [...list.filter(isUp), ...list.filter((i) => !isUp(i))];
+  const inUse = list.find((i) => i.name === currentInterface);
+
+  // In automatic mode, follow the best connected adapter while this page is open.
+  useEffect(() => {
+    if (
+      automatic &&
+      automaticPick &&
+      automaticPick.name !== currentInterface &&
+      switching === null
+    ) {
+      void select(automaticPick.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [automatic, automaticPick?.name, currentInterface]);
+
+  const setMode = (auto: boolean) => {
+    setAutomatic(auto);
+    setStorageItem("fluxnet_interface_mode", auto ? "auto" : "manual");
+  };
+
+  const chooseManually = (iface: InterfaceInfo) => {
+    if (!isUp(iface) || iface.name === currentInterface) return;
+    setMode(false);
+    void select(iface.name);
+  };
+
+  const onRowKeyDown = (e: KeyboardEvent, index: number) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    for (let i = index + step; i >= 0 && i < sorted.length; i += step) {
+      if (isUp(sorted[i])) {
+        rowRefs.current[i]?.focus();
+        chooseManually(sorted[i]);
+        return;
+      }
     }
   };
 
-  // Auto-detect best interface
-  const autoDetected =
-    interfaces.find(
-      (i) =>
-        i.status.toLowerCase() === "up" &&
-        ["ethernet", "wifi"].includes(i.interface_type.toLowerCase()),
-    ) || interfaces.find((i) => i.status.toLowerCase() === "up");
-
-  const upInterfaces = interfaces.filter(
-    (i) => i.status.toLowerCase() === "up",
-  );
-  const downInterfaces = interfaces.filter(
-    (i) => i.status.toLowerCase() !== "up",
-  );
-
   return (
-    <div className="p-7 px-8 w-full max-w-full">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
-            Interfaces
-          </div>
-          <div className="text-[12px] text-text-muted font-normal">
-            Currently monitoring:{" "}
-            <strong className="text-text">{currentInterface || "—"}</strong>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={loadInterfaces}
-          className="text-[11px] bg-accent-soft text-accent-strong border border-accent-border rounded-lg px-3.5 py-1.5 cursor-pointer font-sans font-medium hover:bg-accent-soft-2 transition-colors"
-        >
-          ↻ Refresh
-        </button>
-      </div>
+    <Page>
+      <PageHeader
+        title="Network adapters"
+        actions={
+          <Button variant="subtle" icon={<RefreshCw />} onClick={() => void loadInterfaces()}>
+            Refresh
+          </Button>
+        }
+      />
 
       {selectError && (
-        <div
-          className="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-bg border border-danger-border rounded-md text-danger-text text-[12px] mb-4"
-          role="alert"
-        >
-          <span className="flex-1">⚠️ {selectError}</span>
-          <button
-            type="button"
-            onClick={() => setSelectError(null)}
-            className="bg-transparent border-none text-danger-text cursor-pointer text-base px-1 leading-none"
-          >
-            ×
-          </button>
-        </div>
+        <InfoBar
+          className="mb-4"
+          severity="error"
+          title="Couldn't switch adapters"
+          message={selectError}
+          onClose={() => setSelectError(null)}
+        />
       )}
 
-      {/* Monitoring Mode Selector */}
-      <div className="bg-panel border border-border rounded-xl p-5 mb-5">
-        <div className="text-[11px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-          Monitoring Mode
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          {/* Auto option */}
-          <button
-            type="button"
-            onClick={() => {
-              setMonitoringMode("auto");
-              if (autoDetected) select(autoDetected.name);
+      <SettingsGroup>
+        <SettingsCard
+          icon={<Sparkles />}
+          header="Choose adapter automatically"
+          description={
+            automaticPick
+              ? `Uses the best connected adapter. Now: ${automaticPick.name}`
+              : "Uses the best connected adapter"
+          }
+        >
+          <ToggleSwitch
+            label="Choose adapter automatically"
+            checked={automatic}
+            onChange={(v) => {
+              setMode(v);
+              if (v && automaticPick && automaticPick.name !== currentInterface) {
+                void select(automaticPick.name);
+              }
             }}
-            className={`flex items-center gap-3.5 p-3.5 rounded-lg border text-left w-full cursor-pointer transition-all ${
-              monitoringMode === "auto"
-                ? "border-accent-border bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] shadow-[0_0_0_1px_var(--accent-border)]"
-                : "border-border hover:border-border-strong"
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${monitoringMode === "auto" ? "border-accent" : "border-border-strong"}`}
-            >
-              {monitoringMode === "auto" && (
-                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[13px] font-semibold ${monitoringMode === "auto" ? "text-accent" : "text-text"}`}
+          />
+        </SettingsCard>
+      </SettingsGroup>
+
+      <SettingsGroup title="Adapters">
+        {loadError && interfaces === null ? (
+          <InfoBar
+            severity="error"
+            title="Couldn't list adapters"
+            message={loadError}
+            action={<Button onClick={() => void loadInterfaces()}>Try again</Button>}
+          />
+        ) : interfaces === null ? (
+          <Card className="flex h-24 items-center justify-center">
+            <ProgressRing size={24} label="Loading adapters" />
+          </Card>
+        ) : sorted.length === 0 ? (
+          <Card className="px-4 py-6 text-center text-body text-fg-secondary">
+            No network adapters found
+          </Card>
+        ) : (
+          <div role="radiogroup" aria-label="Network adapter" className="flex flex-col gap-1">
+            {sorted.map((iface, index) => {
+              const active = iface.name === currentInterface;
+              const up = isUp(iface);
+              const pending = switching === iface.name;
+              return (
+                <button
+                  key={iface.name}
+                  ref={(el) => {
+                    rowRefs.current[index] = el;
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-disabled={!up}
+                  tabIndex={active || (!inUse && index === 0) ? 0 : -1}
+                  onClick={() => chooseManually(iface)}
+                  onKeyDown={(e) => onRowKeyDown(e, index)}
+                  className={cx(
+                    "flex min-h-[68px] w-full items-center gap-4 rounded-card border border-card-stroke bg-card px-4 py-3 text-left transition-colors duration-[83ms]",
+                    up && !active && "hover:bg-control-hover active:bg-control-pressed",
+                  )}
                 >
-                  Automatic
-                </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-success-bg text-success border border-[color-mix(in_srgb,var(--success)_25%,transparent)]">
-                  Recommended
-                </span>
-              </div>
-              <div className="text-[11px] text-text-muted mt-1">
-                {autoDetected ? (
-                  <>
-                    Currently:{" "}
-                    <strong className="text-text">{autoDetected.name}</strong> ·{" "}
-                    {autoDetected.interface_type} · Connected
-                  </>
-                ) : (
-                  "Automatically selects the best active interface"
-                )}
-              </div>
-            </div>
-          </button>
-
-          {/* Manual option */}
-          <button
-            type="button"
-            onClick={() => setMonitoringMode("manual")}
-            className={`flex items-center gap-3.5 p-3.5 rounded-lg border text-left w-full cursor-pointer transition-all ${
-              monitoringMode === "manual"
-                ? "border-accent-border bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] shadow-[0_0_0_1px_var(--accent-border)]"
-                : "border-border hover:border-border-strong"
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${monitoringMode === "manual" ? "border-accent" : "border-border-strong"}`}
-            >
-              {monitoringMode === "manual" && (
-                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
-              )}
-            </div>
-            <div className="flex-1">
-              <span
-                className={`text-[13px] font-semibold ${monitoringMode === "manual" ? "text-accent" : "text-text"}`}
-              >
-                Manual
-              </span>
-              <div className="text-[11px] text-text-muted mt-1">
-                Choose a specific network adapter
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Interface List (only shown in manual mode) */}
-      {monitoringMode === "manual" && (
-        <div className="bg-panel border border-border rounded-xl p-5">
-          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-            Select Interface · {upInterfaces.length} active,{" "}
-            {downInterfaces.length} inactive
-          </div>
-
-          {error ? (
-            <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
-              <div className="text-[32px] mb-3 opacity-40">⚠️</div>
-              <div className="text-[13px]">
-                Failed to load interfaces: {error}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  loadInterfaces();
-                }}
-                className="mt-3 bg-accent-soft text-accent-strong border border-accent-border rounded-lg px-3.5 py-1.5 text-[12px] cursor-pointer"
-              >
-                Retry
-              </button>
-            </div>
-          ) : interfaces.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-text-muted">
-              <div className="text-[32px] mb-3 opacity-40">⚡</div>
-              <div className="text-[13px]">Loading interfaces…</div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {[...upInterfaces, ...downInterfaces].map((iface) => {
-                const isActive = iface.name === currentInterface;
-                const isPending = selecting === iface.name;
-                const isUp = iface.status.toLowerCase() === "up";
-                const isSelectable = isUp && !isActive && !isPending;
-                const icon = getInterfaceIcon(iface.interface_type, isUp);
-
-                return (
-                  <button
-                    key={iface.name}
-                    type="button"
-                    className={`flex items-center gap-3.5 p-3.5 rounded-lg border transition-all text-left w-full ${
-                      isActive
-                        ? "border-success shadow-[0_0_0_1px_rgba(15,140,66,0.2)]"
-                        : "border-border"
-                    } ${isSelectable ? "cursor-pointer hover:border-accent-border hover:-translate-y-px" : "cursor-default"}`}
-                    onClick={() =>
-                      isSelectable ? select(iface.name) : undefined
-                    }
-                    disabled={!isSelectable}
+                  <RadioDot checked={active} disabled={!up} />
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      "flex size-5 shrink-0 items-center justify-center [&>svg]:size-5 [&>svg]:stroke-[1.5]",
+                      up ? "text-fg" : "text-fg-disabled",
+                    )}
                   >
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        isActive
-                          ? "bg-success-bg text-success"
-                          : isUp
-                            ? "bg-accent-soft text-accent-strong"
-                            : "bg-surface text-text-muted"
-                      }`}
+                    {adapterIcon(iface.interface_type)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cx("block truncate text-body", !up && "text-fg-disabled")}>
+                      {iface.name}
+                    </span>
+                    <span
+                      className={cx(
+                        "block truncate text-caption",
+                        up ? "text-fg-secondary" : "text-fg-disabled",
+                      )}
                     >
-                      {icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`text-[14px] font-semibold truncate ${!isUp ? "text-text-muted" : "text-text"}`}
-                      >
-                        {iface.name}
-                      </div>
-                      <div className="text-[11px] text-text-muted truncate">
-                        {iface.description || iface.interface_type}
-                        {!isUp && " · Not connected"}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[11px] text-text-muted">
+                      {iface.description || typeLabel(iface.interface_type)}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
+                    <span className={cx("text-body", up ? "text-fg" : "text-fg-disabled")}>
+                      {pending ? "Switching…" : active ? "In use" : statusText(iface)}
+                    </span>
+                    {up && iface.link_speed_bps > 0 && (
+                      <span className="text-caption text-fg-secondary tabular">
                         {formatLinkSpeed(iface.link_speed_bps)}
                       </span>
-                      <span
-                        className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border ${
-                          isActive
-                            ? "bg-success-bg text-success border-success"
-                            : isPending
-                              ? "bg-accent-soft text-accent-strong border-accent-border"
-                              : isUp
-                                ? "bg-surface text-text-muted border-border"
-                                : "bg-surface text-text-muted border-border opacity-60"
-                        }`}
-                      >
-                        {isPending
-                          ? "Switching…"
-                          : isActive
-                            ? "Active"
-                            : iface.status}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </SettingsGroup>
 
-      {/* Auto mode status */}
-      {monitoringMode === "auto" && autoDetected && (
-        <div className="bg-panel border border-border rounded-xl p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success-bg text-success flex items-center justify-center">
-              {getInterfaceIcon(autoDetected.interface_type, true)}
-            </div>
-            <div>
-              <div className="text-[14px] font-semibold text-text">
-                {autoDetected.name}
-              </div>
-              <div className="text-[11px] text-text-muted">
-                {autoDetected.description} ·{" "}
-                {formatLinkSpeed(autoDetected.link_speed_bps)}
-              </div>
-            </div>
-            <span className="ml-auto text-[10px] font-semibold rounded-full px-2.5 py-1 bg-success-bg text-success border border-success">
-              Active
-            </span>
-          </div>
-          <div className="mt-3 pt-3 border-t border-border text-[11px] text-text-muted">
-            Automatically selected based on active network traffic. FluxNet will
-            switch if your connection changes.
-          </div>
-        </div>
+      {inUse && (
+        <SettingsGroup title={`${inUse.name} properties`}>
+          <Card className="px-4 py-3">
+            <dl className="grid grid-cols-[minmax(140px,max-content)_1fr] gap-x-8 gap-y-2 text-body">
+              <Property label="Description" value={inUse.description || "—"} />
+              <Property label="Type" value={typeLabel(inUse.interface_type)} />
+              <Property label="Status" value={statusText(inUse)} />
+              <Property
+                label="Link speed"
+                value={inUse.link_speed_bps > 0 ? formatLinkSpeed(inUse.link_speed_bps) : "—"}
+              />
+              <Property label="Physical address (MAC)" value={inUse.mac || "—"} />
+            </dl>
+          </Card>
+        </SettingsGroup>
       )}
-    </div>
+    </Page>
+  );
+}
+
+function Property({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt className="text-fg-secondary">{label}</dt>
+      <dd className="m-0 select-text text-fg tabular">{value}</dd>
+    </>
   );
 }
