@@ -630,12 +630,27 @@ pub fn select_interface_outside_lock(networks: &Networks) -> String {
             return selected;
         }
     }
-    for (name, _) in networks {
-        if name != "lo" && name != "Loopback Pseudo-Interface 1" {
-            return name.clone();
-        }
-    }
-    String::new()
+    busiest_interface(networks.iter().map(|(name, data)| {
+        (
+            name.as_str(),
+            data.total_received() + data.total_transmitted(),
+        )
+    }))
+}
+
+/// Fallback choice when no adapter is clearly "Up": the non-loopback
+/// interface that has carried the most traffic since boot, ties broken by
+/// name so the result is deterministic (not `HashMap` iteration order).
+fn busiest_interface<'a>(candidates: impl Iterator<Item = (&'a str, u64)>) -> String {
+    candidates
+        .filter(|(name, _)| !is_loopback_name(name))
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
+        .map(|(name, _)| name.to_string())
+        .unwrap_or_default()
+}
+
+fn is_loopback_name(name: &str) -> bool {
+    name == "lo" || name.starts_with("lo0") || name.starts_with("Loopback Pseudo-Interface")
 }
 
 #[cfg(test)]
@@ -701,6 +716,24 @@ mod tests {
         ));
         assert!(!is_noise_interface("Wi-Fi", "Intel Wi-Fi 6E AX211", 71));
         assert!(!is_noise_interface("Ethernet", "Realtek PCIe GbE", 6));
+    }
+
+    #[test]
+    fn fallback_picks_busiest_non_loopback_interface() {
+        let ifaces = [
+            ("Loopback Pseudo-Interface 1", 9_000_000),
+            ("vEthernet (WSL)", 1_000),
+            ("Wi-Fi", 5_000_000),
+            ("Ethernet", 0),
+        ];
+        assert_eq!(busiest_interface(ifaces.into_iter()), "Wi-Fi");
+    }
+
+    #[test]
+    fn fallback_is_deterministic_on_ties_and_empty() {
+        let ifaces = [("b", 0), ("a", 0), ("lo", 0)];
+        assert_eq!(busiest_interface(ifaces.into_iter()), "a");
+        assert_eq!(busiest_interface(std::iter::empty()), "");
     }
 
     #[test]
