@@ -1,127 +1,168 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
 
+/* Map design tokens to Tailwind utilities (bg-card, text-fg-secondary, …). */
 @theme {
+  --color-app: var(--app-bg);
+  --color-layer: var(--layer);
+  --color-layer-stroke: var(--layer-stroke);
+  --color-card: var(--card);
+  --color-card-secondary: var(--card-secondary);
+  --color-card-stroke: var(--card-stroke);
+  --color-card-solid: var(--card-solid);
+  --color-subtle-hover: var(--subtle-hover);
+  --color-subtle-pressed: var(--subtle-pressed);
+  --color-subtle-selected: var(--subtle-selected);
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+  --color-control-pressed: var(--control-pressed);
+  --color-control-disabled: var(--control-disabled);
+  --color-control-stroke: var(--control-stroke);
+  --color-control-stroke-bottom: var(--control-stroke-bottom);
+  --color-control-strong: var(--control-strong);
+  --color-control-alt: var(--control-alt);
+  --color-control-alt-hover: var(--control-alt-hover);
+  --color-control-solid: var(--control-solid);
+  --color-divider: var(--divider);
+  --color-fg: var(--fg);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-tertiary: var(--fg-tertiary);
+  --color-fg-disabled: var(--fg-disabled);
   --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-soft-2: var(--accent-soft-2);
-  --color-accent-border: var(--accent-border);
-  --color-accent-muted: var(--accent-muted);
-  --color-bg: var(--bg);
-  --color-panel: var(--panel);
-  --color-panel-hover: var(--panel-hover);
-  --color-surface: var(--surface);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-text: var(--text);
-  --color-text-muted: var(--text-muted);
-  --color-text-subtle: var(--text-subtle);
-  --color-net-upload: var(--net-upload);
-  --color-net-download: var(--net-download);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-on-accent: var(--on-accent);
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
-  --color-warning: var(--warning);
-  --color-warning-bg: var(--warning-bg);
-  --color-danger: var(--danger);
-  --color-danger-bg: var(--danger-bg);
-  --color-danger-text: var(--danger-text);
-  --color-danger-border: var(--danger-border);
-  --color-toggle-knob: var(--toggle-knob);
-  --color-sidebar-active: var(--sidebar-active);
+  --color-caution: var(--caution);
+  --color-caution-bg: var(--caution-bg);
+  --color-critical: var(--critical);
+  --color-critical-bg: var(--critical-bg);
+  --color-neutral-dot: var(--neutral-dot);
+  --color-download: var(--download);
+  --color-upload: var(--upload);
+  --color-flyout: var(--flyout);
+  --color-flyout-stroke: var(--flyout-stroke);
 
-  --font-sans: "DM Sans", "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
 
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
+  /* Fluent type ramp. */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 24px;
+  --text-subtitle: 20px;
+  --text-subtitle--line-height: 28px;
+  --text-title: 28px;
+  --text-title--line-height: 36px;
+  --text-hero: 40px;
+  --text-hero--line-height: 48px;
 
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-  --shadow-accent: 0 0 0 3px var(--accent-shadow);
+  --radius-control: 4px;
+  --radius-card: 8px;
+  --shadow-flyout: var(--shadow-flyout);
+  --shadow-card: var(--shadow-card);
 
-  --animate-pulse: pulse 2s infinite;
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.4;
-    }
-  }
+  /* Fluent motion curves. */
+  --ease-fluent: cubic-bezier(0, 0, 0, 1);
+  --ease-fluent-out: cubic-bezier(0.1, 0.9, 0.2, 1);
 }
-
-@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @layer base {
   *,
   *::before,
   *::after {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
   }
 
   html,
   body,
   #root {
+    margin: 0;
+    padding: 0;
     width: 100%;
     height: 100%;
   }
 
   body {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  * {
+    line-height: 20px;
+    color: var(--fg);
+    background: var(--app-bg);
+    /* A desktop app: text is not selectable unless marked `select-text`. */
     user-select: none;
     -webkit-user-select: none;
+    cursor: default;
   }
 
+  /* Widget windows paint their own surfaces on a transparent window. */
+  html:not([data-app="main"]) body {
+    background: transparent;
+  }
+
+  button,
   input,
-  textarea {
-    user-select: text;
-    -webkit-user-select: text;
+  select {
+    font: inherit;
+    color: inherit;
   }
 
+  button {
+    cursor: default;
+  }
+
+  :focus {
+    outline: none;
+  }
+
+  /* WinUI keyboard focus: a 2px outer ring with a 1px inner contrast ring. */
   :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: 2px solid var(--focus-outer);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 1px var(--focus-inner);
   }
 
+  /* Thin overlay-style scrollbars, as in Windows 11. */
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 12px;
+    height: 12px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
+    border: 4px solid transparent;
+    border-radius: 6px;
+    background-clip: padding-box;
+    background-color: var(--fg-tertiary);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+    border-width: 3px;
+    background-color: var(--fg-secondary);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
-  :root {
-    --toggle-knob: #ffffff;
-    --sidebar-active: var(--accent-strong);
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
+}
 
-  :root[data-accent-is-white="true"] {
-    --toggle-knob: #000000;
-    --sidebar-active: var(--text);
-  }
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 @utility scrollbar-none {
@@ -129,5 +170,77 @@
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@keyframes fluent-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fluent-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@utility animate-page-in {
+  animation: fluent-fade-in 250ms var(--ease-fluent-out) both;
+}
+
+/* WinUI Slider. Track: 4px, accent fill up to --fill. Thumb: 20px with a
+   12px accent core that grows on hover and shrinks while pressed. */
+@layer components {
+  .fluent-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 20px;
+    background: transparent;
+    cursor: default;
+  }
+  .fluent-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0 var(--fill, 0%),
+      var(--control-strong) var(--fill, 0%) 100%
+    );
+  }
+  .fluent-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -8px;
+    border-radius: 50%;
+    border: 1px solid var(--control-stroke);
+    background: radial-gradient(
+      circle,
+      var(--accent) 0 6px,
+      var(--control-solid) 6.5px
+    );
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: background 83ms;
+  }
+  .fluent-slider:hover::-webkit-slider-thumb {
+    background: radial-gradient(
+      circle,
+      var(--accent) 0 7px,
+      var(--control-solid) 7.5px
+    );
+  }
+  .fluent-slider:active::-webkit-slider-thumb {
+    background: radial-gradient(
+      circle,
+      var(--accent-pressed) 0 5px,
+      var(--control-solid) 5.5px
+    );
   }
 }
