@@ -23,11 +23,12 @@ describe("PillPresentation", () => {
     expect(screen.getAllByText("1023.9")).toHaveLength(2);
   });
 
-  it("sizes value columns in ch so six characters fit", () => {
+  it("reserves six characters per value so the pill never reflows", () => {
     render(<PillPresentation {...largest} />);
     for (const el of screen.getAllByText("1023.9")) {
-      expect(el.className).toContain("w-[6ch]");
+      expect(el.className).toContain("max-w-[6ch]");
       expect(el.className).toContain("text-ellipsis");
+      expect(el.parentElement?.className).toContain("w-[calc(6ch+14px)]");
     }
   });
 
@@ -42,11 +43,10 @@ describe("PillPresentation", () => {
     ).toBe(state);
   });
 
-  it("uses a valid dark-mode variant for the connected dot", () => {
+  it("colours the dot from the widget palette", () => {
     const { container } = render(<PillPresentation {...largest} />);
     const dot = container.querySelector('[data-state="live"]')!;
-    expect(dot.className).toContain("in-data-[theme='dark']:bg-[#22d97d]");
-    expect(dot.className).not.toContain("_&]");
+    expect(dot.className).toContain("bg-(--w-good)");
   });
 });
 

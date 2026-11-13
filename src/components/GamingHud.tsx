@@ -68,7 +68,7 @@ export function GamingHud() {
       role="status"
       tabIndex={0}
       aria-label={`Ping ${stats.latencyMs ?? "unknown"} ms, Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}, Packet loss ${stats.lossPercent.toFixed(0)} percent`}
-      className="w-full h-full focus-visible:outline-2 focus-visible:outline-(--hud-amber) focus-visible:outline-offset-2"
+      className="w-full h-full focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-2"
     >
       <HudPresentation
         downloadValue={dn.value}

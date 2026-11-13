@@ -1,23 +1,42 @@
-:root {
-  color-scheme: dark;
-  --pill-bg: rgb(18, 16, 32);
-  --pill-border: rgba(124, 111, 247, 0.14);
-  --pill-sep: rgba(124, 111, 247, 0.12);
-  --pill-text: #e9e8f4;
+/* Colours for the desktop widgets (pill, compact, game overlay).
+   Scoped to any element with data-theme so the in-app previews, which set
+   data-theme on their frame, use the widget's own theme rather than the
+   dashboard's. */
+[data-theme="light"] {
+  --w-bg: #f9f9f9;
+  --w-overlay: rgba(249, 249, 249, 0.92);
+  --w-stroke: rgba(0, 0, 0, 0.0803);
+  --w-sep: rgba(0, 0, 0, 0.1);
+  --w-fg: rgba(0, 0, 0, 0.8956);
+  --w-fg-2: rgba(0, 0, 0, 0.6063);
+  --w-fg-3: rgba(0, 0, 0, 0.4458);
+  --w-download: #0067c0;
+  --w-upload: #0f7b0f;
+  --w-good: #0f7b0f;
+  --w-warn: #9d5d00;
+  --w-bad: #c42b1c;
+  --w-idle: rgba(0, 0, 0, 0.4458);
 }
 
-:root[data-theme="light"] {
-  color-scheme: light;
-  --pill-bg: #f0eff8;
-  --pill-border: rgba(60, 50, 140, 0.25);
-  --pill-sep: rgba(60, 50, 140, 0.18);
-  --pill-text: #131020;
+[data-theme="dark"] {
+  --w-bg: #202020;
+  --w-overlay: rgba(28, 28, 28, 0.88);
+  --w-stroke: rgba(255, 255, 255, 0.0837);
+  --w-sep: rgba(255, 255, 255, 0.12);
+  --w-fg: #ffffff;
+  --w-fg-2: rgba(255, 255, 255, 0.786);
+  --w-fg-3: rgba(255, 255, 255, 0.5442);
+  --w-download: #4cc2ff;
+  --w-upload: #6ccb5f;
+  --w-good: #6ccb5f;
+  --w-warn: #fce100;
+  --w-bad: #ff99a4;
+  --w-idle: rgba(255, 255, 255, 0.5442);
 }
 
 html[data-app="pill"] body {
   background: transparent;
   overflow: hidden;
-  cursor: default;
   display: flex;
   margin: 0;
   padding: 0;
@@ -27,9 +46,6 @@ html[data-app="pill"] #root {
   display: flex;
   align-items: stretch;
   justify-content: stretch;
-  padding: 0;
-  margin: 0;
-  box-sizing: border-box;
   overflow: visible;
   width: 100%;
   height: 100%;

@@ -41,19 +41,19 @@ function HudHorizontal({
 
   const pingColour =
     latencyMs === null
-      ? "var(--hud-muted)"
+      ? "var(--w-fg-3)"
       : latencyMs < 50
-        ? "var(--hud-good)"
+        ? "var(--w-good)"
         : latencyMs < 100
-          ? "var(--hud-amber)"
-          : "var(--hud-danger)";
+          ? "var(--w-warn)"
+          : "var(--w-bad)";
 
   const lossColour =
     lossPercent === 0
-      ? "var(--hud-good)"
+      ? "var(--w-good)"
       : lossPercent < 2
-        ? "var(--hud-amber)"
-        : "var(--hud-danger)";
+        ? "var(--w-warn)"
+        : "var(--w-bad)";
 
   const compactDownload = `${downloadValue}${downloadUnit.replace("/s", "")}`;
   const compactUpload = `${uploadValue}${uploadUnit.replace("/s", "")}`;
@@ -65,9 +65,8 @@ function HudHorizontal({
           h-full
           rounded-full
           border
-          border-(--hud-border)
-          bg-(--hud-bg-card)
-          backdrop-blur-md
+          border-(--w-stroke)
+          bg-(--w-overlay)
           px-2.5
           gap-2
           flex
@@ -95,7 +94,7 @@ function HudHorizontal({
         {/* Traffic */}
         <div className="flex items-center justify-center gap-3 min-w-0 shrink">
           <div
-            className="flex items-center gap-1 min-w-0 text-(--hud-dn)"
+            className="flex items-center gap-1 min-w-0 text-(--w-download)"
             title={compactDownload}
           >
             <span className="shrink-0">↓</span>
@@ -103,7 +102,7 @@ function HudHorizontal({
           </div>
 
           <div
-            className="flex items-center gap-1 min-w-0 text-(--hud-up)"
+            className="flex items-center gap-1 min-w-0 text-(--w-upload)"
             title={compactUpload}
           >
             <span className="shrink-0">↑</span>
@@ -116,7 +115,7 @@ function HudHorizontal({
           className="flex items-center gap-1 shrink-0 font-semibold"
           style={{ color: lossColour }}
         >
-          <span className="text-[9px] uppercase tracking-wide text-(--hud-muted)">
+          <span className="text-[9px] uppercase tracking-wide text-(--w-fg-3)">
             LOSS
           </span>
           <span>{lossText}</span>
@@ -141,19 +140,19 @@ function HudVertical({
 
   const pingColour =
     latencyMs === null
-      ? "var(--hud-muted)"
+      ? "var(--w-fg-3)"
       : latencyMs < 50
-        ? "var(--hud-good)"
+        ? "var(--w-good)"
         : latencyMs < 100
-          ? "var(--hud-amber)"
-          : "var(--hud-danger)";
+          ? "var(--w-warn)"
+          : "var(--w-bad)";
 
   const lossColour =
     lossPercent === 0
-      ? "var(--hud-good)"
+      ? "var(--w-good)"
       : lossPercent < 2
-        ? "var(--hud-amber)"
-        : "var(--hud-danger)";
+        ? "var(--w-warn)"
+        : "var(--w-bad)";
 
   return (
     <div className="w-full h-full p-0.5">
@@ -162,9 +161,8 @@ function HudVertical({
           h-full w-full
           rounded-lg
           border
-          border-(--hud-border)
-          bg-(--hud-bg-card)
-          backdrop-blur-md
+          border-(--w-stroke)
+          bg-(--w-overlay)
           flex flex-col
           justify-center
           select-none
@@ -174,7 +172,7 @@ function HudVertical({
           gap-1
         "
       >
-        {/* Ping row — bumped to 13px, dot slightly larger */}
+        {/* Ping */}
         <div className="flex items-center justify-between">
           <span
             data-tauri-drag-region
@@ -191,34 +189,34 @@ function HudVertical({
         </div>
 
         {/* Separator */}
-        <div className="h-px bg-(--hud-rule)" />
+        <div className="h-px bg-(--w-sep)" />
 
-        {/* Download row — bumped to 12px */}
-        <div className="flex items-center justify-between text-(--hud-dn) font-mono text-[12px] font-medium tabular-nums">
+        {/* Download */}
+        <div className="flex items-center justify-between text-(--w-download) font-mono text-[12px] font-medium tabular-nums">
           <span className="text-[10px] font-bold">↓</span>
           <span>
             {downloadValue}{" "}
-            <span className="text-[9px] text-(--hud-muted)">
+            <span className="text-[9px] text-(--w-fg-3)">
               {downloadUnit}
             </span>
           </span>
         </div>
 
         {/* Upload row */}
-        <div className="flex items-center justify-between text-(--hud-up) font-mono text-[12px] font-medium tabular-nums">
+        <div className="flex items-center justify-between text-(--w-upload) font-mono text-[12px] font-medium tabular-nums">
           <span className="text-[10px] font-bold">↑</span>
           <span>
             {uploadValue}{" "}
-            <span className="text-[9px] text-(--hud-muted)">{uploadUnit}</span>
+            <span className="text-[9px] text-(--w-fg-3)">{uploadUnit}</span>
           </span>
         </div>
 
         {/* Separator */}
-        <div className="h-px bg-(--hud-rule)" />
+        <div className="h-px bg-(--w-sep)" />
 
-        {/* Loss row — bumped to 12px */}
+        {/* Loss */}
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-(--hud-muted)">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-(--w-fg-3)">
             LOSS
           </span>
           <span
