@@ -238,10 +238,9 @@ function IconChevronDown({ className }: { className?: string }) {
   );
 }
 
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function OpacitySlider({
+export function OpacitySlider({
   value,
   onChange,
   onCommit,
@@ -258,12 +257,12 @@ function OpacitySlider({
         max={100}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        onMouseUp={(e) =>
-          onCommit(Number((e.target as HTMLInputElement).value))
-        }
-        onTouchEnd={(e) =>
-          onCommit(Number((e.target as HTMLInputElement).value))
-        }
+        // Commit when a drag ends (mouse, touch or pen) and after keyboard
+        // changes (arrows, Home/End, PageUp/PageDown), which never fire
+        // pointer events.
+        onPointerUp={(e) => onCommit(Number(e.currentTarget.value))}
+        onKeyUp={(e) => onCommit(Number(e.currentTarget.value))}
+        aria-label="Opacity"
         style={{
           background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${((value - 40) / 60) * 100}%, var(--border) ${((value - 40) / 60) * 100}%, var(--border) 100%)`,
         }}

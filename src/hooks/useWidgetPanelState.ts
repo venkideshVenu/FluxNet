@@ -18,8 +18,8 @@ export function useWidgetPanelState(config: WidgetRegistryEntry) {
   });
 
   const [opacity, setOpacity] = useState(() => {
-    const saved = localStorage.getItem(config.opacityKey);
-    return saved ? Number(saved) : config.defaultOpacity;
+    const saved = Number(localStorage.getItem(config.opacityKey) ?? NaN);
+    return Number.isFinite(saved) && saved > 0 ? saved : config.defaultOpacity;
   });
   const [colorMode, setColorMode] = useState<ColorMode>(config.getStoredMode());
   const [intervalMs, setIntervalMs] = useState(config.getStoredInterval());
