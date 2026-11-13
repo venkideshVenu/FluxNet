@@ -44,6 +44,8 @@ pub fn get_or_create(app: &AppHandle, label: &str) -> Result<WebviewWindow, Stri
 
     if is_widget_label(label) {
         prepare_widget(app, &window, label);
+    } else if label == MAIN_LABEL {
+        prepare_main(&window);
     }
 
     Ok(window)
@@ -96,6 +98,62 @@ pub fn lock_logical_size(window: &WebviewWindow, width: f64, height: f64) {
     let _ = window.set_min_size(Some(size));
     let _ = window.set_max_size(Some(size));
     let _ = window.set_size(size);
+}
+
+// ── Dashboard setup ───────────────────────────────────────────────────────────
+
+/// While the dashboard is minimized, ask WebView2 to keep its memory use low.
+/// WebView2 then trims the renderer's working set; it is restored to normal
+/// as soon as the window comes back.
+fn prepare_main(window: &WebviewWindow) {
+    #[cfg(windows)]
+    {
+        use std::sync::atomic::AtomicBool;
+
+        let minimized = Arc::new(AtomicBool::new(false));
+        let window_for_events = window.clone();
+        window.on_window_event(move |event| {
+            if !matches!(event, WindowEvent::Resized(_)) {
+                return;
+            }
+            let now_minimized = window_for_events.is_minimized().unwrap_or(false);
+            if minimized.swap(now_minimized, Ordering::Relaxed) != now_minimized {
+                set_low_memory_target(&window_for_events, now_minimized);
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    let _ = window;
+}
+
+/// Sets the WebView2 memory usage target level (`ICoreWebView2_19`).
+/// Older WebView2 runtimes without this interface are left untouched.
+#[cfg(windows)]
+fn set_low_memory_target(window: &WebviewWindow, low: bool) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        ICoreWebView2_19,
+    };
+    use windows_core::Interface;
+
+    let label = window.label().to_string();
+    let level = if low {
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+    } else {
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+    };
+    let result = window.with_webview(move |webview| {
+        let applied = unsafe { webview.controller().CoreWebView2() }
+            .and_then(|core| core.cast::<ICoreWebView2_19>())
+            .and_then(|core| unsafe { core.SetMemoryUsageTargetLevel(level) });
+        match applied {
+            Ok(()) => tracing::debug!("'{label}' WebView2 memory target low={low}"),
+            Err(e) => tracing::debug!("'{label}' WebView2 memory target unavailable: {e}"),
+        }
+    });
+    if let Err(e) = result {
+        tracing::debug!("with_webview failed: {e}");
+    }
 }
 
 // ── Widget setup ──────────────────────────────────────────────────────────────

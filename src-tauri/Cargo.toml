@@ -39,5 +39,8 @@ windows = { version = "0.58", features = [
     "Win32_System_Registry",
 ] }
 winreg = "0.55"
+# Must match the versions Tauri's webview (wry) uses so COM types line up.
+webview2-com = "0.38"
+windows-core = "0.61"
 
 [dev-dependencies]
