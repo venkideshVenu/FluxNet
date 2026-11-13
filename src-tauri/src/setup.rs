@@ -1,48 +1,23 @@
+use crate::app_windows;
 use crate::background::sampler::start_sampler;
 use crate::commands::network::{
-    APP_SHUTTING_DOWN, InterfacesCache, SharedInterfacesCache, SharedMonitorState,
+    InterfacesCache, SharedInterfacesCache, SharedMonitorState, WIDGET_LABELS,
 };
 use crate::commands::ping::SharedPingState;
-use crate::commands::visibility::hud_size_for_design;
 use crate::persistence::app_settings::SettingsStore;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::WidgetState;
 use crate::persistence::widget_state::{StoredPosition, StoredVisibility};
 use crate::storage::db::{DbState, ReadOnlyDb};
 use crate::tray::build_tray;
-use crate::window_positions::{PositionSender, spawn_position_writer};
+use crate::window_positions::spawn_position_writer;
 use parking_lot::Mutex;
 use std::error::Error;
 use std::fs;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
-use tauri::{App, Manager, PhysicalPosition, Position, WindowEvent};
+use tauri::{App, AppHandle, Manager};
 use tokio_util::sync::CancellationToken;
 type WidgetStore = PersistentStore<WidgetState>;
-
-// ── Position clamping ─────────────────────────────────────────────────────────
-
-fn clamp_position(window: &tauri::WebviewWindow, x: i32, y: i32) -> (i32, i32) {
-    let monitor = match window.current_monitor() {
-        Ok(Some(m)) => Some(m),
-        _ => window.primary_monitor().ok().flatten(),
-    };
-    let Some(monitor) = monitor else {
-        return (x, y);
-    };
-    let Ok(window_size) = window.outer_size() else {
-        return (x, y);
-    };
-    let wa = monitor.work_area();
-    let left = wa.position.x;
-    let right = wa.position.x + wa.size.width as i32;
-    let top = wa.position.y;
-    let bottom = wa.position.y + wa.size.height as i32;
-    (
-        x.clamp(left, (right - window_size.width as i32).max(left)),
-        y.clamp(top, (bottom - window_size.height as i32).max(top)),
-    )
-}
 
 // ── Migration: merge old separate files into widget-state.json ────────────────
 
@@ -85,134 +60,38 @@ fn migrate_legacy_widget_files(
     let _ = fs::remove_file(&old_vis_path);
 }
 
-// ── Restore widget states IMMEDIATELY (no page-load dependency) ───────────────
+// ── Restore widgets and the dashboard ────────────────────────────────────────
 
-fn restore_widget_states(app: &App, widget_store: &Arc<WidgetStore>) {
+/// Creates and shows only the widgets that were visible at last quit. Widgets
+/// that are off get no window (and no WebView2 renderer) until turned on.
+fn restore_visible_widgets(app: &AppHandle, widget_store: &Arc<WidgetStore>) {
     let state = widget_store.read(|s| s.clone());
-
     tracing::info!(
         "Restoring widget states: configs={:?}, positions={:?}",
         state.configs,
         state.positions
     );
 
-    for label in ["pill", "compact", "hud"] {
-        let Some(window) = app.get_webview_window(label) else {
-            tracing::warn!("Widget window '{label}' not found during restore");
+    for label in WIDGET_LABELS {
+        if !state.get_config(label).visible {
             continue;
-        };
-
-        // 1. Restore position FIRST (before showing, so it appears in the right place)
-        if let Some(pos) = state.positions.get(label) {
-            let (cx, cy) = clamp_position(&window, pos.x, pos.y);
-            tracing::info!("Restoring '{label}' position to ({cx}, {cy})");
-            let _ = window.set_position(Position::Physical(PhysicalPosition { x: cx, y: cy }));
         }
-
-        // 2. Restore always-on-top
-        let cfg = state.get_config(label);
-        let _ = window.set_always_on_top(cfg.always_on_top);
-
-        // 3. Restore visibility
-        if cfg.visible {
-            tracing::info!("Showing widget '{label}' (was visible at last quit)");
-            let _ = window.show();
-        }
-    }
-}
-
-/// Adjust widget window sizes based on the monitor's scale factor.
-/// This ensures consistent physical pixel sizes across different DPI displays.
-fn adjust_widget_sizes_for_dpi(app: &App) {
-    let widget_sizes: &[(&str, f64, f64)] = &[("pill", 232.0, 32.0), ("compact", 189.0, 172.0)];
-
-    for (label, logical_w, logical_h) in widget_sizes {
-        let Some(window) = app.get_webview_window(label) else {
-            continue;
-        };
-
-        let size = tauri::Size::Logical(tauri::LogicalSize {
-            width: *logical_w,
-            height: *logical_h,
-        });
-
-        let _ = window.set_size(size.clone());
-        let _ = window.set_min_size(Some(size.clone()));
-        let _ = window.set_max_size(Some(size));
-    }
-
-    // HUD: size depends on stored design preference, using the shared constant
-    if let Some(hud_window) = app.get_webview_window("hud") {
-        let widget_store = app.state::<Arc<WidgetStore>>();
-        let design = widget_store.read(|s| s.get_hud_design().to_string());
-
-        let (w, h) = hud_size_for_design(&design);
-
-        let size = tauri::Size::Logical(tauri::LogicalSize {
-            width: w,
-            height: h,
-        });
-        let _ = hud_window.set_size(size.clone());
-        let _ = hud_window.set_min_size(Some(size.clone()));
-        let _ = hud_window.set_max_size(Some(size));
-    }
-}
-
-// ── Wire widget close/destroy event handlers ──────────────────────────────────
-
-fn wire_widget_event_handlers(
-    app: &App,
-    widget_store: Arc<WidgetStore>,
-    app_handle: tauri::AppHandle,
-) {
-    let pos_sender = app.state::<PositionSender>();
-
-    for label in ["pill", "compact", "hud"] {
-        let Some(window) = app.get_webview_window(label) else {
-            continue;
-        };
-
-        let window_cl = window.clone();
-        let app_h = app_handle.clone();
-        let label_str = label.to_string();
-        let store = widget_store.clone();
-        let sender = pos_sender.0.clone();
-
-        window.on_window_event(move |event| match event {
-            WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                let _ = window_cl.hide();
-
-                if let Ok(pos) = window_cl.outer_position() {
-                    sender.push(label_str.clone(), pos);
-                }
-
-                if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
-                    store.update(&app_h, |s| s.set_visibility(&label_str, false));
-                }
+        match app_windows::get_or_create(app, label) {
+            Ok(window) => {
+                tracing::info!("Showing widget '{label}' (was visible at last quit)");
+                let _ = window.show();
             }
-            WindowEvent::Destroyed => {
-                if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
-                    store.update(&app_h, |s| s.set_visibility(&label_str, false));
-                }
-            }
-            _ => {}
-        });
+            Err(e) => tracing::error!("Could not restore widget '{label}': {e}"),
+        }
     }
 }
 
-// ── Main window wiring ────────────────────────────────────────────────────────
-
-fn wire_main_window(app: &App) {
-    if let Some(main_window) = app.get_webview_window("main") {
-        let is_autostart = std::env::args().any(|a| a == "--autostart" || a == "--minimized");
-        if is_autostart {
-            tracing::info!("Autostart launch detected — main window stays hidden");
-            let _ = main_window.hide();
-        } else {
-            let _ = main_window.show();
-            let _ = main_window.set_focus();
-        }
+fn open_main_window_unless_autostart(app: &AppHandle) {
+    let is_autostart = std::env::args().any(|a| a == "--autostart" || a == "--minimized");
+    if is_autostart {
+        tracing::info!("Autostart launch detected — dashboard not created");
+    } else {
+        app_windows::open_dashboard(app);
     }
 }
 
@@ -288,17 +167,9 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     // ── System tray ───────────────────────────────────────────────────────────
     build_tray(app_handle.clone())?;
 
-    // ── Wire event handlers ───────────────────────────────────────────────────
-    wire_widget_event_handlers(app, widget_store.clone(), app_handle.clone());
-
-    // ── Adjust widget sizes for display DPI ───────────────────────────────
-    adjust_widget_sizes_for_dpi(app);
-
-    // ── Restore widget positions and visibility ───────────────────────────────
-    restore_widget_states(app, &widget_store);
-
-    // ── Main window ───────────────────────────────────────────────────────────
-    wire_main_window(app);
+    // ── Restore widgets that were visible, then the dashboard ────────────────
+    restore_visible_widgets(&app_handle, &widget_store);
+    open_main_window_unless_autostart(&app_handle);
 
     Ok(())
 }

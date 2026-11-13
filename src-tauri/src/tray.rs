@@ -1,3 +1,4 @@
+use crate::app_windows;
 use crate::commands::network::APP_SHUTTING_DOWN;
 use crate::commands::visibility::apply_widget_visibility;
 use crate::persistence::persistent_store::PersistentStore;
@@ -8,7 +9,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager};
 use tokio_util::sync::CancellationToken;
 
 type WidgetStore = PersistentStore<WidgetState>;
@@ -119,21 +120,7 @@ fn toggle_widget(app_handle: &AppHandle, widget_id: &str) {
 }
 
 pub fn open_dashboard(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.set_focus();
-    } else {
-        tracing::warn!("Main window not found – recreating");
-        let _ = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-            .title("FluxNet")
-            .inner_size(900.0, 600.0)
-            .min_inner_size(720.0, 500.0)
-            .decorations(true)
-            .resizable(true)
-            .visible(true)
-            .center()
-            .build();
-    }
+    app_windows::open_dashboard(app);
 }
 
 pub fn perform_shutdown(

@@ -1,0 +1,168 @@
+//! On-demand lifecycle for the app's webview windows.
+//!
+//! Every window is declared in `tauri.conf.json` with `"create": false`, so no
+//! WebView2 renderer exists until the window is actually needed. Widgets are
+//! destroyed (not hidden) when turned off, and the dashboard is destroyed when
+//! it is closed to the tray. Each destroyed window gives back its renderer
+//! process memory instead of keeping it alive while invisible.
+//!
+//! Windows must not be created from a synchronous Tauri command on Windows
+//! (it deadlocks), so commands that call [`get_or_create`] are `async`.
+
+use crate::commands::network::{APP_SHUTTING_DOWN, is_widget_label};
+use crate::commands::visibility::hud_size_for_design;
+use crate::window_positions::{PositionSender, WidgetStore};
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use tauri::{
+    AppHandle, LogicalSize, Manager, PhysicalPosition, Position, Size, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
+};
+
+pub const MAIN_LABEL: &str = "main";
+
+/// Returns the window for `label`, creating it from its config entry if it
+/// does not exist yet. Newly created windows start hidden.
+pub fn get_or_create(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
+    if let Some(window) = app.get_webview_window(label) {
+        return Ok(window);
+    }
+
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == label)
+        .ok_or_else(|| format!("no window config for '{label}'"))?;
+
+    let window = WebviewWindowBuilder::from_config(app, config)
+        .and_then(|builder| builder.build())
+        .map_err(|e| format!("failed to create '{label}' window: {e}"))?;
+
+    tracing::info!("Created '{label}' window");
+
+    if is_widget_label(label) {
+        prepare_widget(app, &window, label);
+    }
+
+    Ok(window)
+}
+
+/// Shows (creating if needed) and focuses the dashboard window.
+pub fn open_dashboard(app: &AppHandle) {
+    match get_or_create(app, MAIN_LABEL) {
+        Ok(window) => {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+        Err(e) => tracing::error!("Could not open dashboard: {e}"),
+    }
+}
+
+/// Destroys a widget window, recording its last position first.
+pub fn destroy_widget(app: &AppHandle, label: &str) -> Result<(), String> {
+    let Some(window) = app.get_webview_window(label) else {
+        return Ok(());
+    };
+    if let (Some(sender), Ok(pos)) = (app.try_state::<PositionSender>(), window.outer_position()) {
+        sender.0.push(label.to_string(), pos);
+    }
+    window.destroy().map_err(|e| e.to_string())?;
+    tracing::info!("Destroyed '{label}' window");
+    Ok(())
+}
+
+/// Logical size a widget window should have.
+pub fn widget_logical_size(app: &AppHandle, label: &str) -> Option<(f64, f64)> {
+    match label {
+        "pill" => Some((232.0, 32.0)),
+        "compact" => Some((189.0, 172.0)),
+        "hud" => {
+            let design = app
+                .try_state::<Arc<WidgetStore>>()
+                .map(|s| s.read(|state| state.get_hud_design().to_string()))
+                .unwrap_or_default();
+            Some(hud_size_for_design(&design))
+        }
+        _ => None,
+    }
+}
+
+/// Locks a window to a fixed logical size.
+pub fn lock_logical_size(window: &WebviewWindow, width: f64, height: f64) {
+    let size = Size::Logical(LogicalSize { width, height });
+    let _ = window.set_min_size(Some(size));
+    let _ = window.set_max_size(Some(size));
+    let _ = window.set_size(size);
+}
+
+// ── Widget setup ──────────────────────────────────────────────────────────────
+
+fn prepare_widget(app: &AppHandle, window: &WebviewWindow, label: &str) {
+    if let Some((w, h)) = widget_logical_size(app, label) {
+        lock_logical_size(window, w, h);
+    }
+
+    if let Some(store) = app.try_state::<Arc<WidgetStore>>() {
+        let (position, config) =
+            store.read(|s| (s.positions.get(label).copied(), s.get_config(label)));
+
+        if let Some(pos) = position {
+            let (x, y) = clamp_position(window, pos.x, pos.y);
+            tracing::info!("Restoring '{label}' position to ({x}, {y})");
+            let _ = window.set_position(Position::Physical(PhysicalPosition { x, y }));
+        }
+        let _ = window.set_always_on_top(config.always_on_top);
+    }
+
+    let app_handle = app.clone();
+    let label = label.to_string();
+    let window_for_events = window.clone();
+    window.on_window_event(move |event| match event {
+        WindowEvent::CloseRequested { .. } => {
+            // Let the close go ahead (destroying the webview) but keep the
+            // position so the widget reopens where it was.
+            if let (Some(sender), Ok(pos)) = (
+                app_handle.try_state::<PositionSender>(),
+                window_for_events.outer_position(),
+            ) {
+                sender.0.push(label.clone(), pos);
+            }
+        }
+        WindowEvent::Destroyed => {
+            if APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
+                return;
+            }
+            if let Some(store) = app_handle.try_state::<Arc<WidgetStore>>() {
+                store.update(&app_handle, |s| s.set_visibility(&label, false));
+            }
+        }
+        _ => {}
+    });
+}
+
+/// Keeps a restored position inside the work area of the monitor that
+/// contains it, falling back to the primary monitor.
+fn clamp_position(window: &WebviewWindow, x: i32, y: i32) -> (i32, i32) {
+    let monitor = match window.current_monitor() {
+        Ok(Some(m)) => Some(m),
+        _ => window.primary_monitor().ok().flatten(),
+    };
+    let Some(monitor) = monitor else {
+        return (x, y);
+    };
+    let Ok(window_size) = window.outer_size() else {
+        return (x, y);
+    };
+    let wa = monitor.work_area();
+    let left = wa.position.x;
+    let right = wa.position.x + wa.size.width as i32;
+    let top = wa.position.y;
+    let bottom = wa.position.y + wa.size.height as i32;
+    (
+        x.clamp(left, (right - window_size.width as i32).max(left)),
+        y.clamp(top, (bottom - window_size.height as i32).max(top)),
+    )
+}
