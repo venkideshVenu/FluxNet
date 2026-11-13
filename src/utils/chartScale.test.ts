@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { formatBytes, formatLinkSpeed } from "./formatSpeed";
-import { computeChartScale } from "./chartScale";
+import { computeChartScale, chartTicks } from "./chartScale";
 
 describe("computeChartScale", () => {
   it.each([0, -5, NaN, Infinity, -Infinity])(
@@ -100,5 +100,40 @@ describe("formatLinkSpeed", () => {
     expect(formatLinkSpeed(-1)).toBe("—");
     expect(formatLinkSpeed(NaN)).toBe("—");
     expect(formatLinkSpeed(Infinity)).toBe("—");
+  });
+});
+
+describe("chartTicks", () => {
+  it("gives even, round ticks that cover the data", () => {
+    expect(chartTicks(4.6)).toEqual({
+      ticks: [0, 1, 2, 3, 4, 5],
+      yMax: 5,
+      decimals: 0,
+    });
+  });
+
+  it("never exceeds the tick budget", () => {
+    for (const max of [
+      0.07, 0.4, 0.9, 1.7, 4.6, 9, 19, 45, 99, 180, 480, 950,
+    ]) {
+      const { ticks, yMax } = chartTicks(max);
+      expect(ticks.length).toBeLessThanOrEqual(6);
+      expect(yMax).toBeGreaterThanOrEqual(max);
+      expect(ticks[0]).toBe(0);
+      expect(ticks.at(-1)).toBe(yMax);
+      const steps = ticks.slice(1).map((t, i) => +(t - ticks[i]).toFixed(6));
+      expect(new Set(steps).size).toBe(1);
+    }
+  });
+
+  it("uses only the decimals the step needs", () => {
+    expect(chartTicks(9).decimals).toBe(0);
+    expect(chartTicks(1.7).decimals).toBe(1);
+    expect(chartTicks(0.07).decimals).toBe(2);
+  });
+
+  it("handles empty or invalid data", () => {
+    expect(chartTicks(0).ticks[0]).toBe(0);
+    expect(chartTicks(Number.NaN).yMax).toBeGreaterThan(0);
   });
 });

@@ -1,644 +1,286 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { ChartColumn, Table } from "lucide-react";
 import {
   fetchDailySummary,
   fetchHourlySummary,
   fetchMonthlySummary,
   fetchUsageStats,
 } from "@/api";
-import { formatBytes, formatSpeed, getAdaptiveBytesUnit } from "@/utils";
+import { formatBytes, formatSpeed } from "@/utils";
+import {
+  hasData,
+  hourlyBuckets,
+  monthlyBuckets,
+  weeklyBuckets,
+  type Bucket,
+} from "@/utils/usageBuckets";
 import { useSettingsStore } from "@/store";
-import { StatCard, EmptyMessage } from "@/components";
 import type {
   DailyUsage,
   HourlyUsage,
   MonthlyUsage,
   UsageStats,
 } from "@/types";
+import { ChartLegend, UsageChart } from "@/components/charts";
+import {
+  Button,
+  Card,
+  InfoBar,
+  Page,
+  PageHeader,
+  ProgressRing,
+  SelectorBar,
+} from "@/components/fluent";
 
-type Tab = "today" | "week" | "monthly";
+type Range = "today" | "week" | "months";
 
-function fmt(result: { value: string; unit: string }): string {
-  return `${result.value} ${result.unit}`;
+const RANGES: { value: Range; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This week" },
+  { value: "months", label: "Last 12 months" },
+];
+
+const REFRESH_MS = 10_000;
+
+function bytesText(v: number) {
+  const r = formatBytes(v);
+  return `${r.value} ${r.unit}`;
 }
 
-const TOOLTIP_STYLE: React.CSSProperties = {
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  fontSize: 11,
-  color: "var(--text)",
-};
+/** A summary cell: total, with the download/upload split underneath. */
+function Total({
+  label,
+  download,
+  upload,
+}: {
+  label: string;
+  download: number;
+  upload: number;
+}) {
+  return (
+    <div className="min-w-[180px] flex-1 px-5 py-4 not-first:border-l not-first:border-divider">
+      <div className="text-caption text-fg-secondary">{label}</div>
+      <div className="mt-1 font-display text-subtitle font-semibold tabular">
+        {bytesText(download + upload)}
+      </div>
+      <div className="mt-0.5 text-caption text-fg-secondary tabular">
+        ↓ {bytesText(download)} · ↑ {bytesText(upload)}
+      </div>
+    </div>
+  );
+}
 
-function formatDateString(dateStr: string, format: string): string {
-  // dateStr is "YYYY-MM-DD"
-  const [y, m, d] = dateStr.split("-");
-  switch (format) {
-    case "DD/MM/YYYY":
-      return `${d}/${m}/${y}`;
-    case "YYYY-MM-DD":
-      return dateStr;
-    case "MM/DD/YYYY":
-    default:
-      return `${m}/${d}/${y}`;
-  }
+function UsageTable({ buckets }: { buckets: Bucket[] }) {
+  const rows = buckets.filter((b) => !b.future);
+  return (
+    <div className="max-h-[320px] overflow-y-auto">
+      <table className="w-full border-collapse text-body tabular">
+        <thead className="sticky top-0 bg-card-solid">
+          <tr className="text-left text-caption text-fg-secondary">
+            <th className="py-2 pr-4 font-normal">Period</th>
+            <th className="py-2 pr-4 text-right font-normal">Downloaded</th>
+            <th className="py-2 pr-4 text-right font-normal">Uploaded</th>
+            <th className="py-2 text-right font-normal">Total</th>
+          </tr>
+        </thead>
+        <tbody className="select-text">
+          {rows.map((b) => (
+            <tr key={b.key} className="border-t border-divider">
+              <td className="py-1.5 pr-4">
+                {b.title}
+                {b.partial && (
+                  <span className="text-fg-secondary"> (so far)</span>
+                )}
+              </td>
+              <td className="py-1.5 pr-4 text-right">
+                {bytesText(b.download)}
+              </td>
+              <td className="py-1.5 pr-4 text-right">{bytesText(b.upload)}</td>
+              <td className="py-1.5 text-right">
+                {bytesText(b.download + b.upload)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function HistoryPage() {
-  const [tab, setTab] = useState<Tab>("today");
+  const [range, setRange] = useState<Range>("today");
+  const [showTable, setShowTable] = useState(false);
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [hourly, setHourly] = useState<HourlyUsage[]>([]);
   const [daily, setDaily] = useState<DailyUsage[]>([]);
   const [monthly, setMonthly] = useState<MonthlyUsage[]>([]);
-  const [initialLoad, setInitialLoad] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const timeFormat = useSettingsStore((s) => s.timeFormat);
-  const dateFormat = useSettingsStore((s) => s.dateFormat);
   const startOfWeek = useSettingsStore((s) => s.startOfWeek);
 
   useEffect(() => {
-    async function load(isBackground = false) {
-      if (!isBackground) setInitialLoad(true);
+    let alive = true;
+    async function load() {
       try {
-        const [nextStats, nextHourly, nextDaily, nextMonthly] =
-          await Promise.all([
-            fetchUsageStats(),
-            fetchHourlySummary(48),
-            fetchDailySummary(30),
-            fetchMonthlySummary(),
-          ]);
-        setStats(nextStats);
-        setHourly(nextHourly);
-        setDaily(nextDaily);
-        setMonthly(nextMonthly);
+        const [s, h, d, m] = await Promise.all([
+          fetchUsageStats(),
+          fetchHourlySummary(48),
+          fetchDailySummary(30),
+          fetchMonthlySummary(),
+        ]);
+        if (!alive) return;
+        setStats(s);
+        setHourly(h);
+        setDaily(d);
+        setMonthly(m);
+        setNow(new Date());
         setError(null);
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        );
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : String(e));
       } finally {
-        setInitialLoad(false);
+        if (alive) setLoading(false);
       }
     }
-    void load(false);
+    void load();
     // Skip refreshes while the dashboard is hidden (minimized or in the tray).
     const id = setInterval(() => {
-      if (!document.hidden) void load(true);
-    }, 10_000);
-    return () => clearInterval(id);
+      if (!document.hidden) void load();
+    }, REFRESH_MS);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, []);
 
-  const todayChart = useMemo(() => {
-    const now = new Date();
-    const todayStart =
-      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() /
-      1000;
-    const todayHours = hourly.filter((h) => h.hourStart >= todayStart);
-    const sorted = [...todayHours].sort((a, b) => a.hourStart - b.hourStart);
+  const buckets = useMemo(() => {
+    if (range === "today") {
+      return hourlyBuckets(
+        hourly,
+        now,
+        timeFormat,
+        stats
+          ? {
+              download: stats.todayDownloadBytes,
+              upload: stats.todayUploadBytes,
+            }
+          : undefined,
+      );
+    }
+    if (range === "week") return weeklyBuckets(daily, now, startOfWeek);
+    return monthlyBuckets(monthly, now, stats);
+  }, [range, hourly, daily, monthly, stats, now, timeFormat, startOfWeek]);
 
-    return sorted.map((point) => {
-      const date = new Date(point.hourStart * 1000);
-      const hour = date.getHours();
-      const nextHour = (hour + 1) % 24;
-
-      let label: string;
-      if (timeFormat === "24h") {
-        label = `${hour.toString().padStart(2, "0")}:00–${nextHour.toString().padStart(2, "0")}:00`;
-      } else {
-        const fmt12 = (h: number) => {
-          const period = h >= 12 ? "PM" : "AM";
-          const h12 = h % 12 || 12;
-          return `${h12}${period}`;
-        };
-        label = `${fmt12(hour)}–${fmt12(nextHour)}`;
-      }
-
-      return {
-        label,
-        fullLabel: label,
-        downloadRaw: point.totalDownloadBytes,
-        uploadRaw: point.totalUploadBytes,
-      };
-    });
-  }, [hourly, timeFormat]);
-
-  const todayMaxBytes = useMemo(
-    () =>
-      todayChart.reduce(
-        (max, p) => Math.max(max, p.downloadRaw, p.uploadRaw),
-        0,
-      ),
-    [todayChart],
-  );
-  const todayUnit = useMemo(
-    () => getAdaptiveBytesUnit(todayMaxBytes),
-    [todayMaxBytes],
-  );
-  const todayChartData = useMemo(
-    () =>
-      todayChart.map((p) => ({
-        ...p,
-        download: +(p.downloadRaw / todayUnit.divisor).toFixed(2),
-        upload: +(p.uploadRaw / todayUnit.divisor).toFixed(2),
-      })),
-    [todayChart, todayUnit.divisor],
-  );
-
-  const weekChart = useMemo(() => {
-    const now = new Date();
-    const currentDay = now.getDay();
-    const weekStartDay =
-      startOfWeek === "monday" ? 1 : startOfWeek === "saturday" ? 6 : 0;
-    let daysSinceStart = currentDay - weekStartDay;
-    if (daysSinceStart < 0) daysSinceStart += 7;
-    const weekStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() - daysSinceStart,
-    );
-    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`;
-    const weekDays = daily.filter((d) => d.day >= weekStartStr);
-    const sorted = [...weekDays].sort((a, b) => a.day.localeCompare(b.day));
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-    return sorted.map((point) => {
-      const [y, m, d] = point.day.split("-").map(Number);
-      const date = new Date(y, m - 1, d);
-      const dayName = dayNames[date.getDay()];
-      const label = `${dayName} ${d}`;
-      return {
-        label,
-        fullLabel: formatDateString(point.day, dateFormat),
-        downloadRaw: point.totalDownloadBytes,
-        uploadRaw: point.totalUploadBytes,
-      };
-    });
-  }, [daily, startOfWeek, dateFormat]);
-
-  const weekMaxBytes = useMemo(
-    () =>
-      weekChart.reduce(
-        (max, p) => Math.max(max, p.downloadRaw, p.uploadRaw),
-        0,
-      ),
-    [weekChart],
-  );
-  const weekUnit = useMemo(
-    () => getAdaptiveBytesUnit(weekMaxBytes),
-    [weekMaxBytes],
-  );
-  const weekChartData = useMemo(
-    () =>
-      weekChart.map((p) => ({
-        ...p,
-        download: +(p.downloadRaw / weekUnit.divisor).toFixed(2),
-        upload: +(p.uploadRaw / weekUnit.divisor).toFixed(2),
-      })),
-    [weekChart, weekUnit.divisor],
-  );
-
-  const sortedMonthly = useMemo(
-    () => [...monthly].sort((a, b) => a.month.localeCompare(b.month)),
-    [monthly],
-  );
-  const monthlyChart = useMemo(
-    () =>
-      sortedMonthly.map((point) => ({
-        label: formatMonthLabel(point.month),
-        fullLabel: point.month,
-        downloadRaw: point.totalDownloadBytes,
-        uploadRaw: point.totalUploadBytes,
-      })),
-    [sortedMonthly],
-  );
-  const monthlyMaxBytes = useMemo(
-    () =>
-      monthlyChart.reduce(
-        (max, p) => Math.max(max, p.downloadRaw, p.uploadRaw),
-        0,
-      ),
-    [monthlyChart],
-  );
-  const monthlyUnit = useMemo(
-    () => getAdaptiveBytesUnit(monthlyMaxBytes),
-    [monthlyMaxBytes],
-  );
-  const monthlyChartData = useMemo(
-    () =>
-      monthlyChart.map((p) => ({
-        ...p,
-        download: +(p.downloadRaw / monthlyUnit.divisor).toFixed(2),
-        upload: +(p.uploadRaw / monthlyUnit.divisor).toFixed(2),
-      })),
-    [monthlyChart, monthlyUnit.divisor],
-  );
-
-  const summaryCards = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { label: "Today ↓", value: fmt(formatBytes(stats.todayDownloadBytes)) },
-      { label: "Today ↑", value: fmt(formatBytes(stats.todayUploadBytes)) },
-      {
-        label: "This week ↓",
-        value: fmt(formatBytes(stats.weekDownloadBytes)),
-      },
-      {
-        label: "This month ↓",
-        value: fmt(formatBytes(stats.monthDownloadBytes)),
-      },
-      {
-        label: "Peak download",
-        value: fmt(formatSpeed(stats.peakDownloadBps, displayUnits)),
-      },
-      {
-        label: "Peak upload",
-        value: fmt(formatSpeed(stats.peakUploadBps, displayUnits)),
-      },
-    ];
-  }, [stats, displayUnits]);
-
-  const currentMonthly = sortedMonthly.at(-1) ?? null;
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "today", label: "Today" },
-    { id: "week", label: "This Week" },
-    { id: "monthly", label: "Monthly" },
-  ];
-
-  const makeFormatter =
-    (unitLabel: string) =>
-    (value: unknown, name: unknown): [string, string] => {
-      const num = typeof value === "number" ? value : Number(value ?? 0);
-      const key = String(name);
-      return [
-        `${num.toFixed(2)} ${unitLabel}`,
-        key === "upload" ? "Uploaded" : "Downloaded",
-      ];
-    };
+  const peak = (v: number) => {
+    const r = formatSpeed(v, displayUnits);
+    return `${r.value} ${r.unit}`;
+  };
 
   return (
-    <div className="p-7 px-8 w-full max-w-full">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="text-[22px] font-semibold text-text tracking-[-0.02em] leading-none mb-1.25">
-            History
-          </div>
-          <div className="text-[12px] text-text-muted font-normal">
-            Bandwidth usage over time — total data transferred per period
-          </div>
-        </div>
-      </div>
+    <Page wide>
+      <PageHeader title="Data usage" />
 
-      {initialLoad && (
-        <div className="text-[12px] text-text-muted text-center py-10">
-          Loading history…
-        </div>
+      {error && !loading && (
+        <InfoBar
+          className="mb-4"
+          severity="error"
+          title="Couldn't load usage"
+          message={error}
+        />
       )}
 
-      {error && !initialLoad && (
-        <div
-          className="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-bg border border-danger-border rounded-md text-danger-text text-[12px] mb-4"
-          role="alert"
-        >
-          <span className="flex-1">⚠️ {error}</span>
+      {loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <ProgressRing label="Loading usage" />
         </div>
-      )}
-
-      {!initialLoad && !error && (
+      ) : (
         <>
-          {stats && (
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(155px,1fr))] gap-3 mb-6">
-              {summaryCards.map((card) => (
-                <StatCard
-                  key={card.label}
-                  label={card.label}
-                  value={card.value}
-                />
-              ))}
+          <Card className="mb-6 flex flex-wrap">
+            <Total
+              label="Today"
+              download={stats?.todayDownloadBytes ?? 0}
+              upload={stats?.todayUploadBytes ?? 0}
+            />
+            <Total
+              label="Last 7 days"
+              download={stats?.weekDownloadBytes ?? 0}
+              upload={stats?.weekUploadBytes ?? 0}
+            />
+            <Total
+              label="This month"
+              download={stats?.monthDownloadBytes ?? 0}
+              upload={stats?.monthUploadBytes ?? 0}
+            />
+            <div className="min-w-[180px] flex-1 px-5 py-4 not-first:border-l not-first:border-divider">
+              <div className="text-caption text-fg-secondary">
+                Fastest recorded
+              </div>
+              <div className="mt-1 font-display text-subtitle font-semibold tabular">
+                {peak(stats?.peakDownloadBps ?? 0)}
+              </div>
+              <div className="mt-0.5 text-caption text-fg-secondary tabular">
+                Upload {peak(stats?.peakUploadBps ?? 0)}
+              </div>
             </div>
-          )}
+          </Card>
 
-          <div className="flex flex-wrap gap-2 mb-5">
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={`border px-3 py-1.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all hover:-translate-y-px ${tab === item.id ? "bg-accent text-white border-accent shadow-[0_2px_8px_rgba(124,111,247,0.3)]" : "bg-panel text-text-subtle border-border-strong hover:border-accent-border hover:text-text"}`}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="mb-2 flex items-center justify-between gap-4">
+            <SelectorBar
+              label="Period"
+              items={RANGES}
+              value={range}
+              onChange={setRange}
+            />
+            <Button
+              variant="subtle"
+              icon={showTable ? <ChartColumn /> : <Table />}
+              onClick={() => setShowTable((v) => !v)}
+            >
+              {showTable ? "Show chart" : "Show table"}
+            </Button>
           </div>
 
-          {tab === "today" && (
-            <div className="mb-6">
-              <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-                Data transferred per hour today ({todayUnit.unitLabel})
-              </div>
-              <div className="bg-panel border border-border rounded-lg p-5">
-                {todayChartData.length === 0 ? (
-                  <EmptyMessage text="No data yet for today. Data appears after the first completed hour of monitoring." />
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart
-                        data={todayChartData}
-                        barGap={1}
-                        barCategoryGap="20%"
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="var(--border)"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fill: "var(--text-muted)", fontSize: 9 }}
-                          tickLine={false}
-                          axisLine={false}
-                          interval={0}
-                          angle={-45}
-                          textAnchor="end"
-                          height={55}
-                        />
-                        <YAxis
-                          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                          tickLine={false}
-                          axisLine={false}
-                          tickFormatter={(v) => formatAxisValue(v)}
-                          width={42}
-                        />
-                        <Tooltip
-                          contentStyle={TOOLTIP_STYLE}
-                          labelStyle={{ color: "var(--text-muted)" }}
-                          itemStyle={{ color: "var(--text)" }}
-                          formatter={makeFormatter(todayUnit.unitLabel)}
-                        />
-                        <Bar
-                          isAnimationActive={false}
-                          dataKey="download"
-                          fill="var(--net-download)"
-                          radius={[3, 3, 0, 0]}
-                          opacity={0.85}
-                          name="download"
-                        />
-                        <Bar
-                          isAnimationActive={false}
-                          dataKey="upload"
-                          fill="var(--net-upload)"
-                          radius={[3, 3, 0, 0]}
-                          opacity={0.85}
-                          name="upload"
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <ChartLegend unitLabel={todayUnit.unitLabel} />
-                  </>
-                )}
-              </div>
+          <Card className="px-5 pt-4 pb-3">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <h2 className="text-body font-semibold">
+                {range === "today"
+                  ? "Data used per hour"
+                  : range === "week"
+                    ? "Data used per day"
+                    : "Data used per month"}
+              </h2>
+              {!showTable && (
+                <ChartLegend
+                  labels={{ download: "Downloaded", upload: "Uploaded" }}
+                />
+              )}
             </div>
-          )}
-
-          {tab === "week" && (
-            <div className="mb-6">
-              <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-                Data transferred per day this week ({weekUnit.unitLabel})
-              </div>
-              <div className="bg-panel border border-border rounded-lg p-5">
-                {weekChartData.length === 0 ? (
-                  <EmptyMessage text="No data yet for this week. Data appears after the first full day of monitoring." />
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart
-                        data={weekChartData}
-                        barGap={2}
-                        barCategoryGap="15%"
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="var(--border)"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                          tickLine={false}
-                          axisLine={false}
-                          interval={0}
-                        />
-                        <YAxis
-                          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                          tickLine={false}
-                          axisLine={false}
-                          tickFormatter={(v) => formatAxisValue(v)}
-                          width={42}
-                        />
-                        <Tooltip
-                          contentStyle={TOOLTIP_STYLE}
-                          labelStyle={{ color: "var(--text-muted)" }}
-                          itemStyle={{ color: "var(--text)" }}
-                          labelFormatter={(_, payload) =>
-                            payload?.[0]?.payload?.fullLabel ?? ""
-                          }
-                          formatter={makeFormatter(weekUnit.unitLabel)}
-                        />
-                        <Bar
-                          isAnimationActive={false}
-                          dataKey="download"
-                          fill="var(--net-download)"
-                          radius={[3, 3, 0, 0]}
-                          opacity={0.85}
-                          name="download"
-                        />
-                        <Bar
-                          isAnimationActive={false}
-                          dataKey="upload"
-                          fill="var(--net-upload)"
-                          radius={[3, 3, 0, 0]}
-                          opacity={0.85}
-                          name="upload"
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <ChartLegend unitLabel={weekUnit.unitLabel} />
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {tab === "monthly" && (
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-                <StatCard
-                  label="Latest month ↓"
-                  value={
-                    currentMonthly
-                      ? fmt(formatBytes(currentMonthly.totalDownloadBytes))
-                      : "—"
-                  }
-                />
-                <StatCard
-                  label="Latest month ↑"
-                  value={
-                    currentMonthly
-                      ? fmt(formatBytes(currentMonthly.totalUploadBytes))
-                      : "—"
-                  }
-                />
-                <StatCard
-                  label="Latest month total"
-                  value={
-                    currentMonthly
-                      ? fmt(
-                          formatBytes(
-                            currentMonthly.totalDownloadBytes +
-                              currentMonthly.totalUploadBytes,
-                          ),
-                        )
-                      : "—"
-                  }
-                />
-                <StatCard
-                  label="Month peak ↓"
-                  value={
-                    currentMonthly
-                      ? fmt(
-                          formatSpeed(
-                            currentMonthly.peakDownloadBps,
-                            displayUnits,
-                          ),
-                        )
-                      : "—"
-                  }
-                />
-              </div>
-              <div className="mb-6">
-                <div className="text-[10px] font-semibold text-text-muted uppercase tracking-[0.08em] mb-3">
-                  Total data per month ({monthlyUnit.unitLabel})
-                </div>
-                <div className="bg-panel border border-border rounded-lg p-5">
-                  {monthlyChartData.length === 0 ? (
-                    <EmptyMessage text="No monthly data yet. Monthly summaries are generated at the start of each new month." />
-                  ) : (
-                    <>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <BarChart
-                          data={monthlyChartData}
-                          barGap={2}
-                          barCategoryGap="20%"
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="var(--border)"
-                            vertical={false}
-                          />
-                          <XAxis
-                            dataKey="label"
-                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                            tickLine={false}
-                            axisLine={false}
-                            interval={0}
-                          />
-                          <YAxis
-                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(v) => formatAxisValue(v)}
-                            width={42}
-                          />
-                          <Tooltip
-                            contentStyle={TOOLTIP_STYLE}
-                            labelStyle={{ color: "var(--text-muted)" }}
-                            itemStyle={{ color: "var(--text)" }}
-                            labelFormatter={(_, payload) =>
-                              payload?.[0]?.payload?.fullLabel ?? ""
-                            }
-                            formatter={makeFormatter(monthlyUnit.unitLabel)}
-                          />
-                          <Bar
-                            isAnimationActive={false}
-                            dataKey="download"
-                            fill="var(--net-download)"
-                            radius={[3, 3, 0, 0]}
-                            opacity={0.85}
-                            name="download"
-                          />
-                          <Bar
-                            isAnimationActive={false}
-                            dataKey="upload"
-                            fill="var(--net-upload)"
-                            radius={[3, 3, 0, 0]}
-                            opacity={0.85}
-                            name="upload"
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                      <ChartLegend unitLabel={monthlyUnit.unitLabel} />
-                    </>
-                  )}
+            {!hasData(buckets) ? (
+              <div className="flex h-[280px] flex-col items-center justify-center gap-1 text-center">
+                <div className="text-body">No usage recorded yet</div>
+                <div className="text-caption text-fg-secondary">
+                  {range === "today"
+                    ? "Hours appear here as FluxNet measures your connection."
+                    : range === "week"
+                      ? "Days appear here as FluxNet measures your connection."
+                      : "Months appear here as FluxNet measures your connection."}
                 </div>
               </div>
-            </div>
-          )}
+            ) : showTable ? (
+              <UsageTable buckets={buckets} />
+            ) : (
+              <UsageChart
+                buckets={buckets}
+                tickEvery={range === "today" ? 3 : 1}
+              />
+            )}
+          </Card>
         </>
       )}
-    </div>
+    </Page>
   );
-}
-
-function ChartLegend({ unitLabel }: { unitLabel: string }) {
-  return (
-    <div className="flex items-center gap-4 mt-3">
-      <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
-        <div className="w-2 h-2 rounded-full bg-net-download" />
-        Downloaded
-      </div>
-      <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
-        <div className="w-2 h-2 rounded-full bg-net-upload" />
-        Uploaded
-      </div>
-      <span className="ml-auto text-[10px] text-text-muted">{unitLabel}</span>
-    </div>
-  );
-}
-
-function formatMonthLabel(month: string): string {
-  const [year, m] = month.split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${months[parseInt(m, 10) - 1]} '${year.slice(2)}`;
-}
-
-function formatAxisValue(v: number): string {
-  if (v >= 1000) return `${(v / 1000).toFixed(0)}K`;
-  if (v >= 100) return v.toFixed(0);
-  if (v >= 10) return v.toFixed(1);
-  return v.toFixed(2);
 }
 
 export default HistoryPage;

@@ -27,5 +27,8 @@ export {
   startDragging,
   getWindowPosition,
   setWindowPosition,
+  setWindowTheme,
 } from "./tauri";
 export type { UnlistenFn, WidgetVisibilityPayload } from "./tauri";
+
+export { fetchAppearance } from "./appearanceApi";

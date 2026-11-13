@@ -1,19 +1,17 @@
 import {
+  createContext,
+  useCallback,
+  useContext,
   useEffect,
   useState,
-  useCallback,
-  createContext,
-  useContext,
+  type ReactNode,
 } from "react";
+import { CircleCheck, CircleX, Info } from "lucide-react";
 
-type ToastItem = {
-  id: number;
-  message: string;
-  type?: "success" | "info" | "error";
-};
-
+type ToastType = "success" | "info" | "error";
+type ToastItem = { id: number; message: string; type: ToastType };
 type ToastContextType = {
-  showToast: (message: string, type?: "success" | "info" | "error") => void;
+  showToast: (message: string, type?: ToastType) => void;
 };
 
 const ToastContext = createContext<ToastContextType>({ showToast: () => {} });
@@ -24,18 +22,25 @@ export function useToast() {
 
 let toastId = 0;
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+const ICONS: Record<ToastType, ReactNode> = {
+  success: <CircleCheck className="size-4 text-success" />,
+  info: <Info className="size-4 text-accent" />,
+  error: <CircleX className="size-4 text-critical" />,
+};
+
+/** Brief confirmations ("Peak speeds reset"), shown as a Fluent flyout at the bottom. */
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showToast = useCallback(
-    (message: string, type: "success" | "info" | "error" = "success") => {
+    (message: string, type: ToastType = "success") => {
       const id = ++toastId;
       setToasts((prev) => [...prev, { id, message, type }]);
     },
     [],
   );
 
-  const removeToast = useCallback((id: number) => {
+  const remove = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -43,84 +48,41 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       <div
-        style={{
-          position: "fixed",
-          top: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 8,
-          pointerEvents: "none",
-        }}
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2"
       >
         {toasts.map((toast) => (
-          <ToastMessage key={toast.id} toast={toast} onDone={removeToast} />
+          <Toast key={toast.id} toast={toast} onDone={remove} />
         ))}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function ToastMessage({
+function Toast({
   toast,
   onDone,
 }: {
   toast: ToastItem;
   onDone: (id: number) => void;
 }) {
-  const [state, setState] = useState<"enter" | "visible" | "exit">("enter");
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const enterTimer = setTimeout(() => setState("visible"), 20);
-    const exitTimer = setTimeout(() => setState("exit"), 2500);
-    const removeTimer = setTimeout(() => onDone(toast.id), 2800);
+    const leave = setTimeout(() => setLeaving(true), 2600);
+    const done = setTimeout(() => onDone(toast.id), 2850);
     return () => {
-      clearTimeout(enterTimer);
-      clearTimeout(exitTimer);
-      clearTimeout(removeTimer);
+      clearTimeout(leave);
+      clearTimeout(done);
     };
   }, [toast.id, onDone]);
 
-  const icon = toast.type === "error" ? "✕" : toast.type === "info" ? "ℹ" : "✓";
-
-  const iconColor =
-    toast.type === "error"
-      ? "var(--danger)"
-      : toast.type === "info"
-        ? "var(--accent)"
-        : "var(--success)";
-
   return (
     <div
-      style={{
-        padding: "10px 16px",
-        borderRadius: 10,
-        background: "var(--panel)",
-        border: "1px solid var(--border)",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-        fontSize: 12,
-        fontWeight: 500,
-        color: "var(--text)",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        pointerEvents: "auto",
-        transition: "opacity 0.25s ease, transform 0.25s ease",
-        opacity: state === "visible" ? 1 : 0,
-        transform:
-          state === "enter"
-            ? "translateY(-12px)"
-            : state === "exit"
-              ? "translateY(-8px)"
-              : "translateY(0)",
-      }}
+      role={toast.type === "error" ? "alert" : "status"}
+      className={`pointer-events-auto flex items-center gap-3 rounded-card border border-flyout-stroke bg-flyout px-4 py-2.5 text-body text-fg shadow-flyout transition-opacity duration-[250ms] animate-page-in ${leaving ? "opacity-0" : "opacity-100"}`}
     >
-      <span style={{ color: iconColor, fontWeight: 700, fontSize: 13 }}>
-        {icon}
-      </span>
+      {ICONS[toast.type]}
       {toast.message}
     </div>
   );

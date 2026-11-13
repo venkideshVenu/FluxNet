@@ -12,6 +12,7 @@
     "core:window:allow-set-focus",
     "core:window:allow-set-always-on-top",
     "core:window:allow-unminimize",
+    "core:window:allow-set-theme",
     "core:path:default",
     "autostart:allow-enable",
     "autostart:allow-disable",

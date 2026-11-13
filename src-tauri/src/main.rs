@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod app_windows;
+mod appearance;
 mod background;
 mod commands;
 mod dto;
@@ -152,6 +153,8 @@ fn main() {
             set_widget_always_on_top,
             set_widget_visibility,
             get_widget_visibility,
+            // Appearance
+            appearance::get_appearance,
             // HUD design
             set_hud_design,
             get_hud_design,

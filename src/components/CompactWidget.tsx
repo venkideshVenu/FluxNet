@@ -68,7 +68,7 @@ export function CompactWidget() {
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
-      className="w-full h-full p-px focus-visible:outline-2 focus-visible:outline-[rgba(124,111,247,0.8)] focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
+      className="w-full h-full p-px focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
     >
       <CompactPresentation
         interfaceName={data.interfaceName}

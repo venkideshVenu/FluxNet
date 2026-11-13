@@ -28,49 +28,26 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
-    if (this.state.hasError) {
-      return (
-        <div
-          style={{
-            padding: 16,
-            fontFamily: "monospace",
-            fontSize: 12,
-            color: "#f87171",
-            background: "#1a1020",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            gap: 8,
-          }}
-        >
-          <div style={{ fontSize: 24 }}>⚠️</div>
-          <div>Something went wrong</div>
-          <div style={{ color: "#a8a4c8", maxWidth: 300 }}>
-            {this.state.error?.message || "Unknown error"}
-          </div>
-          <button
-            type="button"
-            onClick={() => this.setState({ hasError: false, error: null })}
-            style={{
-              marginTop: 8,
-              padding: "6px 16px",
-              background: "#6c5ce7",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 11,
-            }}
-          >
-            Retry
-          </button>
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div
+        role="alert"
+        className="flex h-full w-full flex-col items-center justify-center gap-2 overflow-hidden bg-app p-4 text-center"
+      >
+        <div className="text-body font-semibold text-fg">
+          Something went wrong
         </div>
-      );
-    }
-
-    return this.props.children;
+        <div className="max-w-[360px] text-caption text-fg-secondary select-text">
+          {this.state.error?.message || "Unknown error"}
+        </div>
+        <button
+          type="button"
+          onClick={() => this.setState({ hasError: false, error: null })}
+          className="mt-2 h-8 rounded-control bg-accent px-4 text-body text-on-accent hover:bg-accent-hover active:bg-accent-pressed"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 }

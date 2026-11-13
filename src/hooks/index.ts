@@ -1,6 +1,10 @@
 export { useNetworkPoller } from "./useNetworkPoller";
 export { usePingPoller } from "./usePingPoller";
-export { useThemeSync } from "./useThemeSync";
+export {
+  useThemeSync,
+  applyThemeMode,
+  refreshAppearance,
+} from "./useThemeSync";
 export { useStoredInterval } from "./useStoredInterval";
 export { useWidgetSettings } from "./useWidgetSettings";
 export { useWidgetPanelState } from "./useWidgetPanelState";

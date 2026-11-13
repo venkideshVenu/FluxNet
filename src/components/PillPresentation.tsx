@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
 export interface PillPresentationProps {
   downloadValue: string;
@@ -9,6 +10,38 @@ export interface PillPresentationProps {
   hasInterface?: boolean;
 }
 
+function Reading({
+  direction,
+  value,
+  unit,
+}: {
+  direction: "down" | "up";
+  value: string;
+  unit: string;
+}) {
+  const Arrow = direction === "down" ? ArrowDown : ArrowUp;
+  return (
+    <span className="flex items-center gap-1">
+      {/* Fixed width (arrow + 6ch for "1023.9") so the pill never reflows;
+          the arrow stays next to the number. */}
+      <span className="flex w-[calc(6ch+14px)] items-center justify-end gap-1 text-[13px]">
+        <Arrow
+          aria-hidden="true"
+          strokeWidth={2.5}
+          className={`size-2.5 shrink-0 ${direction === "down" ? "text-(--w-download)" : "text-(--w-upload)"}`}
+        />
+        <span className="max-w-[6ch] min-w-0 overflow-hidden text-right text-[13px] leading-none font-semibold text-ellipsis whitespace-nowrap text-(--w-fg) tabular-nums">
+          {value}
+        </span>
+      </span>
+      <span className="w-[4.2ch] text-[10px] leading-none text-(--w-fg-2)">
+        {unit}
+      </span>
+    </span>
+  );
+}
+
+/** Slim speed bar. Window: 232 × 32 logical px. */
 export const PillPresentation = memo(function PillPresentation({
   downloadValue,
   downloadUnit,
@@ -17,52 +50,22 @@ export const PillPresentation = memo(function PillPresentation({
   isConnected,
   hasInterface = true,
 }: PillPresentationProps) {
-  const unitClass = (unit: string) => {
-    const u = unit.toLowerCase();
-    if (u.startsWith("gb") || u === "gb/s" || u === "gbps")
-      return "text-[#39e48a] bg-[rgba(12,78,52,0.42)] in-[[data-theme='light']]:text-[#066a30] in-[[data-theme='light']]:bg-[rgba(10,122,62,0.12)]";
-    if (u.startsWith("mb") || u === "mb/s" || u === "mbps")
-      return "text-[#ff9f4a] bg-[rgba(90,54,18,0.45)] in-[[data-theme='light']]:text-[#7a4200] in-[[data-theme='light']]:bg-[rgba(184,109,0,0.12)]";
-    if (u.startsWith("kb") || u === "kb/s" || u === "kbps")
-      return "text-[#4bd4ff] bg-[rgba(12,62,82,0.42)] in-[[data-theme='light']]:text-[#085070] in-[[data-theme='light']]:bg-[rgba(12,96,144,0.12)]";
-    return "text-[#c9ccd6] bg-[rgba(86,92,104,0.22)] in-[[data-theme='light']]:text-[#3d3760] in-[[data-theme='light']]:bg-[rgba(60,50,100,0.08)]";
-  };
-
-  // Red when no interface, green when connected, grey when disconnected
-  const dotColor = !hasInterface
-    ? "bg-[#ef4444] shadow-[0_0_6px_rgba(239,68,68,0.6)]"
-    : isConnected
-      ? "bg-[#0f8c42] shadow-[0_0_6px_rgba(15,140,66,0.6)] in-data-[theme='dark']:bg-[#22d97d] in-data-[theme='dark']:shadow-[0_0_6px_rgba(34,217,125,0.7)]"
-      : "bg-[#8a8590]";
+  const state = !hasInterface ? "no-interface" : isConnected ? "live" : "dead";
+  const dotColour =
+    state === "live"
+      ? "bg-(--w-good)"
+      : state === "dead"
+        ? "bg-(--w-idle)"
+        : "bg-(--w-bad)";
 
   return (
-    <div className="inline-flex items-center justify-center bg-(--pill-bg) border border-(--pill-border) rounded-full px-2.5 py-1.25 gap-1.75 w-full cursor-grab active:cursor-grabbing">
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-[6ch] text-right tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-net-download">
-          {downloadValue}
-        </span>
-        <span
-          className={`text-[7px] font-bold font-mono inline-flex items-center justify-center w-7.5 min-w-7.5 h-3.75 rounded-[5px] leading-none tracking-wider shrink-0 ${unitClass(downloadUnit)}`}
-        >
-          {downloadUnit}
-        </span>
-      </div>
-      <div className="w-px h-3.25 bg-(--pill-sep) mx-px" />
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-[6ch] text-right tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-net-upload">
-          {uploadValue}
-        </span>
-        <span
-          className={`text-[7px] font-bold font-mono inline-flex items-center justify-center w-7.5 min-w-7.5 h-3.75 rounded-[5px] leading-none tracking-wider shrink-0 ${unitClass(uploadUnit)}`}
-        >
-          {uploadUnit}
-        </span>
-      </div>
-      <div
-        className={`w-1.75 h-1.75 ml-0.5 rounded-full ${dotColor}`}
-        data-state={
-          !hasInterface ? "no-interface" : isConnected ? "live" : "dead"
-        }
+    <div className="flex h-full w-full cursor-grab items-center justify-center gap-1.5 rounded-full border border-(--w-stroke) bg-(--w-bg) px-3 font-sans active:cursor-grabbing">
+      <Reading direction="down" value={downloadValue} unit={downloadUnit} />
+      <span className="h-3.5 w-px bg-(--w-sep)" aria-hidden="true" />
+      <Reading direction="up" value={uploadValue} unit={uploadUnit} />
+      <span
+        className={`size-1.5 shrink-0 rounded-full ${dotColour}`}
+        data-state={state}
         aria-hidden="true"
       />
     </div>

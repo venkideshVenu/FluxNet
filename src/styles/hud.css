@@ -1,44 +1,10 @@
-:root {
-  --hud-bg-outer: #0c0b18;
-  --hud-bg-card: #13111f;
-  --hud-border: rgba(90, 80, 180, 0.35);
-  --hud-rule: rgba(90, 80, 180, 0.18);
-  --hud-brand: rgba(235, 234, 255, 0.9);
-  --hud-label: rgba(214, 211, 255, 0.85);
-  --hud-up: var(--net-upload);
-  --hud-dn: var(--net-download);
-  --hud-good: #22c55e;
-  --hud-amber: #f59e0b;
-  --hud-danger: #ef4444;
-  --hud-neutral: #ffffff;
-  --hud-muted: rgba(234, 233, 255, 0.6);
-  --hud-font: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
-}
-
-html[data-app="hud"][data-theme="light"] {
-  --hud-bg-outer: transparent;
-  --hud-bg-card: #f0eff8;
-  --hud-border: rgba(60, 50, 140, 0.18);
-  --hud-rule: rgba(60, 50, 140, 0.12);
-  --hud-brand: #131020;
-  --hud-label: rgb(12, 12, 16);
-  --hud-good: #0f8c42;
-  --hud-amber: #b86d00;
-  --hud-danger: #c62828;
-  --hud-neutral: #131020;
-  --hud-muted: #5a5478;
-}
-
 html[data-app="hud"] body {
   background: transparent;
   overflow: hidden;
-  font-family: var(--hud-font);
 }
 
 html[data-app="hud"] #root {
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
   width: 100%;
   height: 100%;
 }
