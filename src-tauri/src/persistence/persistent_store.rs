@@ -83,9 +83,10 @@ impl<T: Persistent> PersistentStore<T> {
 
     fn flush_to_disk(&self, app: &AppHandle, data: &T) {
         if let Some(path) = self.file_path(app)
-            && let Err(e) = save_to_path(&path, data) {
-                tracing::error!("Failed to save {}: {e}", path.display());
-            }
+            && let Err(e) = save_to_path(&path, data)
+        {
+            tracing::error!("Failed to save {}: {e}", path.display());
+        }
     }
 }
 

@@ -180,53 +180,46 @@ fn main() {
                     enqueue_position(&sender, window.label(), *position);
                 }
             }
-            WindowEvent::CloseRequested { api, .. }
-                if window.label() == "main" => {
-                    let app_handle = window.app_handle();
-                    if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
-                        let minimize = store.read(|s| s.minimize_to_tray);
-                        if minimize {
-                            // Let the window close: destroying the webview frees its
-                            // renderer memory. The tray recreates it on demand.
-                            tracing::debug!("Main window closed to tray (minimize_to_tray=true)");
-                        } else {
-                            api.prevent_close();
-                            tracing::debug!("minimize_to_tray=false, shutting down app");
-
-                            let cancel_token = match app_handle.try_state::<CancellationToken>() {
-                                Some(t) => t.clone(),
-                                None => {
-                                    tracing::error!(
-                                        "CancellationToken missing, exiting immediately"
-                                    );
-                                    app_handle.exit(0);
-                                    return;
-                                }
-                            };
-
-                            let widget_store = match app_handle.try_state::<Arc<
-                                crate::persistence::persistent_store::PersistentStore<
-                                    crate::persistence::widget_state::WidgetState,
-                                >,
-                            >>() {
-                                Some(s) => s.clone(),
-                                None => {
-                                    tracing::error!("WidgetStore missing, exiting immediately");
-                                    app_handle.exit(0);
-                                    return;
-                                }
-                            };
-
-                            crate::tray::perform_shutdown(
-                                app_handle,
-                                &cancel_token,
-                                &widget_store,
-                            );
-                        }
+            WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
+                let app_handle = window.app_handle();
+                if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
+                    let minimize = store.read(|s| s.minimize_to_tray);
+                    if minimize {
+                        // Let the window close: destroying the webview frees its
+                        // renderer memory. The tray recreates it on demand.
+                        tracing::debug!("Main window closed to tray (minimize_to_tray=true)");
                     } else {
-                        app_handle.exit(0);
+                        api.prevent_close();
+                        tracing::debug!("minimize_to_tray=false, shutting down app");
+
+                        let cancel_token = match app_handle.try_state::<CancellationToken>() {
+                            Some(t) => t.clone(),
+                            None => {
+                                tracing::error!("CancellationToken missing, exiting immediately");
+                                app_handle.exit(0);
+                                return;
+                            }
+                        };
+
+                        let widget_store = match app_handle.try_state::<Arc<
+                            crate::persistence::persistent_store::PersistentStore<
+                                crate::persistence::widget_state::WidgetState,
+                            >,
+                        >>() {
+                            Some(s) => s.clone(),
+                            None => {
+                                tracing::error!("WidgetStore missing, exiting immediately");
+                                app_handle.exit(0);
+                                return;
+                            }
+                        };
+
+                        crate::tray::perform_shutdown(app_handle, &cancel_token, &widget_store);
                     }
+                } else {
+                    app_handle.exit(0);
                 }
+            }
             _ => {}
         })
         .setup(setup::setup)

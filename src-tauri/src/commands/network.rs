@@ -52,7 +52,6 @@ pub struct InterfacesCache {
     pub fetched_at: Option<Instant>,
 }
 
-
 pub type SharedInterfacesCache = Arc<Mutex<InterfacesCache>>;
 
 const INTERFACES_CACHE_TTL: Duration = Duration::from_secs(3);
@@ -315,9 +314,10 @@ fn is_interface_connected(state: &MonitorState) -> bool {
         return false;
     }
     if let Some(last) = state.last_nonzero_at
-        && last.elapsed() < Duration::from_secs(30) {
-            return true;
-        }
+        && last.elapsed() < Duration::from_secs(30)
+    {
+        return true;
+    }
     state.last_sample.is_some()
 }
 
@@ -372,9 +372,10 @@ pub fn get_interfaces(app: AppHandle) -> Result<Vec<InterfaceInfo>, String> {
     {
         let c = cache.lock();
         if let Some(at) = c.fetched_at
-            && at.elapsed() < INTERFACES_CACHE_TTL {
-                return Ok(c.data.clone());
-            }
+            && at.elapsed() < INTERFACES_CACHE_TTL
+        {
+            return Ok(c.data.clone());
+        }
     }
 
     let fresh = read_interfaces();
@@ -616,10 +617,9 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
 
 pub fn select_interface_outside_lock(networks: &Networks) -> String {
     let selected = auto_select_interface();
-    if !selected.is_empty()
-        && interface_exists_in_sysinfo(networks, &selected) {
-            return selected;
-        }
+    if !selected.is_empty() && interface_exists_in_sysinfo(networks, &selected) {
+        return selected;
+    }
     busiest_interface(networks.iter().map(|(name, data)| {
         (
             name.as_str(),

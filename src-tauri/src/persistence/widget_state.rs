@@ -23,8 +23,7 @@ pub struct StoredPosition {
     pub y: i32,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct StoredConfig {
     #[serde(default)]
     pub visible: bool,
@@ -32,7 +31,6 @@ pub struct StoredConfig {
     #[serde(default)]
     pub always_on_top: bool,
 }
-
 
 /// Legacy type — retained so old JSON can still be deserialised during migration.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
