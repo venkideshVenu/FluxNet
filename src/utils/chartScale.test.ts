@@ -105,11 +105,17 @@ describe("formatLinkSpeed", () => {
 
 describe("chartTicks", () => {
   it("gives even, round ticks that cover the data", () => {
-    expect(chartTicks(4.6)).toEqual({ ticks: [0, 1, 2, 3, 4, 5], yMax: 5, decimals: 0 });
+    expect(chartTicks(4.6)).toEqual({
+      ticks: [0, 1, 2, 3, 4, 5],
+      yMax: 5,
+      decimals: 0,
+    });
   });
 
   it("never exceeds the tick budget", () => {
-    for (const max of [0.07, 0.4, 0.9, 1.7, 4.6, 9, 19, 45, 99, 180, 480, 950]) {
+    for (const max of [
+      0.07, 0.4, 0.9, 1.7, 4.6, 9, 19, 45, 99, 180, 480, 950,
+    ]) {
       const { ticks, yMax } = chartTicks(max);
       expect(ticks.length).toBeLessThanOrEqual(6);
       expect(yMax).toBeGreaterThanOrEqual(max);

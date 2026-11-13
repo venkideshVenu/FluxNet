@@ -17,7 +17,13 @@ export interface CompactPresentationProps {
   todayUpload: SpeedStat;
 }
 
-function Speed({ direction, stat }: { direction: "down" | "up"; stat: SpeedStat }) {
+function Speed({
+  direction,
+  stat,
+}: {
+  direction: "down" | "up";
+  stat: SpeedStat;
+}) {
   const Arrow = direction === "down" ? ArrowDown : ArrowUp;
   return (
     <div className="flex items-center gap-2">
@@ -27,17 +33,29 @@ function Speed({ direction, stat }: { direction: "down" | "up"; stat: SpeedStat 
         className={`size-3.5 shrink-0 ${direction === "down" ? "text-(--w-download)" : "text-(--w-upload)"}`}
       />
       <span className="flex items-baseline gap-1 tabular-nums">
-        <span className="text-[20px] leading-6 font-semibold text-(--w-fg)">{stat.value}</span>
+        <span className="text-[20px] leading-6 font-semibold text-(--w-fg)">
+          {stat.value}
+        </span>
         <span className="text-[12px] text-(--w-fg-2)">{stat.unit}</span>
       </span>
     </div>
   );
 }
 
-function Total({ direction, stat }: { direction: "down" | "up"; stat: SpeedStat }) {
+function Total({
+  direction,
+  stat,
+}: {
+  direction: "down" | "up";
+  stat: SpeedStat;
+}) {
   return (
     <span className="flex items-baseline gap-1 tabular-nums">
-      <span className={direction === "down" ? "text-(--w-download)" : "text-(--w-upload)"}>
+      <span
+        className={
+          direction === "down" ? "text-(--w-download)" : "text-(--w-upload)"
+        }
+      >
         {direction === "down" ? "↓" : "↑"}
       </span>
       <span className="text-(--w-fg)">{stat.value}</span>

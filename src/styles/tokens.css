@@ -16,8 +16,8 @@
   --font-display:
     "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui,
     -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace,
-    monospace;
+  --font-mono:
+    "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
 
   /* Backdrop: SolidBackgroundFillColorBase (Mica fallback). */
   --app-bg: #f3f3f3;

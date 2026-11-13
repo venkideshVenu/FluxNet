@@ -23,8 +23,10 @@ const loadDashboard = () => import("@/DashboardApp");
 
 /** Gives the dashboard its accent and backdrop before the first paint. */
 async function prepareDashboard() {
-  const [{ fetchAppearance }, { applyAppearance, applyColorMode, getStoredColorMode }] =
-    await Promise.all([import("@/api/appearanceApi"), import("@/utils")]);
+  const [
+    { fetchAppearance },
+    { applyAppearance, applyColorMode, getStoredColorMode },
+  ] = await Promise.all([import("@/api/appearanceApi"), import("@/utils")]);
   try {
     applyColorMode(getStoredColorMode());
   } catch {

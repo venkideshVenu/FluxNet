@@ -20,7 +20,8 @@ export function SelectorBar<T extends string>({
   const onKeyDown = (e: KeyboardEvent, index: number) => {
     let next = index;
     if (e.key === "ArrowRight") next = (index + 1) % items.length;
-    else if (e.key === "ArrowLeft") next = (index - 1 + items.length) % items.length;
+    else if (e.key === "ArrowLeft")
+      next = (index - 1 + items.length) % items.length;
     else if (e.key === "Home") next = 0;
     else if (e.key === "End") next = items.length - 1;
     else return;

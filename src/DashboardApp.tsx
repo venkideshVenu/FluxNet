@@ -60,7 +60,10 @@ function DashboardContent() {
           <Route path="/settings" element={<SettingsPage />} />
           {/* Old paths, kept so saved links and habits keep working. */}
           <Route path="/history" element={<Navigate to="/usage" replace />} />
-          <Route path="/interfaces" element={<Navigate to="/adapters" replace />} />
+          <Route
+            path="/interfaces"
+            element={<Navigate to="/adapters" replace />}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -23,7 +23,12 @@ export type ComboBoxProps<T extends string> = {
   minWidth?: number;
 };
 
-type Placement = { left: number; top: number; width: number; maxHeight: number };
+type Placement = {
+  left: number;
+  top: number;
+  width: number;
+  maxHeight: number;
+};
 
 const OPTION_HEIGHT = 36;
 const POPUP_PADDING = 4;

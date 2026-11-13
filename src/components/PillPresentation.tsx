@@ -34,7 +34,9 @@ function Reading({
           {value}
         </span>
       </span>
-      <span className="w-[4.2ch] text-[10px] leading-none text-(--w-fg-2)">{unit}</span>
+      <span className="w-[4.2ch] text-[10px] leading-none text-(--w-fg-2)">
+        {unit}
+      </span>
     </span>
   );
 }

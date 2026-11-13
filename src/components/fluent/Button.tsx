@@ -22,7 +22,15 @@ const VARIANTS: Record<ButtonVariant, string> = {
 /** WinUI Button: 32px tall, 4px corners, standard / accent / subtle styles. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(
-    { variant = "standard", icon, iconOnly, className, children, type, ...rest },
+    {
+      variant = "standard",
+      icon,
+      iconOnly,
+      className,
+      children,
+      type,
+      ...rest
+    },
     ref,
   ) {
     return (

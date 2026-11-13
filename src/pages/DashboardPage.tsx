@@ -52,7 +52,9 @@ function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 flex-1 px-4 py-3 not-first:border-l not-first:border-divider">
       <div className="truncate text-caption text-fg-secondary">{label}</div>
-      <div className="mt-0.5 truncate text-body-lg font-semibold tabular">{value}</div>
+      <div className="mt-0.5 truncate text-body-lg font-semibold tabular">
+        {value}
+      </div>
     </div>
   );
 }
@@ -86,7 +88,10 @@ function useAdapter(name: string) {
     }
     let alive = true;
     invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-      .then((list) => alive && setAdapter(list.find((i) => i.name === name) ?? null))
+      .then(
+        (list) =>
+          alive && setAdapter(list.find((i) => i.name === name) ?? null),
+      )
       .catch(() => {});
     return () => {
       alive = false;
@@ -157,7 +162,9 @@ export function DashboardPage() {
               <StatusDot tone={isConnected ? "success" : "neutral"} />
               {status}
               {adapter?.description && (
-                <span className="truncate text-fg-tertiary">· {adapter.description}</span>
+                <span className="truncate text-fg-tertiary">
+                  · {adapter.description}
+                </span>
               )}
             </span>
           ) : undefined
@@ -213,7 +220,10 @@ export function DashboardPage() {
       <Card className="flex flex-wrap">
         <Figure label="Peak download" value={speed(peakDownload)} />
         <Figure label="Peak upload" value={speed(peakUpload)} />
-        <Figure label="Downloaded today" value={bytes(stats?.todayDownloadBytes)} />
+        <Figure
+          label="Downloaded today"
+          value={bytes(stats?.todayDownloadBytes)}
+        />
         <Figure label="Uploaded today" value={bytes(stats?.todayUploadBytes)} />
       </Card>
     </Page>

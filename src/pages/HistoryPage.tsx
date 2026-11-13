@@ -15,7 +15,12 @@ import {
   type Bucket,
 } from "@/utils/usageBuckets";
 import { useSettingsStore } from "@/store";
-import type { DailyUsage, HourlyUsage, MonthlyUsage, UsageStats } from "@/types";
+import type {
+  DailyUsage,
+  HourlyUsage,
+  MonthlyUsage,
+  UsageStats,
+} from "@/types";
 import { ChartLegend, UsageChart } from "@/components/charts";
 import {
   Button,
@@ -83,11 +88,17 @@ function UsageTable({ buckets }: { buckets: Bucket[] }) {
             <tr key={b.key} className="border-t border-divider">
               <td className="py-1.5 pr-4">
                 {b.title}
-                {b.partial && <span className="text-fg-secondary"> (so far)</span>}
+                {b.partial && (
+                  <span className="text-fg-secondary"> (so far)</span>
+                )}
               </td>
-              <td className="py-1.5 pr-4 text-right">{bytesText(b.download)}</td>
+              <td className="py-1.5 pr-4 text-right">
+                {bytesText(b.download)}
+              </td>
               <td className="py-1.5 pr-4 text-right">{bytesText(b.upload)}</td>
-              <td className="py-1.5 text-right">{bytesText(b.download + b.upload)}</td>
+              <td className="py-1.5 text-right">
+                {bytesText(b.download + b.upload)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -151,7 +162,10 @@ export function HistoryPage() {
         now,
         timeFormat,
         stats
-          ? { download: stats.todayDownloadBytes, upload: stats.todayUploadBytes }
+          ? {
+              download: stats.todayDownloadBytes,
+              upload: stats.todayUploadBytes,
+            }
           : undefined,
       );
     }
@@ -200,7 +214,9 @@ export function HistoryPage() {
               upload={stats?.monthUploadBytes ?? 0}
             />
             <div className="min-w-[180px] flex-1 px-5 py-4 not-first:border-l not-first:border-divider">
-              <div className="text-caption text-fg-secondary">Fastest recorded</div>
+              <div className="text-caption text-fg-secondary">
+                Fastest recorded
+              </div>
               <div className="mt-1 font-display text-subtitle font-semibold tabular">
                 {peak(stats?.peakDownloadBps ?? 0)}
               </div>
@@ -236,7 +252,9 @@ export function HistoryPage() {
                     : "Data used per month"}
               </h2>
               {!showTable && (
-                <ChartLegend labels={{ download: "Downloaded", upload: "Uploaded" }} />
+                <ChartLegend
+                  labels={{ download: "Downloaded", upload: "Uploaded" }}
+                />
               )}
             </div>
             {!hasData(buckets) ? (
@@ -253,7 +271,10 @@ export function HistoryPage() {
             ) : showTable ? (
               <UsageTable buckets={buckets} />
             ) : (
-              <UsageChart buckets={buckets} tickEvery={range === "today" ? 3 : 1} />
+              <UsageChart
+                buckets={buckets}
+                tickEvery={range === "today" ? 3 : 1}
+              />
             )}
           </Card>
         </>

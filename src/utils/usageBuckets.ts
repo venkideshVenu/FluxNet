@@ -5,7 +5,12 @@
  * (no 13:00 → 17:00 jumps), and periods that haven't happened yet are marked
  * `future` so they can be drawn as blank space.
  */
-import type { DailyUsage, HourlyUsage, MonthlyUsage, UsageStats } from "@/types";
+import type {
+  DailyUsage,
+  HourlyUsage,
+  MonthlyUsage,
+  UsageStats,
+} from "@/types";
 
 export type Bucket = {
   key: string;
@@ -24,8 +29,25 @@ export type TimeFormat = "12h" | "24h";
 export type WeekStart = "sunday" | "monday" | "saturday";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEK_START_DAY: Record<WeekStart, number> = { sunday: 0, monday: 1, saturday: 6 };
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+const WEEK_START_DAY: Record<WeekStart, number> = {
+  sunday: 0,
+  monday: 1,
+  saturday: 6,
+};
 
 export function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -59,7 +81,9 @@ export function hourlyBuckets(
   for (let h = 0; h < 24; h++) {
     const start = new Date(y, m, d, h).getTime() / 1000;
     const end = new Date(y, m, d, h + 1).getTime() / 1000;
-    const rows = hourly.filter((r) => r.hourStart >= start && r.hourStart < end);
+    const rows = hourly.filter(
+      (r) => r.hourStart >= start && r.hourStart < end,
+    );
     const download = rows.reduce((s, r) => s + r.totalDownloadBytes, 0);
     const upload = rows.reduce((s, r) => s + r.totalUploadBytes, 0);
     const nowSec = now.getTime() / 1000;
@@ -82,7 +106,10 @@ export function hourlyBuckets(
   }
 
   if (current && todayTotals) {
-    current.download = Math.max(current.download, todayTotals.download - completedDown);
+    current.download = Math.max(
+      current.download,
+      todayTotals.download - completedDown,
+    );
     current.upload = Math.max(current.upload, todayTotals.upload - completedUp);
   }
   return buckets;
@@ -99,7 +126,11 @@ export function weeklyBuckets(
   const today = dayKey(now);
   const buckets: Bucket[] = [];
   for (let i = 0; i < 7; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset + i);
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - offset + i,
+    );
     const key = dayKey(date);
     const row = byDay.get(key);
     buckets.push({

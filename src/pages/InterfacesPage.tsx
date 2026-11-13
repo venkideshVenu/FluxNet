@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import {
   Bluetooth,
   Cable,
@@ -86,10 +92,14 @@ export function adapterIcon(type: string) {
 export const isUp = (i: InterfaceInfo) => i.status.toLowerCase() === "up";
 
 /** The adapter automatic mode picks: connected Ethernet/Wi-Fi first. */
-export function pickAutomatic(list: InterfaceInfo[]): InterfaceInfo | undefined {
+export function pickAutomatic(
+  list: InterfaceInfo[],
+): InterfaceInfo | undefined {
   return (
     list.find(
-      (i) => isUp(i) && ["ethernet", "wifi"].includes(i.interface_type.toLowerCase()),
+      (i) =>
+        isUp(i) &&
+        ["ethernet", "wifi"].includes(i.interface_type.toLowerCase()),
     ) ?? list.find(isUp)
   );
 }
@@ -193,7 +203,11 @@ export function InterfacesPage() {
       <PageHeader
         title="Network adapters"
         actions={
-          <Button variant="subtle" icon={<RefreshCw />} onClick={() => void loadInterfaces()}>
+          <Button
+            variant="subtle"
+            icon={<RefreshCw />}
+            onClick={() => void loadInterfaces()}
+          >
             Refresh
           </Button>
         }
@@ -224,7 +238,11 @@ export function InterfacesPage() {
             checked={automatic}
             onChange={(v) => {
               setMode(v);
-              if (v && automaticPick && automaticPick.name !== currentInterface) {
+              if (
+                v &&
+                automaticPick &&
+                automaticPick.name !== currentInterface
+              ) {
                 void select(automaticPick.name);
               }
             }}
@@ -238,7 +256,9 @@ export function InterfacesPage() {
             severity="error"
             title="Couldn't list adapters"
             message={loadError}
-            action={<Button onClick={() => void loadInterfaces()}>Try again</Button>}
+            action={
+              <Button onClick={() => void loadInterfaces()}>Try again</Button>
+            }
           />
         ) : interfaces === null ? (
           <Card className="flex h-24 items-center justify-center">
@@ -249,7 +269,11 @@ export function InterfacesPage() {
             No network adapters found
           </Card>
         ) : (
-          <div role="radiogroup" aria-label="Network adapter" className="flex flex-col gap-1">
+          <div
+            role="radiogroup"
+            aria-label="Network adapter"
+            className="flex flex-col gap-1"
+          >
             {sorted.map((iface, index) => {
               const active = iface.name === currentInterface;
               const up = isUp(iface);
@@ -269,7 +293,9 @@ export function InterfacesPage() {
                   onKeyDown={(e) => onRowKeyDown(e, index)}
                   className={cx(
                     "flex min-h-[68px] w-full items-center gap-4 rounded-card border border-card-stroke bg-card px-4 py-3 text-left transition-colors duration-[83ms]",
-                    up && !active && "hover:bg-control-hover active:bg-control-pressed",
+                    up &&
+                      !active &&
+                      "hover:bg-control-hover active:bg-control-pressed",
                   )}
                 >
                   <RadioDot checked={active} disabled={!up} />
@@ -283,7 +309,12 @@ export function InterfacesPage() {
                     {adapterIcon(iface.interface_type)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className={cx("block truncate text-body", !up && "text-fg-disabled")}>
+                    <span
+                      className={cx(
+                        "block truncate text-body",
+                        !up && "text-fg-disabled",
+                      )}
+                    >
                       {iface.name}
                     </span>
                     <span
@@ -296,8 +327,17 @@ export function InterfacesPage() {
                     </span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
-                    <span className={cx("text-body", up ? "text-fg" : "text-fg-disabled")}>
-                      {pending ? "Switching…" : active ? "In use" : statusText(iface)}
+                    <span
+                      className={cx(
+                        "text-body",
+                        up ? "text-fg" : "text-fg-disabled",
+                      )}
+                    >
+                      {pending
+                        ? "Switching…"
+                        : active
+                          ? "In use"
+                          : statusText(iface)}
                     </span>
                     {up && iface.link_speed_bps > 0 && (
                       <span className="text-caption text-fg-secondary tabular">
@@ -321,9 +361,16 @@ export function InterfacesPage() {
               <Property label="Status" value={statusText(inUse)} />
               <Property
                 label="Link speed"
-                value={inUse.link_speed_bps > 0 ? formatLinkSpeed(inUse.link_speed_bps) : "—"}
+                value={
+                  inUse.link_speed_bps > 0
+                    ? formatLinkSpeed(inUse.link_speed_bps)
+                    : "—"
+                }
               />
-              <Property label="Physical address (MAC)" value={inUse.mac || "—"} />
+              <Property
+                label="Physical address (MAC)"
+                value={inUse.mac || "—"}
+              />
             </dl>
           </Card>
         </SettingsGroup>

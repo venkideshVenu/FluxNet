@@ -119,7 +119,13 @@ export function WidgetPreview({
           <Preview {...previewProps} design={hudDesign ?? "horizontal"} />
         </div>
       ) : (
-        <div className={view.entry.label === "pill" ? "h-8 w-[232px]" : "h-[172px] w-[189px]"}>
+        <div
+          className={
+            view.entry.label === "pill"
+              ? "h-8 w-[232px]"
+              : "h-[172px] w-[189px]"
+          }
+        >
           {/* @ts-expect-error — Preview and previewProps are correctly matched */}
           <Preview {...previewProps} />
         </div>

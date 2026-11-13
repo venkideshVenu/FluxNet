@@ -46,7 +46,8 @@ export function chartTicks(
   const yMax = Math.ceil(baseMax / step - 1e-9) * step;
   const decimals = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
   // Sub-integer steps like 0.25 or 0.02 need one more digit than log10 suggests.
-  const needed = Number(step.toFixed(decimals)) === step ? decimals : decimals + 1;
+  const needed =
+    Number(step.toFixed(decimals)) === step ? decimals : decimals + 1;
   const ticks: number[] = [];
   for (let i = 0; i * step <= yMax + 1e-9; i++) {
     ticks.push(Number((i * step).toFixed(needed + 2)));

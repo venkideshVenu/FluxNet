@@ -10,7 +10,9 @@ import { CircleCheck, CircleX, Info } from "lucide-react";
 
 type ToastType = "success" | "info" | "error";
 type ToastItem = { id: number; message: string; type: ToastType };
-type ToastContextType = { showToast: (message: string, type?: ToastType) => void };
+type ToastContextType = {
+  showToast: (message: string, type?: ToastType) => void;
+};
 
 const ToastContext = createContext<ToastContextType>({ showToast: () => {} });
 
@@ -30,10 +32,13 @@ const ICONS: Record<ToastType, ReactNode> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const showToast = useCallback((message: string, type: ToastType = "success") => {
-    const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, type }]);
-  }, []);
+  const showToast = useCallback(
+    (message: string, type: ToastType = "success") => {
+      const id = ++toastId;
+      setToasts((prev) => [...prev, { id, message, type }]);
+    },
+    [],
+  );
 
   const remove = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -54,7 +59,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function Toast({ toast, onDone }: { toast: ToastItem; onDone: (id: number) => void }) {
+function Toast({
+  toast,
+  onDone,
+}: {
+  toast: ToastItem;
+  onDone: (id: number) => void;
+}) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {

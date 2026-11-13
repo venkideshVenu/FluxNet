@@ -171,9 +171,13 @@ const monthly = scenario === "empty" ? [] : makeMonthly();
 function usageStats() {
   const today = daily.find((d) => d.day === dayKey(new Date()));
   const last7 = daily.slice(-7);
-  const month = daily.filter((d) => d.day.startsWith(dayKey(new Date()).slice(0, 7)));
-  const sum = (rows: typeof daily, k: "totalDownloadBytes" | "totalUploadBytes") =>
-    rows.reduce((acc, r) => acc + r[k], 0);
+  const month = daily.filter((d) =>
+    d.day.startsWith(dayKey(new Date()).slice(0, 7)),
+  );
+  const sum = (
+    rows: typeof daily,
+    k: "totalDownloadBytes" | "totalUploadBytes",
+  ) => rows.reduce((acc, r) => acc + r[k], 0);
   return {
     todayDownloadBytes: today?.totalDownloadBytes ?? 0,
     todayUploadBytes: today?.totalUploadBytes ?? 0,
@@ -285,7 +289,11 @@ export function installMockBackend() {
   const theme = params.get("theme");
   if (theme === "light" || theme === "dark") {
     localStorage.setItem("fluxnet_color_mode", theme);
-    for (const key of ["fluxnet_pill_mode", "fluxnet_compact_mode", "fluxnet_hud_mode"]) {
+    for (const key of [
+      "fluxnet_pill_mode",
+      "fluxnet_compact_mode",
+      "fluxnet_hud_mode",
+    ]) {
       localStorage.setItem(key, theme);
     }
   }
@@ -304,5 +312,6 @@ export function installMockBackend() {
   if (!onboardingCompleted) localStorage.removeItem("fluxnet_configured");
   else localStorage.setItem("fluxnet_configured", "true");
   const route = params.get("route");
-  if (route) window.history.replaceState(null, "", route + window.location.search);
+  if (route)
+    window.history.replaceState(null, "", route + window.location.search);
 }

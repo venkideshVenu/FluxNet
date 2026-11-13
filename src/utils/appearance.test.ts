@@ -1,5 +1,10 @@
 import { afterEach, describe, it, expect } from "vitest";
-import { accentCss, applyAppearance, isAccentPalette, type AccentPalette } from "./appearance";
+import {
+  accentCss,
+  applyAppearance,
+  isAccentPalette,
+  type AccentPalette,
+} from "./appearance";
 
 const BLUE: AccentPalette = {
   light3: "#99ebff",
@@ -46,6 +51,8 @@ describe("applyAppearance", () => {
     applyAppearance({ accent: BLUE, material: "mica" });
     applyAppearance(null);
     expect(document.getElementById("fluxnet-accent")).toBeNull();
-    expect(document.documentElement.getAttribute("data-material")).toBe("solid");
+    expect(document.documentElement.getAttribute("data-material")).toBe(
+      "solid",
+    );
   });
 });

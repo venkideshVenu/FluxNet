@@ -8,7 +8,9 @@ export function CheckMark({ checked }: { checked: boolean }) {
       aria-hidden="true"
       className={cx(
         "flex size-5 shrink-0 items-center justify-center rounded-control border transition-colors duration-[83ms]",
-        checked ? "border-transparent bg-accent text-on-accent" : "border-control-strong bg-control-alt",
+        checked
+          ? "border-transparent bg-accent text-on-accent"
+          : "border-control-strong bg-control-alt",
       )}
     >
       {checked && <Check className="size-3.5" strokeWidth={3} />}

@@ -34,7 +34,9 @@ export class ErrorBoundary extends Component<Props, State> {
         role="alert"
         className="flex h-full w-full flex-col items-center justify-center gap-2 overflow-hidden bg-app p-4 text-center"
       >
-        <div className="text-body font-semibold text-fg">Something went wrong</div>
+        <div className="text-body font-semibold text-fg">
+          Something went wrong
+        </div>
         <div className="max-w-[360px] text-caption text-fg-secondary select-text">
           {this.state.error?.message || "Unknown error"}
         </div>

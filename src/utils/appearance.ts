@@ -37,9 +37,15 @@ function rgba(hex: string, alpha: number): string {
 export function isAccentPalette(value: unknown): value is AccentPalette {
   if (!value || typeof value !== "object") return false;
   const p = value as Record<string, unknown>;
-  return ["light3", "light2", "light1", "base", "dark1", "dark2", "dark3"].every(
-    (k) => typeof p[k] === "string" && hexToRgb(p[k] as string) !== null,
-  );
+  return [
+    "light3",
+    "light2",
+    "light1",
+    "base",
+    "dark1",
+    "dark2",
+    "dark3",
+  ].every((k) => typeof p[k] === "string" && hexToRgb(p[k] as string) !== null);
 }
 
 /**

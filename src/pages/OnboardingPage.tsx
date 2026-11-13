@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Check, MonitorDown, Power } from "lucide-react";
 import { invoke } from "@/api";
 import { cacheHudDesign, invokeWithTimeout, setStorageItem } from "@/utils";
@@ -15,7 +21,12 @@ import {
   ToggleSwitch,
   cx,
 } from "@/components/fluent";
-import { adapterIcon, isUp, pickAutomatic, type InterfaceInfo } from "./InterfacesPage";
+import {
+  adapterIcon,
+  isUp,
+  pickAutomatic,
+  type InterfaceInfo,
+} from "./InterfacesPage";
 
 type WidgetStyle = "pill" | "compact" | "hud";
 type Step = "welcome" | "adapter" | "widgets" | "startup" | "done";
@@ -24,11 +35,24 @@ const STEPS: Step[] = ["welcome", "adapter", "widgets", "startup", "done"];
 /** Steps that count towards "Step n of 3". */
 const NUMBERED: Step[] = ["adapter", "widgets", "startup"];
 
-const WIDGET_CHOICES: { id: WidgetStyle; name: string; description: string }[] = [
-  { id: "pill", name: "Pill", description: "Download and upload speed in a slim bar" },
-  { id: "compact", name: "Compact", description: "Speeds, connection and today's totals" },
-  { id: "hud", name: "Game overlay", description: "Speed, ping and packet loss" },
-];
+const WIDGET_CHOICES: { id: WidgetStyle; name: string; description: string }[] =
+  [
+    {
+      id: "pill",
+      name: "Pill",
+      description: "Download and upload speed in a slim bar",
+    },
+    {
+      id: "compact",
+      name: "Compact",
+      description: "Speeds, connection and today's totals",
+    },
+    {
+      id: "hud",
+      name: "Game overlay",
+      description: "Speed, ping and packet loss",
+    },
+  ];
 
 const LAYOUT_OPTIONS: { value: HudDesign; label: string }[] = [
   { value: "horizontal", label: "Horizontal bar" },
@@ -60,7 +84,9 @@ function StepFrame({
         )}
         <h1 className="font-display text-title font-semibold">{title}</h1>
         {description && (
-          <p className="mt-1 mb-0 max-w-[520px] text-body text-fg-secondary">{description}</p>
+          <p className="mt-1 mb-0 max-w-[520px] text-body text-fg-secondary">
+            {description}
+          </p>
         )}
         <div className="mt-6">{children}</div>
       </div>
@@ -112,7 +138,12 @@ function ChoiceRow({
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className={cx("block truncate text-body", disabled && "text-fg-disabled")}>
+        <span
+          className={cx(
+            "block truncate text-body",
+            disabled && "text-fg-disabled",
+          )}
+        >
           {title}
         </span>
         {detail && (
@@ -150,8 +181,13 @@ export function OnboardingPage() {
     for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         // The backend may still be starting on the very first launch.
-        if (attempt === 0 && !fetched.current) await new Promise((r) => setTimeout(r, 500));
-        const result = await invokeWithTimeout<InterfaceInfo[]>("get_interfaces", undefined, 10_000);
+        if (attempt === 0 && !fetched.current)
+          await new Promise((r) => setTimeout(r, 500));
+        const result = await invokeWithTimeout<InterfaceInfo[]>(
+          "get_interfaces",
+          undefined,
+          10_000,
+        );
         setInterfaces(result);
         const best = pickAutomatic(result);
         setSelectedIface(best?.name ?? result.find(isUp)?.name ?? "");
@@ -161,7 +197,8 @@ export function OnboardingPage() {
         return;
       } catch (err) {
         console.error(`Adapter fetch attempt ${attempt + 1} failed:`, err);
-        if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 1000));
+        if (attempt < attempts - 1)
+          await new Promise((r) => setTimeout(r, 1000));
       }
     }
     setIfaceError("FluxNet couldn't list your network adapters.");
@@ -173,10 +210,17 @@ export function OnboardingPage() {
   }, [loadInterfaces]);
 
   const go = (direction: 1 | -1) =>
-    setStep((s) => STEPS[Math.min(STEPS.length - 1, Math.max(0, STEPS.indexOf(s) + direction))]);
+    setStep(
+      (s) =>
+        STEPS[
+          Math.min(STEPS.length - 1, Math.max(0, STEPS.indexOf(s) + direction))
+        ],
+    );
 
   const automatic = pickAutomatic(interfaces);
-  const chosenAdapter = useAuto ? (automatic?.name ?? selectedIface) : selectedIface;
+  const chosenAdapter = useAuto
+    ? (automatic?.name ?? selectedIface)
+    : selectedIface;
 
   const toggleWidget = (id: WidgetStyle) =>
     setWidgets((prev) => {
@@ -189,11 +233,14 @@ export function OnboardingPage() {
   const finish = useCallback(async () => {
     setFinishing(true);
     try {
-      if (chosenAdapter) await invokeWithTimeout("set_interface", { name: chosenAdapter });
+      if (chosenAdapter)
+        await invokeWithTimeout("set_interface", { name: chosenAdapter });
       setStorageItem("fluxnet_interface_mode", useAuto ? "auto" : "manual");
-      await invoke(startWithWindows ? "plugin:autostart|enable" : "plugin:autostart|disable").catch(
-        () => {},
-      );
+      await invoke(
+        startWithWindows
+          ? "plugin:autostart|enable"
+          : "plugin:autostart|disable",
+      ).catch(() => {});
       await invokeWithTimeout("set_minimize_to_tray", { enabled: keepRunning });
       // Save the HUD layout before showing widgets so a new HUD window opens
       // at the chosen layout's size.
@@ -202,9 +249,10 @@ export function OnboardingPage() {
         .catch(() => {});
       await Promise.all(
         (["pill", "compact", "hud"] as WidgetStyle[]).map((label) =>
-          invokeWithTimeout("set_widget_visibility", { label, visible: widgets.has(label) }).catch(
-            () => {},
-          ),
+          invokeWithTimeout("set_widget_visibility", {
+            label,
+            visible: widgets.has(label),
+          }).catch(() => {}),
         ),
       );
       await invokeWithTimeout("set_onboarding_completed");
@@ -215,7 +263,14 @@ export function OnboardingPage() {
       setFinishing(false);
       setStep("done");
     }
-  }, [chosenAdapter, useAuto, startWithWindows, keepRunning, hudDesign, widgets]);
+  }, [
+    chosenAdapter,
+    useAuto,
+    startWithWindows,
+    keepRunning,
+    hudDesign,
+    widgets,
+  ]);
 
   const back = (
     <Button onClick={() => go(-1)} disabled={finishing}>
@@ -228,8 +283,14 @@ export function OnboardingPage() {
     case "welcome":
       content = (
         <div className="flex h-full flex-col items-center justify-center px-10 text-center">
-          <img src="/branding/logo.png" alt="" className="mb-4 size-28 object-contain" />
-          <h1 className="font-display text-title font-semibold">Welcome to FluxNet</h1>
+          <img
+            src="/branding/logo.png"
+            alt=""
+            className="mb-4 size-28 object-contain"
+          />
+          <h1 className="font-display text-title font-semibold">
+            Welcome to FluxNet
+          </h1>
           <p className="mt-2 mb-8 max-w-[420px] text-body text-fg-secondary">
             See your network speed at a glance, and how much data you use over
             time. Setup takes less than a minute.
@@ -253,7 +314,9 @@ export function OnboardingPage() {
               <Button
                 variant="accent"
                 className="min-w-24"
-                disabled={loadingIfaces || (!chosenAdapter && interfaces.length > 0)}
+                disabled={
+                  loadingIfaces || (!chosenAdapter && interfaces.length > 0)
+                }
                 onClick={() => go(1)}
               >
                 Next
@@ -263,13 +326,16 @@ export function OnboardingPage() {
         >
           {loadingIfaces ? (
             <div className="flex items-center gap-3 text-body text-fg-secondary">
-              <ProgressRing size={20} label="Finding adapters" /> Finding adapters…
+              <ProgressRing size={20} label="Finding adapters" /> Finding
+              adapters…
             </div>
           ) : ifaceError ? (
             <InfoBar
               severity="error"
               message={ifaceError}
-              action={<Button onClick={() => void loadInterfaces()}>Try again</Button>}
+              action={
+                <Button onClick={() => void loadInterfaces()}>Try again</Button>
+              }
             />
           ) : interfaces.length === 0 ? (
             <InfoBar
@@ -277,7 +343,11 @@ export function OnboardingPage() {
               message="No network adapters were found. You can choose one later in Network adapters."
             />
           ) : (
-            <div role="radiogroup" aria-label="Network adapter" className="flex flex-col gap-1">
+            <div
+              role="radiogroup"
+              aria-label="Network adapter"
+              className="flex flex-col gap-1"
+            >
               {automatic && (
                 <ChoiceRow
                   checked={useAuto}
@@ -293,7 +363,10 @@ export function OnboardingPage() {
                   message="Nothing is connected right now. Pick the adapter you usually use."
                 />
               )}
-              {[...interfaces.filter(isUp), ...interfaces.filter((i) => !isUp(i))]
+              {[
+                ...interfaces.filter(isUp),
+                ...interfaces.filter((i) => !isUp(i)),
+              ]
                 .slice(0, 6)
                 .map((iface) => (
                   <ChoiceRow
@@ -324,7 +397,11 @@ export function OnboardingPage() {
           footer={
             <>
               {back}
-              <Button variant="accent" className="min-w-24" onClick={() => go(1)}>
+              <Button
+                variant="accent"
+                className="min-w-24"
+                onClick={() => go(1)}
+              >
                 Next
               </Button>
             </>
@@ -432,7 +509,9 @@ export function OnboardingPage() {
 
     case "done": {
       const summary = [
-        chosenAdapter ? `Measuring ${chosenAdapter}` : "Choose an adapter in Network adapters",
+        chosenAdapter
+          ? `Measuring ${chosenAdapter}`
+          : "Choose an adapter in Network adapters",
         widgets.size === 0
           ? "No widgets for now"
           : `${WIDGET_CHOICES.filter((w) => widgets.has(w.id))
@@ -457,7 +536,11 @@ export function OnboardingPage() {
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {summary.map((line) => (
               <li key={line} className="flex items-center gap-3 text-body">
-                <Check className="size-4 shrink-0 text-success" strokeWidth={2.5} aria-hidden="true" />
+                <Check
+                  className="size-4 shrink-0 text-success"
+                  strokeWidth={2.5}
+                  aria-hidden="true"
+                />
                 {line}
               </li>
             ))}

@@ -12,7 +12,11 @@ const NAV: NavItem[] = [
   { to: "/widgets", label: "Widgets", icon: <AppWindow /> },
 ];
 
-const SETTINGS: NavItem = { to: "/settings", label: "Settings", icon: <Settings /> };
+const SETTINGS: NavItem = {
+  to: "/settings",
+  label: "Settings",
+  icon: <Settings />,
+};
 
 function NavEntry({ item }: { item: NavItem }) {
   return (

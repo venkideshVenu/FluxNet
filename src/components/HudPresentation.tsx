@@ -196,9 +196,7 @@ function HudVertical({
           <span className="text-[10px] font-bold">↓</span>
           <span>
             {downloadValue}{" "}
-            <span className="text-[9px] text-(--w-fg-3)">
-              {downloadUnit}
-            </span>
+            <span className="text-[9px] text-(--w-fg-3)">{downloadUnit}</span>
           </span>
         </div>
 

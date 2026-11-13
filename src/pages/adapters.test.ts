@@ -13,13 +13,18 @@ const adapter = (name: string, type: string, status = "Up"): InterfaceInfo => ({
 
 describe("pickAutomatic", () => {
   it("prefers a connected Ethernet or Wi-Fi adapter over virtual ones", () => {
-    const list = [adapter("vEthernet (WSL)", "virtual"), adapter("Wi-Fi", "wifi")];
+    const list = [
+      adapter("vEthernet (WSL)", "virtual"),
+      adapter("Wi-Fi", "wifi"),
+    ];
     expect(pickAutomatic(list)?.name).toBe("Wi-Fi");
   });
 
   it("falls back to any connected adapter, and to none", () => {
     expect(pickAutomatic([adapter("Phone", "usb")])?.name).toBe("Phone");
-    expect(pickAutomatic([adapter("Wi-Fi", "wifi", "Disconnected")])).toBeUndefined();
+    expect(
+      pickAutomatic([adapter("Wi-Fi", "wifi", "Disconnected")]),
+    ).toBeUndefined();
   });
 
   it("labels adapter types in plain words", () => {

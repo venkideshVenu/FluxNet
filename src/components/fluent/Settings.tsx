@@ -81,7 +81,10 @@ export function SettingsCard({
       >
         <CardBody icon={icon} header={header} description={description} />
         {children}
-        <ChevronRight className="size-4 shrink-0 text-fg-secondary" aria-hidden="true" />
+        <ChevronRight
+          className="size-4 shrink-0 text-fg-secondary"
+          aria-hidden="true"
+        />
       </button>
     );
   }

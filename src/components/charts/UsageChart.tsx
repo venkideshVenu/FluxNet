@@ -38,11 +38,15 @@ export function UsageChart({
     () => buckets.reduce((m, b) => Math.max(m, b.download, b.upload), 0),
     [buckets],
   );
-  const { divisor, unitLabel } = useMemo(() => getAdaptiveBytesUnit(peak), [peak]);
-  const { ticks: yTicks, yMax, decimals } = useMemo(
-    () => chartTicks(peak / divisor),
-    [peak, divisor],
+  const { divisor, unitLabel } = useMemo(
+    () => getAdaptiveBytesUnit(peak),
+    [peak],
   );
+  const {
+    ticks: yTicks,
+    yMax,
+    decimals,
+  } = useMemo(() => chartTicks(peak / divisor), [peak, divisor]);
 
   const data = useMemo(
     () =>
@@ -66,7 +70,12 @@ export function UsageChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} barGap={2} barCategoryGap="22%" margin={{ top: 8, right: 0, bottom: 0, left: 12 }}>
+      <BarChart
+        data={data}
+        barGap={2}
+        barCategoryGap="22%"
+        margin={{ top: 8, right: 0, bottom: 0, left: 12 }}
+      >
         <CartesianGrid stroke="var(--divider)" vertical={false} />
         <XAxis
           dataKey="key"
@@ -93,14 +102,24 @@ export function UsageChart({
           isAnimationActive={false}
           cursor={{ fill: "var(--subtle-hover)" }}
           content={({ active, payload }) => {
-            const b = payload?.[0]?.payload as (typeof data)[number] | undefined;
+            const b = payload?.[0]?.payload as
+              | (typeof data)[number]
+              | undefined;
             if (!active || !b || b.future) return null;
             return (
               <TooltipCard
                 title={b.partial ? `${b.title} (so far)` : b.title}
                 rows={[
-                  { key: "download", label: "Downloaded", value: bytesText(b.download) },
-                  { key: "upload", label: "Uploaded", value: bytesText(b.upload) },
+                  {
+                    key: "download",
+                    label: "Downloaded",
+                    value: bytesText(b.download),
+                  },
+                  {
+                    key: "upload",
+                    label: "Uploaded",
+                    value: bytesText(b.upload),
+                  },
                 ]}
               />
             );

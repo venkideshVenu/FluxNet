@@ -19,7 +19,11 @@ export type ThroughputPoint = { upload: number; download: number; t: number };
 /** Points shown at once: one per second, five minutes. */
 export const VISIBLE_POINTS = 300;
 
-export function formatClock(ts: number, timeFormat: "12h" | "24h", seconds = false) {
+export function formatClock(
+  ts: number,
+  timeFormat: "12h" | "24h",
+  seconds = false,
+) {
   return new Date(ts * 1000).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -67,10 +71,11 @@ export function ThroughputChart({
     () => getAdaptiveChartUnit(peak, displayUnits),
     [peak, displayUnits],
   );
-  const { ticks: yTicks, yMax, decimals } = useMemo(
-    () => chartTicks(peak / divisor),
-    [peak, divisor],
-  );
+  const {
+    ticks: yTicks,
+    yMax,
+    decimals,
+  } = useMemo(() => chartTicks(peak / divisor), [peak, divisor]);
 
   const data = useMemo(
     () =>
@@ -108,7 +113,9 @@ export function ThroughputChart({
       if (!dragging || !dragStart.current || !container.current) return;
       const perPixel = VISIBLE_POINTS / container.current.clientWidth;
       const delta = Math.round((e.clientX - dragStart.current.x) * perPixel);
-      setOffset(Math.max(0, Math.min(maxOffset, dragStart.current.offset + delta)));
+      setOffset(
+        Math.max(0, Math.min(maxOffset, dragStart.current.offset + delta)),
+      );
     },
     [dragging, maxOffset],
   );
@@ -140,12 +147,18 @@ export function ThroughputChart({
         <div className="flex items-baseline gap-3">
           <h2 className="text-body font-semibold">Throughput</h2>
           <span className="text-caption text-fg-secondary">
-            {clamped > 0 ? `Earlier · ${spanLabel.replace("Last ", "")}` : spanLabel}
+            {clamped > 0
+              ? `Earlier · ${spanLabel.replace("Last ", "")}`
+              : spanLabel}
           </span>
         </div>
         <div className="flex items-center gap-4">
           {clamped > 0 && (
-            <Button variant="subtle" className="h-7" onClick={() => setOffset(0)}>
+            <Button
+              variant="subtle"
+              className="h-7"
+              onClick={() => setOffset(0)}
+            >
               Back to now
             </Button>
           )}
@@ -156,7 +169,9 @@ export function ThroughputChart({
         ref={container}
         role="img"
         aria-label={`Download and upload throughput, ${spanLabel.toLowerCase()}. Peak ${formatSpeed(peak, displayUnits).value} ${formatSpeed(peak, displayUnits).unit}.`}
-        className={canPan ? (dragging ? "cursor-grabbing" : "cursor-grab") : undefined}
+        className={
+          canPan ? (dragging ? "cursor-grabbing" : "cursor-grab") : undefined
+        }
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -164,7 +179,10 @@ export function ThroughputChart({
         onWheel={onWheel}
       >
         <ResponsiveContainer width="100%" height={height}>
-          <AreaChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+          <AreaChart
+            data={data}
+            margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
+          >
             <CartesianGrid stroke="var(--divider)" vertical={false} />
             <XAxis
               dataKey="t"

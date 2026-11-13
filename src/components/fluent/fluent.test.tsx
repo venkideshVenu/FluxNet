@@ -9,7 +9,13 @@ import { ToggleSwitch } from "./ToggleSwitch";
 describe("ToggleSwitch", () => {
   it("is a labelled switch that reports the next state", () => {
     const onChange = vi.fn();
-    render(<ToggleSwitch label="Start with Windows" checked={false} onChange={onChange} />);
+    render(
+      <ToggleSwitch
+        label="Start with Windows"
+        checked={false}
+        onChange={onChange}
+      />,
+    );
     const sw = screen.getByRole("switch", { name: "Start with Windows" });
     expect(sw).toHaveAttribute("aria-checked", "false");
     expect(sw).toHaveTextContent("Off");
@@ -119,7 +125,10 @@ describe("SelectorBar", () => {
     );
     const today = screen.getByRole("tab", { name: "Today" });
     expect(today).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "This week" })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("tab", { name: "This week" })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
     fireEvent.keyDown(today, { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("week");
     fireEvent.keyDown(today, { key: "ArrowLeft" });
@@ -132,7 +141,9 @@ describe("SettingsExpander", () => {
     return (
       <SettingsExpander
         header="Pill"
-        headerControl={<ToggleSwitch label="Show Pill" checked={false} onChange={onToggle} />}
+        headerControl={
+          <ToggleSwitch label="Show Pill" checked={false} onChange={onToggle} />
+        }
       >
         <SettingsExpanderItem header="Opacity">slider</SettingsExpanderItem>
       </SettingsExpander>
@@ -146,10 +157,9 @@ describe("SettingsExpander", () => {
     expect(chevron).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(chevron);
     expect(screen.getByText("Opacity")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Collapse Pill" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: "Collapse Pill" }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   it("does not expand when the header control is used", () => {

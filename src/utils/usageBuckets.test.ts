@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import type { DailyUsage, HourlyUsage, MonthlyUsage, UsageStats } from "@/types";
+import type {
+  DailyUsage,
+  HourlyUsage,
+  MonthlyUsage,
+  UsageStats,
+} from "@/types";
 import {
   dayKey,
   hasData,
@@ -13,7 +18,13 @@ const MB = 1024 * 1024;
 
 function hour(date: Date, h: number, down: number, up = 0): HourlyUsage {
   return {
-    hourStart: new Date(date.getFullYear(), date.getMonth(), date.getDate(), h).getTime() / 1000,
+    hourStart:
+      new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        h,
+      ).getTime() / 1000,
     avgDownloadBps: 0,
     avgUploadBps: 0,
     peakDownloadBps: 0,
@@ -41,7 +52,11 @@ describe("hourlyBuckets", () => {
   const now = new Date(2026, 4, 13, 14, 30);
 
   it("always returns all 24 hours, with gaps kept as empty slots", () => {
-    const buckets = hourlyBuckets([hour(now, 9, 5 * MB), hour(now, 12, 2 * MB)], now, "24h");
+    const buckets = hourlyBuckets(
+      [hour(now, 9, 5 * MB), hour(now, 12, 2 * MB)],
+      now,
+      "24h",
+    );
     expect(buckets).toHaveLength(24);
     expect(buckets[9].download).toBe(5 * MB);
     expect(buckets[10].download).toBe(0);
@@ -93,7 +108,11 @@ describe("weeklyBuckets", () => {
   });
 
   it("places days by date and marks today and future days", () => {
-    const buckets = weeklyBuckets([day("2026-05-11", 4 * MB), day("2026-05-13", MB)], wed, "monday");
+    const buckets = weeklyBuckets(
+      [day("2026-05-11", 4 * MB), day("2026-05-13", MB)],
+      wed,
+      "monday",
+    );
     expect(buckets[0].download).toBe(4 * MB);
     expect(buckets[1].download).toBe(0);
     expect(buckets[2].partial).toBe(true);

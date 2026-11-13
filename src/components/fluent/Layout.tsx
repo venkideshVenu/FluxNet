@@ -14,12 +14,18 @@ export function PageHeader({
   return (
     <header className="mb-6 flex items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="truncate font-display text-title font-semibold">{title}</h1>
+        <h1 className="truncate font-display text-title font-semibold">
+          {title}
+        </h1>
         {subtitle && (
-          <div className="mt-0.5 truncate text-body text-fg-secondary">{subtitle}</div>
+          <div className="mt-0.5 truncate text-body text-fg-secondary">
+            {subtitle}
+          </div>
         )}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      )}
     </header>
   );
 }
@@ -53,7 +59,12 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={cx("rounded-card border border-card-stroke bg-card", className)}>
+    <div
+      className={cx(
+        "rounded-card border border-card-stroke bg-card",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -76,7 +87,11 @@ export function StatusDot({
   return (
     <span
       aria-hidden="true"
-      className={cx("inline-block size-2 shrink-0 rounded-full", colour, className)}
+      className={cx(
+        "inline-block size-2 shrink-0 rounded-full",
+        colour,
+        className,
+      )}
     />
   );
 }

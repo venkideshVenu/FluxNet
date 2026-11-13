@@ -14,7 +14,12 @@ import {
 import { invoke } from "@/api";
 import { applyThemeMode } from "@/hooks";
 import { useNetworkStore, useSettingsStore } from "@/store";
-import type { DateFormat, DisplayUnits, StartOfWeek, TimeFormat } from "@/store";
+import type {
+  DateFormat,
+  DisplayUnits,
+  StartOfWeek,
+  TimeFormat,
+} from "@/store";
 import { getStoredColorMode, setStorageItem, type ColorMode } from "@/utils";
 import { useToast } from "@/components";
 import {
@@ -117,7 +122,9 @@ export function SettingsPage() {
   const handleStartWithWindows = async (value: boolean) => {
     setStartWithWindows(value);
     try {
-      await invoke(value ? "plugin:autostart|enable" : "plugin:autostart|disable");
+      await invoke(
+        value ? "plugin:autostart|enable" : "plugin:autostart|disable",
+      );
     } catch {
       setStartWithWindows(!value);
       showToast("Couldn't change the startup setting", "error");

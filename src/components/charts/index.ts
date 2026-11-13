@@ -1,4 +1,8 @@
-export { ThroughputChart, formatClock, VISIBLE_POINTS } from "./ThroughputChart";
+export {
+  ThroughputChart,
+  formatClock,
+  VISIBLE_POINTS,
+} from "./ThroughputChart";
 export type { ThroughputPoint } from "./ThroughputChart";
 export { UsageChart } from "./UsageChart";
 export type { UsageBucket } from "./UsageChart";
