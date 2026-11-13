@@ -110,11 +110,10 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
                 "System theme changed to {} — updating tray icon",
                 if current { "light" } else { "dark" }
             );
-            if let Ok(icon) = tray_icon_for_theme(current) {
-                if let Some(tray) = app.tray_by_id(tray_id) {
+            if let Ok(icon) = tray_icon_for_theme(current)
+                && let Some(tray) = app.tray_by_id(tray_id) {
                     let _ = tray.set_icon(Some(icon));
                 }
-            }
         }
     }
 }

@@ -47,12 +47,10 @@ pub fn spawn_position_writer(app: AppHandle, store: Arc<WidgetStore>) -> Positio
 
             // Debounce
             let deadline = tokio::time::Instant::now() + Duration::from_millis(DEBOUNCE_MS);
-            loop {
-                match tokio::time::timeout_at(deadline, acc_clone.notify.notified()).await {
-                    Ok(()) => {}
-                    Err(_) => break,
-                }
-            }
+            while tokio::time::timeout_at(deadline, acc_clone.notify.notified())
+                .await
+                .is_ok()
+            {}
 
             let snapshot = acc_clone.drain();
             if snapshot.is_empty() {

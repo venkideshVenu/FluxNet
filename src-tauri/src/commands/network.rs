@@ -46,19 +46,12 @@ pub fn is_widget_label(label: &str) -> bool {
 
 pub type SharedMonitorState = Arc<Mutex<MonitorState>>;
 
+#[derive(Default)]
 pub struct InterfacesCache {
     pub data: Vec<InterfaceInfo>,
     pub fetched_at: Option<Instant>,
 }
 
-impl Default for InterfacesCache {
-    fn default() -> Self {
-        Self {
-            data: Vec::new(),
-            fetched_at: None,
-        }
-    }
-}
 
 pub type SharedInterfacesCache = Arc<Mutex<InterfacesCache>>;
 
@@ -321,11 +314,10 @@ fn is_interface_connected(state: &MonitorState) -> bool {
     if state.interface.is_empty() {
         return false;
     }
-    if let Some(last) = state.last_nonzero_at {
-        if last.elapsed() < Duration::from_secs(30) {
+    if let Some(last) = state.last_nonzero_at
+        && last.elapsed() < Duration::from_secs(30) {
             return true;
         }
-    }
     state.last_sample.is_some()
 }
 
@@ -379,18 +371,17 @@ pub fn get_interfaces(app: AppHandle) -> Result<Vec<InterfaceInfo>, String> {
 
     {
         let c = cache.lock();
-        if let Some(at) = c.fetched_at {
-            if at.elapsed() < INTERFACES_CACHE_TTL {
+        if let Some(at) = c.fetched_at
+            && at.elapsed() < INTERFACES_CACHE_TTL {
                 return Ok(c.data.clone());
             }
-        }
     }
 
     let fresh = read_interfaces();
 
     let mut c = cache.lock();
     if c.fetched_at
-        .map_or(true, |at| at.elapsed() >= INTERFACES_CACHE_TTL)
+        .is_none_or(|at| at.elapsed() >= INTERFACES_CACHE_TTL)
     {
         c.data = fresh.clone();
         c.fetched_at = Some(Instant::now());
@@ -625,11 +616,10 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
 
 pub fn select_interface_outside_lock(networks: &Networks) -> String {
     let selected = auto_select_interface();
-    if !selected.is_empty() {
-        if interface_exists_in_sysinfo(networks, &selected) {
+    if !selected.is_empty()
+        && interface_exists_in_sysinfo(networks, &selected) {
             return selected;
         }
-    }
     busiest_interface(networks.iter().map(|(name, data)| {
         (
             name.as_str(),

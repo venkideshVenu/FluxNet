@@ -107,7 +107,7 @@ pub fn set_widget_opacity(label: String, value: f64, app: AppHandle) -> Result<(
     };
     let clamped = value.clamp(0.1, 1.0);
     window
-        .eval(&format!(
+        .eval(format!(
             "document.documentElement.style.opacity='{0}';document.body.style.opacity='{0}';",
             clamped
         ))
@@ -134,7 +134,7 @@ pub fn set_hud_design(design: String, app: AppHandle) -> Result<(), String> {
     let (w, h) = hud_size_for_design(&design);
     lock_logical_size(&window, w, h);
 
-    let _ = window.eval(&format!(
+    let _ = window.eval(format!(
         "window.__FLUXNET_HUD_DESIGN='{}';window.dispatchEvent(new Event('fluxnet_hud_design_changed'));",
         design
     ));

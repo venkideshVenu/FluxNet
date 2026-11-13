@@ -180,8 +180,8 @@ fn main() {
                     enqueue_position(&sender, window.label(), *position);
                 }
             }
-            WindowEvent::CloseRequested { api, .. } => {
-                if window.label() == "main" {
+            WindowEvent::CloseRequested { api, .. }
+                if window.label() == "main" => {
                     let app_handle = window.app_handle();
                     if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
                         let minimize = store.read(|s| s.minimize_to_tray);
@@ -218,7 +218,7 @@ fn main() {
                             };
 
                             crate::tray::perform_shutdown(
-                                &app_handle,
+                                app_handle,
                                 &cancel_token,
                                 &widget_store,
                             );
@@ -227,7 +227,6 @@ fn main() {
                         app_handle.exit(0);
                     }
                 }
-            }
             _ => {}
         })
         .setup(setup::setup)

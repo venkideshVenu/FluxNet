@@ -35,6 +35,7 @@ struct ICMP_ECHO_REPLY {
 }
 
 #[cfg(windows)]
+#[allow(clippy::upper_case_acronyms)] // Win32 type name
 type HANDLE = *mut std::ffi::c_void;
 
 #[cfg(windows)]

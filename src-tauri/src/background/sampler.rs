@@ -131,7 +131,7 @@ pub fn start_sampler(
 
                     let now_ts = Local::now().timestamp();
 
-                    if tick_counter % IFACE_LIST_REFRESH_TICKS == 0 {
+                    if tick_counter.is_multiple_of(IFACE_LIST_REFRESH_TICKS) {
                         networks = Networks::new_with_refreshed_list();
                     } else {
                         networks.refresh();
@@ -196,7 +196,7 @@ pub fn start_sampler(
                     }
 
                     // Periodic ping (every 5 seconds), off the sampling path
-                    if tick_counter % PING_INTERVAL_TICKS == 0 {
+                    if tick_counter.is_multiple_of(PING_INTERVAL_TICKS) {
                         spawn_ping(&app_handle, &ping_state, &ping_in_flight);
                     }
 
