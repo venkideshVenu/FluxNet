@@ -85,6 +85,8 @@ pub struct MonitorState {
     pub history: VecDeque<HistoryPoint>,
     pub last_upload: f64,
     pub last_download: f64,
+    /// Measured length of the last sample interval, in milliseconds.
+    pub last_elapsed_ms: i64,
     /// Tracks if interface has received any data recently (connectivity indicator)
     pub last_nonzero_at: Option<Instant>,
 }
@@ -103,6 +105,7 @@ impl Default for MonitorState {
             history: VecDeque::with_capacity(MAX_HISTORY_POINTS),
             last_upload: 0.0,
             last_download: 0.0,
+            last_elapsed_ms: 0,
             last_nonzero_at: None,
         }
     }
@@ -301,6 +304,7 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
         s.last_sample = Some(now);
         s.last_upload = upload;
         s.last_download = download;
+        s.last_elapsed_ms = (elapsed * 1000.0).round() as i64;
     } else {
         tracing::warn!("Interface '{}' no longer exists – resetting", s.interface);
         s.interface.clear();

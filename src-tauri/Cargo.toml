@@ -44,3 +44,4 @@ webview2-com = "0.38"
 windows-core = "0.61"
 
 [dev-dependencies]
+chrono-tz = "0.10"

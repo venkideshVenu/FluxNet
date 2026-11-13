@@ -1,4 +1,4 @@
-use rusqlite_migration::{Migrations, M};
+use rusqlite_migration::{M, Migrations};
 
 /// Returns all schema migrations in order.
 /// Add new migrations to the END of the vec only — never edit existing ones.
@@ -46,7 +46,11 @@ pub fn get_migrations() -> Migrations<'static> {
                 peak_upload_bps       REAL    NOT NULL
             );",
         ),
-        // ── v2 (future): add latency tracking ────────────────────────────
-        // M::up("ALTER TABLE bandwidth_samples ADD COLUMN latency_ms REAL;"),
+        // ── v2: per-sample duration, so byte totals don't assume 500 ms ──
+        // Existing rows keep the old 500 ms assumption.
+        M::up(
+            "ALTER TABLE bandwidth_samples
+                 ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 500;",
+        ),
     ])
 }
