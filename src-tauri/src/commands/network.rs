@@ -9,14 +9,30 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use sysinfo::Networks;
 use tauri::{AppHandle, Manager, State};
+#[cfg(windows)]
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, NO_ERROR};
+#[cfg(windows)]
 use windows::Win32::NetworkManagement::IpHelper::{
-    GAA_FLAG_INCLUDE_ALL_INTERFACES, GetAdaptersAddresses, IF_TYPE_ETHERNET_CSMACD,
-    IF_TYPE_IEEE80211, IF_TYPE_SOFTWARE_LOOPBACK, IF_TYPE_TUNNEL, IP_ADAPTER_ADDRESSES_LH,
+    GAA_FLAG_INCLUDE_ALL_INTERFACES, GetAdaptersAddresses, IP_ADAPTER_ADDRESSES_LH,
 };
+#[cfg(windows)]
 use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
+#[cfg(windows)]
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
+#[cfg(windows)]
 use windows::core::PWSTR;
+
+// IANA ifType values (RFC 1213 / IANAifType-MIB). These match the Windows
+// `IF_TYPE_*` constants but are defined here so classification compiles on
+// every platform.
+#[cfg_attr(not(windows), allow(dead_code))]
+const IF_TYPE_ETHERNET_CSMACD: u32 = 6;
+#[cfg_attr(not(windows), allow(dead_code))]
+const IF_TYPE_SOFTWARE_LOOPBACK: u32 = 24;
+#[cfg_attr(not(windows), allow(dead_code))]
+const IF_TYPE_IEEE80211: u32 = 71;
+#[cfg_attr(not(windows), allow(dead_code))]
+const IF_TYPE_TUNNEL: u32 = 131;
 
 // ── Centralised widget-label list ────────────────────────────────────────────
 
@@ -94,6 +110,7 @@ impl Default for MonitorState {
 
 // ── Interface type classification ─────────────────────────────────────────────
 
+#[cfg_attr(not(windows), allow(dead_code))]
 fn classify_interface_type(if_type: u32, name: &str, description: &str) -> String {
     let name_lower = name.to_lowercase();
     let desc_lower = description.to_lowercase();
@@ -147,6 +164,7 @@ fn classify_interface_type(if_type: u32, name: &str, description: &str) -> Strin
 
 // ── Interface filtering — should this adapter be shown? ───────────────────────
 
+#[cfg_attr(not(windows), allow(dead_code))]
 fn is_noise_interface(name: &str, description: &str, if_type: u32) -> bool {
     let name_lower = name.to_lowercase();
     let desc_lower = description.to_lowercase();
@@ -206,7 +224,7 @@ fn interface_exists_in_sysinfo(networks: &Networks, name: &str) -> bool {
 // ── Interface auto-selection ──────────────────────────────────────────────────
 
 fn auto_select_interface() -> String {
-    let detailed = read_interfaces_from_windows();
+    let detailed = read_interfaces();
     for iface in &detailed {
         if iface.status == "Up" && iface.interface_type == "ethernet" {
             return iface.name.clone();
@@ -364,7 +382,7 @@ pub fn get_interfaces(app: AppHandle) -> Result<Vec<InterfaceInfo>, String> {
         }
     }
 
-    let fresh = read_interfaces_from_windows();
+    let fresh = read_interfaces();
 
     let mut c = cache.lock();
     if c.fetched_at
@@ -391,7 +409,7 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
     // Refresh cache before validation to ensure we have the latest interfaces
     {
         let mut c = cache.lock();
-        let fresh = read_interfaces_from_windows();
+        let fresh = read_interfaces();
         c.data = fresh;
         c.fetched_at = Some(Instant::now());
     }
@@ -444,9 +462,61 @@ pub fn reset_peaks(state: State<SharedMonitorState>) {
     s.peak_download = 0.0;
 }
 
-// ── Windows adapter enumeration ───────────────────────────────────────────────
+// ── Adapter enumeration ───────────────────────────────────────────────────────
 
-pub fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
+/// Lists network adapters with their type, status and link speed.
+///
+/// On Windows this uses the IP Helper API. Other platforms get a best-effort
+/// listing from `sysinfo` so the app can run there during development.
+pub fn read_interfaces() -> Vec<InterfaceInfo> {
+    #[cfg(windows)]
+    {
+        read_interfaces_from_windows()
+    }
+    #[cfg(not(windows))]
+    {
+        read_interfaces_from_sysinfo()
+    }
+}
+
+#[cfg(not(windows))]
+fn read_interfaces_from_sysinfo() -> Vec<InterfaceInfo> {
+    let networks = Networks::new_with_refreshed_list();
+    let mut interfaces: Vec<InterfaceInfo> = networks
+        .iter()
+        .filter(|(name, _)| !name.starts_with("lo"))
+        .enumerate()
+        .map(|(i, (name, data))| {
+            let interface_type = if name.starts_with("en") || name.starts_with("eth") {
+                "ethernet"
+            } else if name.starts_with("wl") {
+                "wifi"
+            } else if name.starts_with("utun") || name.starts_with("tun") {
+                "tunnel"
+            } else {
+                "virtual"
+            };
+            InterfaceInfo {
+                name: name.clone(),
+                description: name.clone(),
+                if_index: i as u32,
+                status: "Up".to_string(),
+                mac: data
+                    .mac_address()
+                    .to_string()
+                    .to_uppercase()
+                    .replace(':', "-"),
+                link_speed_bps: 0,
+                interface_type: interface_type.to_string(),
+            }
+        })
+        .collect();
+    interfaces.sort_by(|a, b| a.name.cmp(&b.name));
+    interfaces
+}
+
+#[cfg(windows)]
+fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
     let mut interfaces = Vec::new();
     let mut buf_len: u32 = 0;
     let mut ret = unsafe {
@@ -515,6 +585,7 @@ pub fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
+#[cfg(windows)]
 fn pwstr_to_string(p: PWSTR) -> String {
     if p.is_null() {
         return String::new();
@@ -522,6 +593,7 @@ fn pwstr_to_string(p: PWSTR) -> String {
     unsafe { p.to_string().unwrap_or_default() }
 }
 
+#[cfg(windows)]
 fn oper_status_to_string(status: IF_OPER_STATUS) -> String {
     match status.0 {
         1 => "Up",
@@ -536,6 +608,7 @@ fn oper_status_to_string(status: IF_OPER_STATUS) -> String {
     .to_string()
 }
 
+#[cfg(windows)]
 fn format_mac(bytes: &[u8; 8], len: u32) -> String {
     let len = len.min(8) as usize;
     if len == 0 {
