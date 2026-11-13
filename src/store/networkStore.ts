@@ -38,8 +38,6 @@ type NetworkStore = {
   peakUpload: number;
   peakDownload: number;
   history: HistoryPoint[];
-  todayUploadBytes: number;
-  todayDownloadBytes: number;
 
   setData: (data: NetworkData) => void;
   setConnected: (v: boolean) => void;
@@ -53,8 +51,6 @@ type NetworkStore = {
     isConnected?: boolean;
     history: HistoryPoint[];
   }) => void;
-  addTodayUsage: (uploadBytes: number, downloadBytes: number) => void;
-  resetTodayUsage: () => void;
   resetPeaks: () => void;
   dismissError: () => void;
 };
@@ -70,8 +66,6 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
   peakUpload: 0,
   peakDownload: 0,
   history: [],
-  todayUploadBytes: 0,
-  todayDownloadBytes: 0,
 
   setData: (data) =>
     set({ data, isConnected: true, isInitialized: true, lastError: null }),
@@ -94,12 +88,5 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
       history: snap.history.slice(-MAX_HISTORY_POINTS),
     }),
 
-  addTodayUsage: (uploadBytes, downloadBytes) =>
-    set((state) => ({
-      todayUploadBytes: state.todayUploadBytes + Math.max(0, uploadBytes),
-      todayDownloadBytes: state.todayDownloadBytes + Math.max(0, downloadBytes),
-    })),
-
-  resetTodayUsage: () => set({ todayUploadBytes: 0, todayDownloadBytes: 0 }),
   resetPeaks: () => set({ peakUpload: 0, peakDownload: 0 }),
 }));

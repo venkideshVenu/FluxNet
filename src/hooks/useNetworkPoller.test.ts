@@ -39,8 +39,6 @@ function resetStores() {
     peakUpload: 0,
     peakDownload: 0,
     history: [],
-    todayUploadBytes: 0,
-    todayDownloadBytes: 0,
   });
 }
 
@@ -285,45 +283,6 @@ describe("useNetworkPoller", () => {
 
       await waitFor(() => {
         expect(mockPollNetworkData).toHaveBeenCalledTimes(2);
-      });
-    });
-  });
-
-  // ── Daily usage accumulation ──────────────────────────────────────────
-
-  describe("daily usage accumulation", () => {
-    beforeEach(() => {
-      mockWindowLabel = "pill";
-    });
-
-    it("accumulates today bytes after second poll", async () => {
-      mockPollNetworkData.mockResolvedValue({
-        currentUpload: 1000, // 1000 B/s
-        currentDownload: 2000, // 2000 B/s
-        liveData: {
-          uploadBytesPerSec: 1000,
-          downloadBytesPerSec: 2000,
-          interfaceName: "eth0",
-        },
-      });
-
-      renderHook(() => useNetworkPoller());
-
-      // First poll — sets lastSampleAt but no accumulation yet
-      await waitFor(() => {
-        expect(useNetworkStore.getState().isInitialized).toBe(true);
-      });
-
-      // Second poll — should accumulate based on elapsed time
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-
-      await waitFor(() => {
-        const state = useNetworkStore.getState();
-        // After 1 second at 1000 B/s upload = ~1000 bytes accumulated
-        expect(state.todayUploadBytes).toBeGreaterThan(0);
-        expect(state.todayDownloadBytes).toBeGreaterThan(0);
       });
     });
   });

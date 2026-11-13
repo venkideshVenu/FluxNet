@@ -1,4 +1,5 @@
 import { fetchUsageStats } from "@/api";
+import { useShallow } from "zustand/react/shallow";
 import { useNetworkStore, useSettingsStore } from "@/store";
 import {
   getStoredCompactIntervalMs,
@@ -11,7 +12,9 @@ import { CompactPresentation } from "./CompactPresentation";
 import { useDragFromHandle, useKeyboardNudge } from "@/hooks";
 
 export function CompactWidget() {
-  const { data, isConnected } = useNetworkStore();
+  const { data, isConnected } = useNetworkStore(
+    useShallow((s) => ({ data: s.data, isConnected: s.isConnected })),
+  );
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const [intervalMs, setIntervalMs] = useState(getStoredCompactIntervalMs);
   const [dbStats, setDbStats] = useState<{ dl: number; ul: number } | null>(

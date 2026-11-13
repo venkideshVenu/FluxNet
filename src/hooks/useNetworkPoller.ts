@@ -10,7 +10,7 @@ import {
   LS_HUD_INTERVAL,
   LS_PILL_INTERVAL,
 } from "@/utils";
-import { useStoredInterval, useDailyUsageAccumulator } from "@/hooks";
+import { useStoredInterval } from "@/hooks";
 
 /**
  * Core polling hook — thin coordinator.
@@ -20,8 +20,6 @@ export function useNetworkPoller() {
   const setData = useNetworkStore((s) => s.setData);
   const setSnapshot = useNetworkStore((s) => s.setSnapshot);
   const setError = useNetworkStore((s) => s.setError);
-
-  const accumulate = useDailyUsageAccumulator();
 
   const dashboardIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const pillIntervalMs = useStoredInterval(
@@ -77,8 +75,6 @@ export function useNetworkPoller() {
             history: result.snapshot.history,
           });
         }
-
-        accumulate(result.currentUpload, result.currentDownload);
       } catch (err) {
         if (cancelled) return;
         const message =
@@ -110,6 +106,5 @@ export function useNetworkPoller() {
     setData,
     setSnapshot,
     setError,
-    accumulate,
   ]);
 }

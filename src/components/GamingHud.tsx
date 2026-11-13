@@ -14,8 +14,8 @@ import { invoke } from "@tauri-apps/api/core";
 export function GamingHud() {
   usePingPoller(2000);
 
-  const { data } = useNetworkStore();
-  const { stats } = usePingStore();
+  const data = useNetworkStore((s) => s.data);
+  const stats = usePingStore((s) => s.stats);
 
   const displayUnits = useSettingsStore((s) => s.displayUnits);
 

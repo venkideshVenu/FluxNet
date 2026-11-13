@@ -1,10 +1,13 @@
+import { useShallow } from "zustand/react/shallow";
 import { useNetworkStore, useSettingsStore } from "@/store";
 import { formatSpeed } from "@/utils";
 import { useDragToMove, useKeyboardNudge } from "@/hooks";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {
-  const { data, isConnected } = useNetworkStore();
+  const { data, isConnected } = useNetworkStore(
+    useShallow((s) => ({ data: s.data, isConnected: s.isConnected })),
+  );
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
   const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);

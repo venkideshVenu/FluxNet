@@ -4,7 +4,6 @@ export { useThemeSync } from "./useThemeSync";
 export { useStoredInterval } from "./useStoredInterval";
 export { useWidgetSettings } from "./useWidgetSettings";
 export { useWidgetPanelState } from "./useWidgetPanelState";
-export { useDailyUsageAccumulator } from "./useDailyUsageAccumulator";
 export {
   useDragToMove,
   useKeyboardNudge,
