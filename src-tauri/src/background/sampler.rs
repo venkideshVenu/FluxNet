@@ -4,16 +4,14 @@ use crate::commands::network::{
 use crate::commands::ping::SharedPingState;
 use crate::monitor::ping::measure_ping;
 use crate::storage::DbState;
-use crate::storage::aggregation::{
-    rollup_daily, rollup_daily_at, rollup_hourly, rollup_hourly_at, rollup_monthly,
-    rollup_monthly_for,
-};
+use crate::storage::aggregation::{catch_up, refresh_today};
+use crate::storage::local_time::hour_start;
 use crate::storage::repository::{cleanup_old_samples, insert_sample};
-use chrono::{Datelike, Duration as ChronoDuration, Local, TimeZone, Timelike};
+use chrono::Local;
 use parking_lot::Mutex;
-use std::collections::HashSet;
-use std::net::{IpAddr};
+use std::net::IpAddr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use sysinfo::Networks;
 use tauri::async_runtime::JoinHandle;
@@ -25,184 +23,53 @@ const SAMPLER_INTERVAL_MS: u64 = 500;
 
 const PING_INTERVAL_TICKS: u32 = 10; // 10 × 500ms = 5s
 
-/// How often to do a full interface-list refresh (detecting hot-plugged adapters).
-/// 600 ticks × 500ms = 5 minutes. We use refresh() for all other ticks, which
-/// only updates counters and does NOT allocate new OS-level buffers.
-///
-/// ROOT CAUSE FIX: The v2 leak was caused by calling Networks::new_with_refreshed_list()
-/// every 10 ticks (5 seconds). On Windows, sysinfo 0.31 does not call FreeMibTable
-/// on the raw MIB_IF_TABLE2 pointer it receives when the Networks object is dropped,
-/// so each recreation leaks the previous OS buffer. Spacing this out to every 5 minutes
-/// eliminates continuous unbounded growth. refresh() is safe to call at any frequency.
+/// How often to do a full interface-list refresh (detecting hot-plugged
+/// adapters). 600 ticks × 500ms = 5 minutes; `refresh()` updates counters on
+/// every other tick.
 const IFACE_LIST_REFRESH_TICKS: u32 = 600; // 5 minutes
 
 pub type SamplerHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
+// ── Rollups ───────────────────────────────────────────────────────────────────
 
-// ── Startup backfill ──────────────────────────────────────────────────────────
-
-fn backfill_all_rollups(db: &DbState) {
+/// Brings hourly/daily/monthly rollups up to date. Runs at startup and on
+/// every local hour change, so hours missed during sleep are repaired.
+fn run_catch_up(db: &DbState) {
     let conn = db.0.lock();
+    match catch_up(&conn, &Local, Local::now().timestamp()) {
+        Ok(r) if r.hours + r.months > 0 => tracing::info!(
+            "Rolled up {} hour(s), {} day(s), {} month(s)",
+            r.hours,
+            r.days,
+            r.months
+        ),
+        Ok(_) => {}
+        Err(e) => tracing::warn!("Rollup catch-up failed: {e}"),
+    }
+}
 
-    let now = Local::now();
-    let current_hour_start = Local
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), now.hour(), 0, 0)
-        .unwrap()
-        .timestamp();
-
-    let earliest_ts: Option<i64> = conn
-        .query_row("SELECT MIN(timestamp) FROM bandwidth_samples", [], |r| {
-            r.get(0)
-        })
-        .ok()
-        .flatten();
-
-    let Some(earliest_ts) = earliest_ts else {
-        tracing::debug!("No samples in DB — skipping backfill");
+/// Runs a ping on its own task so a slow or blocked ICMP probe (up to 2 s)
+/// never stalls the 500 ms sampling loop.
+fn spawn_ping(app: &AppHandle, ping_state: &SharedPingState, in_flight: &Arc<AtomicBool>) {
+    if in_flight.swap(true, Ordering::AcqRel) {
         return;
-    };
-
-    // ── Hourly backfill ───────────────────────────────────────────────────────
-
-    let existing_hours: HashSet<i64> = {
-        let mut stmt = conn.prepare("SELECT hour_start FROM hourly_usage").unwrap();
-        stmt.query_map([], |r| r.get::<_, i64>(0))
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect()
-    };
-
-    let earliest_local = Local.timestamp_opt(earliest_ts, 0).single().unwrap_or(now);
-    let mut hour_cursor = Local
-        .with_ymd_and_hms(
-            earliest_local.year(),
-            earliest_local.month(),
-            earliest_local.day(),
-            earliest_local.hour(),
-            0,
-            0,
-        )
-        .unwrap()
-        .timestamp();
-
-    let mut hourly_count = 0u32;
-    while hour_cursor < current_hour_start {
-        if !existing_hours.contains(&hour_cursor) {
-            let has_samples: bool = conn
-                .query_row(
-                    "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
-                    [hour_cursor, hour_cursor + 3600],
-                    |_| Ok(true),
-                )
-                .unwrap_or(false);
-            if has_samples && rollup_hourly_at(&conn, hour_cursor).is_ok() {
-                hourly_count += 1;
-            }
+    }
+    let app = app.clone();
+    let ping_state = ping_state.clone();
+    let in_flight = in_flight.clone();
+    tauri::async_runtime::spawn(async move {
+        let target = IpAddr::from([1, 1, 1, 1]);
+        let result = measure_ping(target).await;
+        let stats = {
+            let mut ps = ping_state.lock();
+            ps.update(result.latency_ms, result.loss);
+            ps.current_stats()
+        };
+        if any_window_visible(&app) {
+            let _ = app.emit("ping-stats", &stats);
         }
-        hour_cursor += 3600;
-    }
-    if hourly_count > 0 {
-        tracing::info!("Backfilled {hourly_count} hourly rollup(s)");
-    }
-
-    // ── Daily backfill ────────────────────────────────────────────────────────
-
-    let today_str = now.format("%Y-%m-%d").to_string();
-    let today_start = Local
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
-        .unwrap()
-        .timestamp();
-
-    let existing_days: HashSet<String> = {
-        let mut stmt = conn.prepare("SELECT day FROM daily_usage").unwrap();
-        stmt.query_map([], |r| r.get::<_, String>(0))
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect()
-    };
-
-    let earliest_day_start = Local
-        .with_ymd_and_hms(
-            earliest_local.year(),
-            earliest_local.month(),
-            earliest_local.day(),
-            0,
-            0,
-            0,
-        )
-        .unwrap();
-
-    let mut day_cursor = earliest_day_start;
-    let mut daily_count = 0u32;
-    while day_cursor.timestamp() < today_start {
-        let day_str = day_cursor.format("%Y-%m-%d").to_string();
-        if !existing_days.contains(&day_str) {
-            let day_ts = day_cursor.timestamp();
-            let has_data: bool = conn
-                .query_row(
-                    "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
-                    [day_ts, day_ts + 86_400],
-                    |_| Ok(true),
-                )
-                .unwrap_or(false);
-            if has_data && rollup_daily_at(&conn, day_ts, &day_str).is_ok() {
-                daily_count += 1;
-            }
-        }
-        day_cursor = day_cursor + ChronoDuration::days(1);
-    }
-    if daily_count > 0 {
-        tracing::info!("Backfilled {daily_count} daily rollup(s)");
-    }
-
-    // ── Monthly backfill ──────────────────────────────────────────────────────
-
-    let current_month_str = now.format("%Y-%m").to_string();
-
-    let months_with_data: HashSet<String> = {
-        let mut stmt = conn
-            .prepare("SELECT DISTINCT SUBSTR(day, 1, 7) FROM daily_usage")
-            .unwrap();
-        stmt.query_map([], |r| r.get::<_, String>(0))
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect()
-    };
-
-    let existing_months: HashSet<String> = {
-        let mut stmt = conn.prepare("SELECT month FROM monthly_usage").unwrap();
-        stmt.query_map([], |r| r.get::<_, String>(0))
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect()
-    };
-
-    let mut monthly_count = 0u32;
-    for month in &months_with_data {
-        if month < &current_month_str && !existing_months.contains(month) {
-            if rollup_monthly_for(&conn, month).is_ok() {
-                monthly_count += 1;
-            }
-        }
-    }
-    if monthly_count > 0 {
-        tracing::info!("Backfilled {monthly_count} monthly rollup(s)");
-    }
-
-    // ── Seed today's partial daily snapshot ───────────────────────────────────
-    {
-        let has_today_samples: bool = conn
-            .query_row(
-                "SELECT 1 FROM bandwidth_samples WHERE timestamp >= ?1 AND timestamp < ?2 LIMIT 1",
-                [today_start, today_start + 86_400],
-                |_| Ok(true),
-            )
-            .unwrap_or(false);
-        if has_today_samples {
-            let _ = rollup_daily_at(&conn, today_start, &today_str);
-            tracing::debug!("Updated today's partial daily_usage snapshot");
-        }
-    }
+        in_flight.store(false, Ordering::Release);
+    });
 }
 
 fn any_window_visible(app: &AppHandle) -> bool {
@@ -221,13 +88,10 @@ pub fn start_sampler(
     app_handle: AppHandle,
 ) -> SamplerHandle {
     let handle: JoinHandle<()> = tauri::async_runtime::spawn(async move {
-        // Backfill on a blocking thread — does not delay the UI
+        // Catch up rollups on a blocking thread — does not delay the UI
         {
             let db_clone = db.clone();
-            let _ = tokio::task::spawn_blocking(move || {
-                backfill_all_rollups(&db_clone);
-            })
-            .await;
+            let _ = tokio::task::spawn_blocking(move || run_catch_up(&db_clone)).await;
         }
 
         let mut sample_interval = tokio::time::interval(Duration::from_millis(SAMPLER_INTERVAL_MS));
@@ -242,12 +106,11 @@ pub fn start_sampler(
         daily_snapshot_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut tick_counter = 0u32;
-        let mut last_hour: Option<u32> = None;
-        let mut last_day: Option<u32> = None;
+        let mut last_hour_start: Option<i64> = None;
+        let ping_in_flight = Arc::new(AtomicBool::new(false));
 
-        // FIX: Create once; use refresh() to update counters without reallocating OS buffers.
-        // A full list refresh (new_with_refreshed_list) is only done every 5 minutes to detect
-        // hot-plugged adapters, not every 5 seconds as in the leaking version.
+        // Create once; refresh() updates counters, and the full list is
+        // re-read every 5 minutes to detect hot-plugged adapters.
         let mut networks = Networks::new_with_refreshed_list();
 
         loop {
@@ -266,15 +129,9 @@ pub fn start_sampler(
                 _ = sample_interval.tick() => {
                     tick_counter = tick_counter.wrapping_add(1);
 
-                    let now_local = Local::now();
-                    let now_ts = now_local.timestamp();
-                    let current_hour = now_local.hour();
-                    let current_day = now_local.day();
+                    let now_ts = Local::now().timestamp();
 
-                    // FIX: Only do a full interface-list refresh every 5 minutes.
-                    // refresh() is sufficient for normal counter updates and does not
-                    // allocate new OS network buffers on each call.
-                    if tick_counter % IFACE_LIST_REFRESH_TICKS == 0 {
+                    if tick_counter.is_multiple_of(IFACE_LIST_REFRESH_TICKS) {
                         networks = Networks::new_with_refreshed_list();
                     } else {
                         networks.refresh();
@@ -305,17 +162,25 @@ pub fn start_sampler(
                         networks = Networks::new_with_refreshed_list();
                     }
 
-                    let (dl, ul, iface, was_uninitialized) = {
+                    let (dl, ul, elapsed_ms, iface, was_uninitialized) = {
                         let mut s = monitor_state.lock();
                         let uninit = s.last_sample.is_none();
                         tick_sample_with_networks(&mut s, &networks, now_ts);
-                        (s.last_download, s.last_upload, s.interface.clone(), uninit)
+                        (
+                            s.last_download,
+                            s.last_upload,
+                            s.last_elapsed_ms,
+                            s.interface.clone(),
+                            uninit,
+                        )
                     };
 
                     if !iface.is_empty() && !was_uninitialized {
                         {
                             let conn = db.0.lock();
-                            let _ = insert_sample(&conn, now_ts, &iface, dl, ul);
+                            if let Err(e) = insert_sample(&conn, now_ts, &iface, dl, ul, elapsed_ms) {
+                                tracing::warn!("Failed to store sample: {e}");
+                            }
                         }
 
                         if any_window_visible(&app_handle) {
@@ -330,71 +195,26 @@ pub fn start_sampler(
                         }
                     }
 
-                    // Periodic ping (every 5 seconds)
-                    if tick_counter % PING_INTERVAL_TICKS == 0 {
-                        let target: IpAddr = "1.1.1.1".parse().unwrap();
-
-                        let result = measure_ping(target).await;
-                        let stats = {
-                            let mut ps = ping_state.lock();
-                            ps.update(result.latency_ms, result.loss);
-                            ps.current_stats()
-                        };
-                        if any_window_visible(&app_handle) {
-                            let _ = app_handle.emit("ping-stats", &stats);
-                        }
+                    // Periodic ping (every 5 seconds), off the sampling path
+                    if tick_counter.is_multiple_of(PING_INTERVAL_TICKS) {
+                        spawn_ping(&app_handle, &ping_state, &ping_in_flight);
                     }
 
-                    // Rollups at hour/day boundaries
-                    let hour_changed = last_hour.map_or(false, |prev| prev != current_hour);
-                    let day_changed = last_day.map_or(false, |prev| prev != current_day);
-
-                    if hour_changed || day_changed {
-                        let conn = db.0.lock();
-                        let _ = conn.execute("BEGIN IMMEDIATE", []);
-
-                        if hour_changed {
-                            if let Err(e) = rollup_hourly(&conn, now_local) {
-                                tracing::warn!("Hourly rollup failed: {e}");
-                            }
-                        }
-
-                        if day_changed {
-                            let yesterday = now_local - ChronoDuration::days(1);
-                            if let Err(e) = rollup_daily(&conn, yesterday) {
-                                tracing::warn!("Daily rollup failed: {e}");
-                            }
-
-                            if current_day == 1 {
-                                if let Err(e) = rollup_monthly(&conn, now_local) {
-                                    tracing::warn!("Monthly rollup failed: {e}");
-                                }
-                            }
-                        }
-
-                        let _ = conn.execute("COMMIT", []);
+                    // Roll up whenever the local hour changes (also covers
+                    // day/month changes and wake from sleep).
+                    let current_hour_start = hour_start(&Local, now_ts);
+                    if last_hour_start.is_some_and(|prev| prev != current_hour_start) {
+                        run_catch_up(&db);
                     }
-
-                    last_hour = Some(current_hour);
-                    last_day = Some(current_day);
+                    last_hour_start = Some(current_hour_start);
                 }
 
                 _ = daily_snapshot_interval.tick() => {
-                    // Update today's partial daily_usage row for the History page
-                    let now_local = Local::now();
-                    let today_str = now_local.format("%Y-%m-%d").to_string();
-                    let today_start = Local
-                        .with_ymd_and_hms(
-                            now_local.year(),
-                            now_local.month(),
-                            now_local.day(),
-                            0, 0, 0,
-                        )
-                        .unwrap()
-                        .timestamp();
-
+                    // Keep today's daily_usage row live for the History page
                     let conn = db.0.lock();
-                    let _ = rollup_daily_at(&conn, today_start, &today_str);
+                    if let Err(e) = refresh_today(&conn, &Local, Local::now().timestamp()) {
+                        tracing::warn!("Daily snapshot failed: {e}");
+                    }
                 }
 
                 _ = cleanup_interval.tick() => {

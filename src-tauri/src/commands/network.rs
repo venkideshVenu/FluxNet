@@ -46,18 +46,10 @@ pub fn is_widget_label(label: &str) -> bool {
 
 pub type SharedMonitorState = Arc<Mutex<MonitorState>>;
 
+#[derive(Default)]
 pub struct InterfacesCache {
     pub data: Vec<InterfaceInfo>,
     pub fetched_at: Option<Instant>,
-}
-
-impl Default for InterfacesCache {
-    fn default() -> Self {
-        Self {
-            data: Vec::new(),
-            fetched_at: None,
-        }
-    }
 }
 
 pub type SharedInterfacesCache = Arc<Mutex<InterfacesCache>>;
@@ -85,6 +77,8 @@ pub struct MonitorState {
     pub history: VecDeque<HistoryPoint>,
     pub last_upload: f64,
     pub last_download: f64,
+    /// Measured length of the last sample interval, in milliseconds.
+    pub last_elapsed_ms: i64,
     /// Tracks if interface has received any data recently (connectivity indicator)
     pub last_nonzero_at: Option<Instant>,
 }
@@ -103,6 +97,7 @@ impl Default for MonitorState {
             history: VecDeque::with_capacity(MAX_HISTORY_POINTS),
             last_upload: 0.0,
             last_download: 0.0,
+            last_elapsed_ms: 0,
             last_nonzero_at: None,
         }
     }
@@ -301,6 +296,7 @@ pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_
         s.last_sample = Some(now);
         s.last_upload = upload;
         s.last_download = download;
+        s.last_elapsed_ms = (elapsed * 1000.0).round() as i64;
     } else {
         tracing::warn!("Interface '{}' no longer exists – resetting", s.interface);
         s.interface.clear();
@@ -317,10 +313,10 @@ fn is_interface_connected(state: &MonitorState) -> bool {
     if state.interface.is_empty() {
         return false;
     }
-    if let Some(last) = state.last_nonzero_at {
-        if last.elapsed() < Duration::from_secs(30) {
-            return true;
-        }
+    if let Some(last) = state.last_nonzero_at
+        && last.elapsed() < Duration::from_secs(30)
+    {
+        return true;
     }
     state.last_sample.is_some()
 }
@@ -375,10 +371,10 @@ pub fn get_interfaces(app: AppHandle) -> Result<Vec<InterfaceInfo>, String> {
 
     {
         let c = cache.lock();
-        if let Some(at) = c.fetched_at {
-            if at.elapsed() < INTERFACES_CACHE_TTL {
-                return Ok(c.data.clone());
-            }
+        if let Some(at) = c.fetched_at
+            && at.elapsed() < INTERFACES_CACHE_TTL
+        {
+            return Ok(c.data.clone());
         }
     }
 
@@ -386,7 +382,7 @@ pub fn get_interfaces(app: AppHandle) -> Result<Vec<InterfaceInfo>, String> {
 
     let mut c = cache.lock();
     if c.fetched_at
-        .map_or(true, |at| at.elapsed() >= INTERFACES_CACHE_TTL)
+        .is_none_or(|at| at.elapsed() >= INTERFACES_CACHE_TTL)
     {
         c.data = fresh.clone();
         c.fetched_at = Some(Instant::now());
@@ -518,36 +514,34 @@ fn read_interfaces_from_sysinfo() -> Vec<InterfaceInfo> {
 #[cfg(windows)]
 fn read_interfaces_from_windows() -> Vec<InterfaceInfo> {
     let mut interfaces = Vec::new();
-    let mut buf_len: u32 = 0;
-    let mut ret = unsafe {
-        GetAdaptersAddresses(
-            AF_UNSPEC.0 as u32,
-            GAA_FLAG_INCLUDE_ALL_INTERFACES,
-            None,
-            None,
-            &mut buf_len,
-        )
-    };
-    if ret != ERROR_BUFFER_OVERFLOW.0 && ret != NO_ERROR.0 {
-        return interfaces;
+
+    // `IP_ADAPTER_ADDRESSES_LH` contains pointers, so the buffer must be
+    // 8-byte aligned: back it with u64s rather than bytes. Retry when an
+    // adapter appears between the size query and the real call.
+    let mut buf_len: u32 = 16 * 1024;
+    let mut buffer: Vec<u64>;
+    let mut attempts = 0;
+    loop {
+        buffer = vec![0u64; (buf_len as usize).div_ceil(8)];
+        let ret = unsafe {
+            GetAdaptersAddresses(
+                AF_UNSPEC.0 as u32,
+                GAA_FLAG_INCLUDE_ALL_INTERFACES,
+                None,
+                Some(buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH),
+                &mut buf_len,
+            )
+        };
+        attempts += 1;
+        if ret == NO_ERROR.0 {
+            break;
+        }
+        if ret != ERROR_BUFFER_OVERFLOW.0 || attempts >= 4 {
+            tracing::warn!("GetAdaptersAddresses failed with code {ret}");
+            return interfaces;
+        }
     }
-    if buf_len == 0 {
-        return interfaces;
-    }
-    let mut buffer = vec![0u8; buf_len as usize];
     let adapter_ptr = buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH;
-    ret = unsafe {
-        GetAdaptersAddresses(
-            AF_UNSPEC.0 as u32,
-            GAA_FLAG_INCLUDE_ALL_INTERFACES,
-            None,
-            Some(adapter_ptr),
-            &mut buf_len,
-        )
-    };
-    if ret != NO_ERROR.0 {
-        return interfaces;
-    }
     let mut current = adapter_ptr;
     while !current.is_null() {
         let adapter = unsafe { &*current };
@@ -623,15 +617,120 @@ fn format_mac(bytes: &[u8; 8], len: u32) -> String {
 
 pub fn select_interface_outside_lock(networks: &Networks) -> String {
     let selected = auto_select_interface();
-    if !selected.is_empty() {
-        if interface_exists_in_sysinfo(networks, &selected) {
-            return selected;
-        }
+    if !selected.is_empty() && interface_exists_in_sysinfo(networks, &selected) {
+        return selected;
     }
-    for (name, _) in networks {
-        if name != "lo" && name != "Loopback Pseudo-Interface 1" {
-            return name.clone();
-        }
+    busiest_interface(networks.iter().map(|(name, data)| {
+        (
+            name.as_str(),
+            data.total_received() + data.total_transmitted(),
+        )
+    }))
+}
+
+/// Fallback choice when no adapter is clearly "Up": the non-loopback
+/// interface that has carried the most traffic since boot, ties broken by
+/// name so the result is deterministic (not `HashMap` iteration order).
+fn busiest_interface<'a>(candidates: impl Iterator<Item = (&'a str, u64)>) -> String {
+    candidates
+        .filter(|(name, _)| !is_loopback_name(name))
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
+        .map(|(name, _)| name.to_string())
+        .unwrap_or_default()
+}
+
+fn is_loopback_name(name: &str) -> bool {
+    name == "lo" || name.starts_with("lo0") || name.starts_with("Loopback Pseudo-Interface")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifies_by_description_before_if_type() {
+        let wifi = IF_TYPE_IEEE80211;
+        assert_eq!(
+            classify_interface_type(wifi, "Wi-Fi", "Intel Wi-Fi 6E AX211"),
+            "wifi"
+        );
+        assert_eq!(
+            classify_interface_type(6, "Ethernet", "Realtek PCIe GbE"),
+            "ethernet"
+        );
+        assert_eq!(
+            classify_interface_type(6, "NordLynx", "NordLynx Tunnel"),
+            "vpn"
+        );
+        assert_eq!(
+            classify_interface_type(53, "OpenVPN", "TAP-Windows Adapter V9"),
+            "vpn"
+        );
+        assert_eq!(
+            classify_interface_type(6, "vEthernet (WSL)", "Hyper-V Virtual Ethernet Adapter"),
+            "virtual"
+        );
+        assert_eq!(
+            classify_interface_type(6, "Bluetooth Network Connection", "Bluetooth Device (PAN)"),
+            "bluetooth"
+        );
+        assert_eq!(
+            classify_interface_type(6, "Ethernet 3", "Remote NDIS based Internet Sharing Device"),
+            "usb"
+        );
+        assert_eq!(
+            classify_interface_type(243, "Cellular", "Mobile Broadband"),
+            "cellular"
+        );
+        assert_eq!(classify_interface_type(IF_TYPE_TUNNEL, "x", "y"), "tunnel");
+        assert_eq!(classify_interface_type(1, "x", "y"), "other");
     }
-    String::new()
+
+    #[test]
+    fn hides_loopback_and_driver_noise() {
+        assert!(is_noise_interface(
+            "Loopback",
+            "Software Loopback",
+            IF_TYPE_SOFTWARE_LOOPBACK
+        ));
+        assert!(is_noise_interface(
+            "Local Area Connection* 2",
+            "Wi-Fi Direct Virtual",
+            71
+        ));
+        assert!(is_noise_interface("Ethernet", "WAN Miniport (IP)", 6));
+        assert!(is_noise_interface(
+            "Ethernet 4",
+            "Npcap Loopback Adapter",
+            6
+        ));
+        assert!(!is_noise_interface("Wi-Fi", "Intel Wi-Fi 6E AX211", 71));
+        assert!(!is_noise_interface("Ethernet", "Realtek PCIe GbE", 6));
+    }
+
+    #[test]
+    fn fallback_picks_busiest_non_loopback_interface() {
+        let ifaces = [
+            ("Loopback Pseudo-Interface 1", 9_000_000),
+            ("vEthernet (WSL)", 1_000),
+            ("Wi-Fi", 5_000_000),
+            ("Ethernet", 0),
+        ];
+        assert_eq!(busiest_interface(ifaces.into_iter()), "Wi-Fi");
+    }
+
+    #[test]
+    fn fallback_is_deterministic_on_ties_and_empty() {
+        let ifaces = [("b", 0), ("a", 0), ("lo", 0)];
+        assert_eq!(busiest_interface(ifaces.into_iter()), "a");
+        assert_eq!(busiest_interface(std::iter::empty()), "");
+    }
+
+    #[test]
+    fn widget_labels_are_recognised() {
+        for label in WIDGET_LABELS {
+            assert!(is_widget_label(label));
+        }
+        assert!(!is_widget_label("main"));
+    }
 }

@@ -76,3 +76,39 @@ pub fn get_ping_stats(app: AppHandle) -> Result<PingStats, String> {
     let s = state.lock();
     Ok(s.current_stats())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_state_reports_zero() {
+        let s = PingState::default().current_stats();
+        assert_eq!(s.loss_percent, 0.0);
+        assert_eq!(s.latency_ms, 0.0);
+    }
+
+    #[test]
+    fn loss_percent_uses_rolling_window() {
+        let mut s = PingState::default();
+        for i in 0..20 {
+            s.update(Some(10.0), i % 5 == 0 && i >= 10);
+        }
+        // Last 10 results: i = 10..20, losses at 10 and 15.
+        assert_eq!(s.current_stats().loss_percent, 20.0);
+        assert_eq!(s.loss_window.len(), WINDOW);
+    }
+
+    #[test]
+    fn three_consecutive_losses_mark_latency_unknown() {
+        let mut s = PingState::default();
+        s.update(Some(25.0), false);
+        s.update(None, true);
+        s.update(None, true);
+        assert_eq!(s.current_stats().latency_ms, 25.0);
+        s.update(None, true);
+        assert_eq!(s.current_stats().latency_ms, -1.0);
+        s.update(Some(30.0), false);
+        assert_eq!(s.current_stats().latency_ms, 30.0);
+    }
+}

@@ -1,5 +1,8 @@
-use chrono::{Datelike, Local};
-use rusqlite::{params, Connection};
+use chrono::{Local, TimeZone};
+use rusqlite::{Connection, OptionalExtension, params};
+
+use crate::storage::aggregation::aggregate_samples;
+use crate::storage::local_time::{day_bounds, day_key, local_date, month_key};
 use serde::Serialize;
 
 // ── Serialisable types returned to the frontend ───────────────────────────────
@@ -63,19 +66,26 @@ pub struct UsageStats {
 
 // ── Writes ────────────────────────────────────────────────────────────────────
 
-/// Insert one 500 ms raw bandwidth sample.
+/// Insert one raw bandwidth sample covering `duration_ms` of measurement.
 pub fn insert_sample(
     conn: &Connection,
     timestamp: i64,
     interface_name: &str,
     download_bps: f64,
     upload_bps: f64,
+    duration_ms: i64,
 ) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO bandwidth_samples
-             (timestamp, interface_name, download_bps, upload_bps)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![timestamp, interface_name, download_bps, upload_bps],
+             (timestamp, interface_name, download_bps, upload_bps, duration_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            timestamp,
+            interface_name,
+            download_bps,
+            upload_bps,
+            duration_ms
+        ],
     )?;
     Ok(())
 }
@@ -266,122 +276,140 @@ pub fn get_monthly_all(conn: &Connection) -> rusqlite::Result<Vec<MonthlyUsage>>
 }
 
 pub fn get_usage_stats(conn: &Connection) -> rusqlite::Result<UsageStats> {
-    let now = Local::now();
-    let today_str = now.format("%Y-%m-%d").to_string();
-    let month_str = now.format("%Y-%m").to_string();
-    let week_start_date = (now - chrono::Duration::days(7))
-        .format("%Y-%m-%d")
-        .to_string();
+    get_usage_stats_at(conn, &Local, Local::now().timestamp())
+}
 
-    let today_start = {
-        use chrono::TimeZone;
-        Local
-            .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
-            .unwrap()
-            .timestamp()
-    };
-    let today_end = today_start + 86_400;
+/// Today / last-7-days / this-month totals and all-time peaks as of `now_ts`.
+pub fn get_usage_stats_at<Tz: TimeZone>(
+    conn: &Connection,
+    tz: &Tz,
+    now_ts: i64,
+) -> rusqlite::Result<UsageStats> {
+    let today = local_date(tz, now_ts);
+    let today_key = day_key(today);
+    // "Week" = today plus the 6 days before it.
+    let week_start_key = day_key(today - chrono::Days::new(6));
+    let month_prefix = format!("{}-%", month_key(today));
 
-    /// Each raw sample represents 0.5 seconds of data (500ms sampler interval).
-    const SAMPLE_DURATION_SECS: f64 = 0.5;
-
-    // Today: first try daily_usage, fallback to SUM(bps) * sample_duration from raw samples
-    let today: (i64, i64) = conn
+    // Today: the live daily row, or raw samples if it hasn't been written yet.
+    let today_totals: Option<(i64, i64)> = conn
         .query_row(
-            "SELECT COALESCE(total_download_bytes, 0),
-                    COALESCE(total_upload_bytes,   0)
-             FROM daily_usage WHERE day = ?1",
-            [&today_str],
+            "SELECT total_download_bytes, total_upload_bytes FROM daily_usage WHERE day = ?1",
+            [&today_key],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
-        .unwrap_or_else(|_| {
-            // Compute from raw samples: total_bytes = SUM(rate_bps) × sample_duration
-            conn.query_row(
-                "SELECT
-                    COALESCE(CAST(SUM(download_bps) * ?3 AS INTEGER), 0),
-                    COALESCE(CAST(SUM(upload_bps)   * ?3 AS INTEGER), 0)
-                 FROM bandwidth_samples
-                 WHERE timestamp >= ?1 AND timestamp < ?2",
-                rusqlite::params![today_start, today_end, SAMPLE_DURATION_SECS],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .unwrap_or((0, 0))
-        });
-
-    // Week: completed days from daily_usage + today's partial
-    let week_from_daily: (i64, i64) = conn
-        .query_row(
-            "SELECT COALESCE(SUM(total_download_bytes), 0),
-                    COALESCE(SUM(total_upload_bytes),   0)
-             FROM daily_usage
-             WHERE day >= ?1 AND day < ?2",
-            [&week_start_date, &today_str],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .unwrap_or((0, 0));
-
-    // Week total = completed days + today's partial
-    let week = (week_from_daily.0 + today.0, week_from_daily.1 + today.1);
-
-    // Month: sum daily_usage rows for this month + today's partial if not in daily_usage yet
-    let month_from_daily: (i64, i64) = conn
-        .query_row(
-            "SELECT COALESCE(SUM(total_download_bytes), 0),
-                    COALESCE(SUM(total_upload_bytes),   0)
-             FROM daily_usage WHERE day LIKE ?1",
-            [format!("{}%", month_str)],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .unwrap_or((0, 0));
-
-    // Check if today is already in daily_usage (to avoid double-counting)
-    let today_in_daily: bool = conn
-        .query_row(
-            "SELECT 1 FROM daily_usage WHERE day = ?1",
-            [&today_str],
-            |_| Ok(true),
-        )
-        .unwrap_or(false);
-
-    let month = if today_in_daily {
-        month_from_daily
-    } else {
-        (month_from_daily.0 + today.0, month_from_daily.1 + today.1)
+        .optional()?;
+    let today_totals = match today_totals {
+        Some(t) => t,
+        None => {
+            let (start, end) = day_bounds(tz, today);
+            let agg = aggregate_samples(conn, start, end)?;
+            (agg.download_bytes, agg.upload_bytes)
+        }
     };
 
-    // All-time peaks: max across hourly_usage, fallback to raw samples
-    let peaks: (f64, f64) = conn
-        .query_row(
-            "SELECT COALESCE(MAX(peak_download_bps), 0.0),
-                    COALESCE(MAX(peak_upload_bps),   0.0)
-             FROM hourly_usage",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .unwrap_or((0.0, 0.0));
-
-    // If hourly_usage is empty, fallback to raw samples for peaks
-    let peaks = if peaks.0 == 0.0 && peaks.1 == 0.0 {
-        conn.query_row(
-            "SELECT COALESCE(MAX(download_bps), 0.0),
-                    COALESCE(MAX(upload_bps),   0.0)
-             FROM bandwidth_samples",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .unwrap_or((0.0, 0.0))
-    } else {
-        peaks
+    let sum_days = |sql: &str, args: &[&dyn rusqlite::ToSql]| -> rusqlite::Result<(i64, i64)> {
+        conn.query_row(sql, args, |r| Ok((r.get(0)?, r.get(1)?)))
     };
+
+    let week_before_today = sum_days(
+        "SELECT COALESCE(SUM(total_download_bytes), 0), COALESCE(SUM(total_upload_bytes), 0)
+         FROM daily_usage WHERE day >= ?1 AND day < ?2",
+        &[&week_start_key, &today_key],
+    )?;
+    let month_before_today = sum_days(
+        "SELECT COALESCE(SUM(total_download_bytes), 0), COALESCE(SUM(total_upload_bytes), 0)
+         FROM daily_usage WHERE day LIKE ?1 AND day <> ?2",
+        &[&month_prefix, &today_key],
+    )?;
+
+    let peaks: (f64, f64) = conn.query_row(
+        "SELECT MAX(COALESCE((SELECT MAX(peak_download_bps) FROM hourly_usage), 0.0),
+                    COALESCE((SELECT MAX(download_bps) FROM bandwidth_samples), 0.0)),
+                MAX(COALESCE((SELECT MAX(peak_upload_bps) FROM hourly_usage), 0.0),
+                    COALESCE((SELECT MAX(upload_bps) FROM bandwidth_samples), 0.0))",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
 
     Ok(UsageStats {
-        today_download_bytes: today.0,
-        today_upload_bytes: today.1,
-        week_download_bytes: week.0,
-        week_upload_bytes: week.1,
-        month_download_bytes: month.0,
-        month_upload_bytes: month.1,
+        today_download_bytes: today_totals.0,
+        today_upload_bytes: today_totals.1,
+        week_download_bytes: week_before_today.0 + today_totals.0,
+        week_upload_bytes: week_before_today.1 + today_totals.1,
+        month_download_bytes: month_before_today.0 + today_totals.0,
+        month_upload_bytes: month_before_today.1 + today_totals.1,
         peak_download_bps: peaks.0,
         peak_upload_bps: peaks.1,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::migrations::get_migrations;
+    use chrono_tz::Asia::Kolkata;
+
+    fn db() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        get_migrations().to_latest(&mut conn).unwrap();
+        conn
+    }
+
+    fn day_row(conn: &Connection, day: &str, bytes: i64) {
+        upsert_daily(
+            conn,
+            &DailyUsage {
+                day: day.into(),
+                avg_download_bps: 0.0,
+                avg_upload_bps: 0.0,
+                peak_download_bps: 0.0,
+                peak_upload_bps: 0.0,
+                total_download_bytes: bytes,
+                total_upload_bytes: 0,
+            },
+        )
+        .unwrap();
+    }
+
+    fn noon(d: u32) -> i64 {
+        Kolkata
+            .with_ymd_and_hms(2026, 5, d, 12, 0, 0)
+            .unwrap()
+            .timestamp()
+    }
+
+    #[test]
+    fn week_covers_exactly_seven_days_including_today() {
+        let conn = db();
+        for d in 1..=10 {
+            day_row(&conn, &format!("2026-05-{d:02}"), 1);
+        }
+        let stats = get_usage_stats_at(&conn, &Kolkata, noon(10)).unwrap();
+        assert_eq!(stats.week_download_bytes, 7);
+        assert_eq!(stats.today_download_bytes, 1);
+        assert_eq!(stats.month_download_bytes, 10);
+    }
+
+    #[test]
+    fn today_falls_back_to_raw_samples() {
+        let conn = db();
+        day_row(&conn, "2026-05-09", 5);
+        insert_sample(&conn, noon(10), "eth0", 1000.0, 10.0, 2000).unwrap();
+        let stats = get_usage_stats_at(&conn, &Kolkata, noon(10)).unwrap();
+        assert_eq!(stats.today_download_bytes, 2000);
+        assert_eq!(stats.week_download_bytes, 2005);
+        assert_eq!(stats.month_download_bytes, 2005);
+        assert_eq!(stats.peak_download_bps, 1000.0);
+    }
+
+    #[test]
+    fn previous_month_is_excluded_from_month_total() {
+        let conn = db();
+        day_row(&conn, "2026-04-30", 100);
+        day_row(&conn, "2026-05-01", 1);
+        let stats = get_usage_stats_at(&conn, &Kolkata, noon(1)).unwrap();
+        assert_eq!(stats.month_download_bytes, 1);
+        assert_eq!(stats.week_download_bytes, 101);
+    }
 }

@@ -42,8 +42,8 @@ pub fn spawn_theme_watcher(app: AppHandle, tray_id: TrayIconId) {
 #[cfg(target_os = "windows")]
 fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
     use windows::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET,
-        RegNotifyChangeKeyValue, RegOpenKeyExW,
+        HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RegNotifyChangeKeyValue,
+        RegOpenKeyExW,
     };
     use windows::core::w;
 
@@ -88,7 +88,6 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
         if result.is_err() {
             tracing::warn!("RegNotifyChangeKeyValue failed: {result:?}");
 
-
             std::thread::sleep(std::time::Duration::from_secs(30));
 
             match open_key() {
@@ -110,10 +109,10 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
                 "System theme changed to {} — updating tray icon",
                 if current { "light" } else { "dark" }
             );
-            if let Ok(icon) = tray_icon_for_theme(current) {
-                if let Some(tray) = app.tray_by_id(tray_id) {
-                    let _ = tray.set_icon(Some(icon));
-                }
+            if let Ok(icon) = tray_icon_for_theme(current)
+                && let Some(tray) = app.tray_by_id(tray_id)
+            {
+                let _ = tray.set_icon(Some(icon));
             }
         }
     }

@@ -6,25 +6,83 @@
 //! it is closed to the tray. Each destroyed window gives back its renderer
 //! process memory instead of keeping it alive while invisible.
 //!
-//! Windows must not be created from a synchronous Tauri command on Windows
-//! (it deadlocks), so commands that call [`get_or_create`] are `async`.
+//! Windows must not be created from a synchronous Tauri command or event
+//! handler on Windows (it deadlocks), so callers of [`get_or_create`] are
+//! `async` commands or run on a spawned task (see [`spawn_on_app`]).
 
 use crate::commands::network::{APP_SHUTTING_DOWN, WIDGET_LABELS, is_widget_label};
 use crate::commands::visibility::hud_size_for_design;
-use crate::placement::{self, Display};
+use crate::placement::{self, Display, Rect};
 use crate::window_positions::{PositionSender, WidgetStore};
-use std::sync::Arc;
+use parking_lot::Mutex;
+use serde::Serialize;
+use std::collections::HashSet;
 use std::sync::atomic::Ordering;
+use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 use tauri::{
-    AppHandle, LogicalSize, Manager, PhysicalPosition, Position, Size, WebviewWindow,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, Position, Size, WebviewWindow,
     WebviewWindowBuilder, WindowEvent,
 };
 
 pub const MAIN_LABEL: &str = "main";
 
+/// Event emitted to every window whenever a widget is turned on or off.
+pub const WIDGET_VISIBILITY_EVENT: &str = "widget-visibility-changed";
+
+#[derive(Clone, Serialize)]
+pub struct WidgetVisibilityPayload {
+    pub label: String,
+    pub visible: bool,
+}
+
+pub fn emit_widget_visibility(app: &AppHandle, label: &str, visible: bool) {
+    let _ = app.emit(
+        WIDGET_VISIBILITY_EVENT,
+        WidgetVisibilityPayload {
+            label: label.to_string(),
+            visible,
+        },
+    );
+}
+
+/// Serialises window creation so two concurrent requests for the same label
+/// (double-click, tray + dashboard) can't both try to build it.
+static CREATE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Labels whose window has been asked to destroy itself but is still
+/// registered with Tauri until its `Destroyed` event is processed.
+static CLOSING: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(Default::default);
+
+/// Runs `f` on the async runtime, off the main thread. Use from tray/menu
+/// handlers and plugin callbacks that may create windows.
+pub fn spawn_on_app<F>(app: &AppHandle, f: F)
+where
+    F: FnOnce(&AppHandle) + Send + 'static,
+{
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move { f(&app) });
+}
+
+/// Waits (briefly) for a window that is being destroyed to finish, so it is
+/// not handed out again. Must not be called on the main thread.
+fn wait_until_closed(label: &str) {
+    for _ in 0..100 {
+        if !CLOSING.lock().contains(label) {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    tracing::warn!("'{label}' window did not finish closing within 1 s");
+    CLOSING.lock().remove(label);
+}
+
 /// Returns the window for `label`, creating it from its config entry if it
 /// does not exist yet. Newly created windows start hidden.
 pub fn get_or_create(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
+    let _creating = CREATE_LOCK.lock();
+    wait_until_closed(label);
+
     if let Some(window) = app.get_webview_window(label) {
         return Ok(window);
     }
@@ -72,7 +130,11 @@ pub fn destroy_widget(app: &AppHandle, label: &str) -> Result<(), String> {
     if let (Some(sender), Ok(pos)) = (app.try_state::<PositionSender>(), window.outer_position()) {
         sender.0.push(label.to_string(), pos);
     }
-    window.destroy().map_err(|e| e.to_string())?;
+    CLOSING.lock().insert(label.to_string());
+    if let Err(e) = window.destroy() {
+        CLOSING.lock().remove(label);
+        return Err(e.to_string());
+    }
     tracing::info!("Destroyed '{label}' window");
     Ok(())
 }
@@ -188,22 +250,26 @@ fn prepare_widget(app: &AppHandle, window: &WebviewWindow, label: &str) {
             }
         }
         WindowEvent::CloseRequested { .. } => {
-            // Let the close go ahead (destroying the webview) but keep the
-            // position so the widget reopens where it was.
+            // The user closed the widget itself (e.g. Alt+F4): let the close
+            // go ahead, keep its position, and record it as turned off.
+            CLOSING.lock().insert(label.clone());
             if let (Some(sender), Ok(pos)) = (
                 app_handle.try_state::<PositionSender>(),
                 window_for_events.outer_position(),
             ) {
                 sender.0.push(label.clone(), pos);
             }
+            if !APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
+                if let Some(store) = app_handle.try_state::<Arc<WidgetStore>>() {
+                    store.update(&app_handle, |s| s.set_visibility(&label, false));
+                }
+                emit_widget_visibility(&app_handle, &label, false);
+            }
         }
         WindowEvent::Destroyed => {
-            if APP_SHUTTING_DOWN.load(Ordering::SeqCst) {
-                return;
-            }
-            if let Some(store) = app_handle.try_state::<Arc<WidgetStore>>() {
-                store.update(&app_handle, |s| s.set_visibility(&label, false));
-            }
+            // Visibility is persisted by whoever turned the widget off; a late
+            // Destroyed event must not overwrite a newer "on".
+            CLOSING.lock().remove(&label);
         }
         _ => {}
     });
@@ -222,10 +288,18 @@ fn displays(app: &AppHandle) -> (Vec<Display>, usize) {
         .map(|m| {
             let wa = m.work_area();
             Display {
-                x: wa.position.x,
-                y: wa.position.y,
-                width: wa.size.width,
-                height: wa.size.height,
+                bounds: Rect {
+                    x: m.position().x,
+                    y: m.position().y,
+                    width: m.size().width,
+                    height: m.size().height,
+                },
+                work: Rect {
+                    x: wa.position.x,
+                    y: wa.position.y,
+                    width: wa.size.width,
+                    height: wa.size.height,
+                },
                 scale: m.scale_factor(),
             }
         })
