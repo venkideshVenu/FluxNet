@@ -1,5 +1,10 @@
 # Software Requirements Specification (SRS)
 
+> This is the original requirements document, written before the first
+> release. It records the intended scope and goals; where it differs from the
+> code, the code and [ARCHITECTURE.md](ARCHITECTURE.md) describe how FluxNet
+> works today. Items such as macOS support are plans, not current features.
+
 # Cross-Platform Real-Time Network Meter Desktop Application
 
 ---
@@ -14,12 +19,12 @@ The application will primarily target Microsoft Windows during the initial relea
 
 The application will provide users with:
 
-* Real-time upload/download speed monitoring
-* Floating desktop widget overlay
-* System tray integration
-* Historical bandwidth visualization
-* Low-resource background execution
-* Customizable appearance and behavior
+- Real-time upload/download speed monitoring
+- Floating desktop widget overlay
+- System tray integration
+- Historical bandwidth visualization
+- Low-resource background execution
+- Customizable appearance and behavior
 
 The goal is to create a modern, minimal, high-performance alternative to existing network meter applications.
 
@@ -29,29 +34,29 @@ The application is designed as a lightweight desktop utility for users who want 
 
 The system will:
 
-* Monitor selected network interfaces
-* Calculate real-time bandwidth usage
-* Display data in an overlay widget
-* Provide historical mini-graphs
-* Run efficiently in the background
-* Support customization and theming
-* Minimize CPU and memory usage
+- Monitor selected network interfaces
+- Calculate real-time bandwidth usage
+- Display data in an overlay widget
+- Provide historical mini-graphs
+- Run efficiently in the background
+- Support customization and theming
+- Minimize CPU and memory usage
 
 The initial version focuses on:
 
-* Windows support
-* Core monitoring functionality
-* Stable floating overlay system
-* Performance optimization
+- Windows support
+- Core monitoring functionality
+- Stable floating overlay system
+- Performance optimization
 
 Future versions may include:
 
-* macOS support
-* Per-application network monitoring
-* Internet quality metrics
-* Plugin architecture
-* Cloud synchronization
-* Usage analytics
+- macOS support
+- Per-application network monitoring
+- Internet quality metrics
+- Plugin architecture
+- Cloud synchronization
+- Usage analytics
 
 ## 1.3 Definitions and Terminology
 
@@ -72,12 +77,12 @@ Future versions may include:
 
 This document is intended for:
 
-* Software developers
-* System architects
-* UI/UX designers
-* Contributors
-* Future maintainers
-* Open-source collaborators
+- Software developers
+- System architects
+- UI/UX designers
+- Contributors
+- Future maintainers
+- Open-source collaborators
 
 ## 1.5 Technology Stack
 
@@ -103,49 +108,49 @@ The application is a standalone desktop utility.
 
 The system consists of:
 
-* Native desktop window management
-* Real-time network monitoring engine
-* UI rendering engine
-* Background service layer
-* Platform integration layer
+- Native desktop window management
+- Real-time network monitoring engine
+- UI rendering engine
+- Background service layer
+- Platform integration layer
 
 The architecture separates:
 
-* System-level logic (Rust backend)
-* Presentation layer (React frontend)
+- System-level logic (Rust backend)
+- Presentation layer (React frontend)
 
 This separation improves:
 
-* maintainability
-* scalability
-* portability
-* performance
+- maintainability
+- scalability
+- portability
+- performance
 
 ## 2.2 Product Goals
 
 ### Functional Goals
 
-* Accurate real-time monitoring
-* Lightweight background execution
-* Stable overlay rendering
-* Cross-platform architecture
-* User customization
+- Accurate real-time monitoring
+- Lightweight background execution
+- Stable overlay rendering
+- Cross-platform architecture
+- User customization
 
 ### Engineering Goals
 
-* Low memory usage
-* Minimal CPU consumption
-* Efficient rendering
-* Smooth animations
-* Native desktop experience
+- Low memory usage
+- Minimal CPU consumption
+- Efficient rendering
+- Smooth animations
+- Native desktop experience
 
 ### User Experience Goals
 
-* Minimal visual clutter
-* Fast startup
-* Always accessible
-* Reliable measurements
-* Modern UI aesthetics
+- Minimal visual clutter
+- Fast startup
+- Always accessible
+- Reliable measurements
+- Modern UI aesthetics
 
 ## 2.3 User Classes
 
@@ -161,13 +166,13 @@ This separation improves:
 
 ### Initial Target
 
-* Windows 10
-* Windows 11
+- Windows 10
+- Windows 11
 
 ### Future Support
 
-* macOS Ventura+
-* macOS Sonoma+
+- macOS Ventura+
+- macOS Sonoma+
 
 ### Minimum Hardware Requirements
 
@@ -182,23 +187,23 @@ This separation improves:
 
 ### Technical Constraints
 
-* Must use Tauri architecture
-* Must minimize polling overhead
-* Must avoid memory leaks
-* Must support high-DPI displays
-* Must support multi-monitor setups
+- Must use Tauri architecture
+- Must minimize polling overhead
+- Must avoid memory leaks
+- Must support high-DPI displays
+- Must support multi-monitor setups
 
 ### UX Constraints
 
-* Overlay must remain unobtrusive
-* App should not block user workflows
-* Startup time should remain minimal
+- Overlay must remain unobtrusive
+- App should not block user workflows
+- Startup time should remain minimal
 
 ### Performance Constraints
 
-* CPU usage target: <2%
-* RAM usage target: <150 MB
-* UI refresh target: 60 FPS
+- CPU usage target: <2%
+- RAM usage target: <150 MB
+- UI refresh target: 60 FPS
 
 ---
 
@@ -228,37 +233,37 @@ This separation improves:
 
 ### Responsibilities
 
-* Widget rendering
-* Graph visualization
-* User settings UI
-* Theme handling
-* Window interaction
-* Real-time updates
+- Widget rendering
+- Graph visualization
+- User settings UI
+- Theme handling
+- Window interaction
+- Real-time updates
 
 ### Features
 
-* Responsive layout
-* Hardware accelerated rendering
-* Animation support
-* Dynamic graphs
+- Responsive layout
+- Hardware accelerated rendering
+- Animation support
+- Dynamic graphs
 
 ## 3.3 Backend Layer
 
 ### Responsibilities
 
-* Network interface monitoring
-* Bandwidth calculation
-* Polling management
-* CPU optimization
-* Native OS interaction
+- Network interface monitoring
+- Bandwidth calculation
+- Polling management
+- CPU optimization
+- Native OS interaction
 
 ### Rust Responsibilities
 
-* Read network counters
-* Process byte deltas
-* Compute transfer rates
-* Manage event loops
-* Provide IPC APIs
+- Read network counters
+- Process byte deltas
+- Compute transfer rates
+- Manage event loops
+- Provide IPC APIs
 
 ## 3.4 Platform Layer
 
@@ -266,18 +271,18 @@ This separation improves:
 
 Potential APIs:
 
-* IP Helper API
-* Performance Counters
-* WinRT APIs
-* Windows Networking APIs
+- IP Helper API
+- Performance Counters
+- WinRT APIs
+- Windows Networking APIs
 
 ### macOS APIs (Future)
 
 Potential APIs:
 
-* SystemConfiguration
-* Network framework
-* Darwin networking APIs
+- SystemConfiguration
+- Network framework
+- Darwin networking APIs
 
 ---
 
@@ -373,22 +378,22 @@ The application shall display a floating desktop widget.
 
 #### Per-Application Monitoring
 
-* Process-level network tracking
-* Application usage graphs
-* Top bandwidth consumers
+- Process-level network tracking
+- Application usage graphs
+- Top bandwidth consumers
 
 #### Internet Quality Metrics
 
-* Ping monitoring
-* Jitter monitoring
-* Packet loss analysis
+- Ping monitoring
+- Jitter monitoring
+- Packet loss analysis
 
 #### Advanced Overlay Modes
 
-* Gaming HUD
-* Compact mode
-* Graph-only mode
-* Minimal pill mode
+- Gaming HUD
+- Compact mode
+- Graph-only mode
+- Minimal pill mode
 
 ---
 
@@ -446,11 +451,11 @@ The application shall display a floating desktop widget.
 
 The UI should:
 
-* remain minimal
-* prioritize readability
-* avoid clutter
-* support translucency
-* support modern Windows aesthetics
+- remain minimal
+- prioritize readability
+- avoid clutter
+- support translucency
+- support modern Windows aesthetics
 
 ## 6.2 Widget Variants
 
@@ -458,33 +463,33 @@ The UI should:
 
 Displays:
 
-* upload speed
-* download speed
+- upload speed
+- download speed
 
 ### Graph Widget
 
 Displays:
 
-* historical graph
-* current speed
+- historical graph
+- current speed
 
 ### Gaming Overlay
 
 Displays:
 
-* latency
-* bandwidth
-* packet loss
+- latency
+- bandwidth
+- packet loss
 
 ## 6.3 Visual Style
 
 ### Preferred Styles
 
-* Windows 11 aesthetic
-* Acrylic blur
-* Mica effect
-* Rounded corners
-* Smooth animations
+- Windows 11 aesthetic
+- Acrylic blur
+- Mica effect
+- Rounded corners
+- Smooth animations
 
 ---
 
@@ -516,10 +521,10 @@ Speed = (CurrentBytes - PreviousBytes) / TimeInterval
 
 Additional Processing:
 
-* smoothing
-* averaging
-* spike reduction
-* adaptive refresh optimization
+- smoothing
+- averaging
+- spike reduction
+- adaptive refresh optimization
 
 ---
 
@@ -543,18 +548,18 @@ Additional Processing:
 
 The application shall provide:
 
-* EXE installer
-* MSI installer
-* Portable version (future)
+- EXE installer
+- MSI installer
+- Portable version (future)
 
 ## 9.2 Installer Features
 
 Installer should support:
 
-* desktop shortcut creation
-* startup registration
-* uninstall entry
-* version upgrades
+- desktop shortcut creation
+- startup registration
+- uninstall entry
+- version upgrades
 
 ---
 
@@ -576,37 +581,37 @@ Installer should support:
 
 Test:
 
-* bandwidth calculations
-* smoothing algorithms
-* parser logic
-* settings persistence
+- bandwidth calculations
+- smoothing algorithms
+- parser logic
+- settings persistence
 
 ## 11.2 Integration Testing
 
 Test:
 
-* frontend-backend IPC
-* tray integration
-* startup behavior
-* overlay rendering
+- frontend-backend IPC
+- tray integration
+- startup behavior
+- overlay rendering
 
 ## 11.3 Performance Testing
 
 Test:
 
-* CPU usage
-* memory leaks
-* refresh stability
-* rendering performance
+- CPU usage
+- memory leaks
+- refresh stability
+- rendering performance
 
 ## 11.4 Compatibility Testing
 
 Test:
 
-* Windows 10
-* Windows 11
-* multiple DPI scales
-* multiple monitors
+- Windows 10
+- Windows 11
+- multiple DPI scales
+- multiple monitors
 
 ---
 
@@ -616,29 +621,29 @@ Test:
 
 Features:
 
-* realtime monitoring
-* floating widget
-* tray integration
-* graph visualization
-* customization
+- realtime monitoring
+- floating widget
+- tray integration
+- graph visualization
+- customization
 
 ## Version 1.5
 
 Features:
 
-* latency monitoring
-* internet quality metrics
-* advanced themes
-* adaptive refresh
+- latency monitoring
+- internet quality metrics
+- advanced themes
+- adaptive refresh
 
 ## Version 2.0
 
 Features:
 
-* macOS support
-* per-app monitoring
-* plugin architecture
-* cloud sync
+- macOS support
+- per-app monitoring
+- plugin architecture
+- cloud sync
 
 ---
 
@@ -672,13 +677,13 @@ UI scaling must remain consistent across displays.
 
 The project will be considered successful if:
 
-* application remains lightweight
-* bandwidth calculations remain accurate
-* overlay remains stable
-* CPU usage remains minimal
-* users can customize behavior easily
-* installation is seamless
-* cross-platform architecture remains extensible
+- application remains lightweight
+- bandwidth calculations remain accurate
+- overlay remains stable
+- CPU usage remains minimal
+- users can customize behavior easily
+- installation is seamless
+- cross-platform architecture remains extensible
 
 ---
 
@@ -686,23 +691,23 @@ The project will be considered successful if:
 
 This project aims to create a modern, minimal, and efficient real-time network meter desktop application with a strong focus on:
 
-* engineering quality
-* performance
-* native desktop experience
-* scalability
-* user experience
+- engineering quality
+- performance
+- native desktop experience
+- scalability
+- user experience
 
 The architecture intentionally separates UI rendering from system-level logic to ensure:
 
-* maintainability
-* extensibility
-* platform portability
-* long-term scalability
+- maintainability
+- extensibility
+- platform portability
+- long-term scalability
 
 The project serves both as:
 
-* a practical productivity utility
-* a technically sophisticated systems engineering project
+- a practical productivity utility
+- a technically sophisticated systems engineering project
 
 ---
 
@@ -754,39 +759,40 @@ network-meter/
 
 ## Phase 1
 
-* Learn Tauri basics
-* Build network polling CLI
-* Understand Rust ownership and async
+- Learn Tauri basics
+- Build network polling CLI
+- Understand Rust ownership and async
 
 ## Phase 2
 
-* Build React widget UI
-* IPC integration
-* Real-time updates
+- Build React widget UI
+- IPC integration
+- Real-time updates
 
 ## Phase 3
 
-* Add tray support
-* Add graphs
-* Add settings
+- Add tray support
+- Add graphs
+- Add settings
 
 ## Phase 4
 
-* Performance optimization
-* Memory optimization
-* Rendering optimization
+- Performance optimization
+- Memory optimization
+- Rendering optimization
 
 ## Phase 5
 
-* Packaging
-* Installer
-* Release management
+- Packaging
+- Installer
+- Release management
 
 ## Phase 6
 
-* macOS support
-* Cross-platform abstractions
-* Advanced monitoring
+- macOS support
+- Cross-platform abstractions
+- Advanced monitoring
 
 ```
+
 ```

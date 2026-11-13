@@ -1,0 +1,88 @@
+name: Bug report
+description: Something in FluxNet doesn't work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please search [existing issues](https://github.com/venkideshVenu/FluxNet/issues?q=is%3Aissue) first.
+
+        **Security problems:** don't open a public issue. Follow [SECURITY.md](https://github.com/venkideshVenu/FluxNet/blob/main/SECURITY.md) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Turn on the Pill widget
+        2. Move it to the second monitor
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: FluxNet version
+      description: Shown at the bottom of Settings.
+      placeholder: "0.1.2"
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Run `winver` to find it.
+      placeholder: Windows 11 24H2 (build 26100)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Overview
+        - Data usage
+        - Network adapters
+        - Widgets page
+        - Settings
+        - First-run setup
+        - Pill widget
+        - Compact widget
+        - Game overlay
+        - Notification area (tray) icon or menu
+        - Installer or startup
+        - Other
+
+  - type: textarea
+    id: displays
+    attributes:
+      label: Display setup
+      description: For widget position or sizing problems, list each monitor's resolution and scale (Settings > System > Display).
+      placeholder: "Laptop 2560x1600 at 150%, external 1920x1080 at 100%"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Attach or paste the most recent file from `%APPDATA%\fluxnet\logs`, and `last_crash.log` from the same folder if FluxNet crashed.
+        Check them for anything you'd rather not share, such as adapter names.
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, screen recordings or other context.

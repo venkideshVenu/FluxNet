@@ -2,6 +2,24 @@
   "name": "fluxnet",
   "private": true,
   "version": "0.1.2",
+  "description": "Real-time network monitor for Windows with desktop widgets, a game overlay and local usage history",
+  "keywords": [
+    "network-monitor",
+    "bandwidth",
+    "windows",
+    "tauri",
+    "widget",
+    "system-tray"
+  ],
+  "homepage": "https://github.com/venkideshVenu/FluxNet#readme",
+  "bugs": {
+    "url": "https://github.com/venkideshVenu/FluxNet/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/venkideshVenu/FluxNet.git"
+  },
+  "author": "Venkidesh Venu",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "scripts": {
@@ -10,13 +28,18 @@
     "build": "vite build",
     "build:desktop": "tauri build",
     "preview": "vite preview",
+    "tauri": "tauri",
     "test": "vitest",
     "test:run": "vitest run",
-    "lint": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "tauri": "tauri",
-    "prepare": "husky",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test:run",
+    "version:check": "node scripts/version.mjs check",
+    "version:set": "node scripts/version.mjs set",
+    "prepare": "husky"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -48,6 +71,7 @@
     "globals": "^16.4.0",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "lint-staged": "^17.6.0",
     "postcss": "^8.5.15",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.0",
@@ -58,5 +82,13 @@
   },
   "engines": {
     "node": ">=24"
+  },
+  "packageManager": "pnpm@11.28.11",
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{js,mjs,css,html,json,md,yml,yaml}": "prettier --write"
   }
 }

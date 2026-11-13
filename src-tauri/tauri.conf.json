@@ -77,10 +77,10 @@
     }
   },
   "bundle": {
-    "copyright": "© 2026 Venkidesh Venu. All rights reserved.",
+    "copyright": "Copyright © 2026 Venkidesh Venu. Licensed under the GNU GPL v3 or later.",
     "category": "Utility",
     "publisher": "Venkidesh Venu",
-    "longDescription": "FluxNet is a lightweight real-time network monitoring desktop application with floating widget overlays, system tray integration, and historical bandwidth visualization.",
+    "longDescription": "FluxNet shows your network speed in real time from the Windows notification area, with small always-available desktop widgets, a game overlay with ping and packet loss, and a local history of how much data you use.",
     "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
