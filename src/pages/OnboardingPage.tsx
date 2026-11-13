@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { invokeWithTimeout, setStorageItem } from "@/utils";
+import { cacheHudDesign, invokeWithTimeout, setStorageItem } from "@/utils";
 import { ThemeToggle, WIDGET_VIEWS, WidgetPreview } from "@/components";
 import type { HudDesign } from "@/components/HudPresentation";
 
@@ -341,6 +341,11 @@ export function OnboardingPage() {
       await invokeWithTimeout("set_minimize_to_tray", {
         enabled: minimizeToTray,
       });
+      // Save the HUD design before showing widgets so a newly created HUD
+      // window starts at the chosen layout's size.
+      await invokeWithTimeout("set_hud_design", { design: hudDesign })
+        .then(() => cacheHudDesign(hudDesign))
+        .catch(() => {});
       await Promise.all(
         (["compact", "pill", "hud"] as WidgetStyle[]).map((label) =>
           invokeWithTimeout("set_widget_visibility", {
@@ -348,9 +353,6 @@ export function OnboardingPage() {
             visible: selectedWidgets.has(label),
           }).catch(() => {}),
         ),
-      );
-      await invokeWithTimeout("set_hud_design", { design: hudDesign }).catch(
-        () => {},
       );
       await invokeWithTimeout("set_onboarding_completed");
       setStorageItem("fluxnet_configured", "true");

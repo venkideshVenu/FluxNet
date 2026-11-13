@@ -1,6 +1,11 @@
 import { usePingPoller, useKeyboardNudge, useDragToMove } from "@/hooks";
 import { useNetworkStore, usePingStore, useSettingsStore } from "@/store";
-import { formatSpeed } from "@/utils";
+import {
+  cacheHudDesign,
+  formatSpeed,
+  getCachedHudDesign,
+  parseHudDesign,
+} from "@/utils";
 import { HudPresentation } from "./HudPresentation";
 import type { HudDesign } from "./HudPresentation";
 import { useState, useEffect } from "react";
@@ -17,21 +22,35 @@ export function GamingHud() {
   const up = formatSpeed(data.uploadBytesPerSec, displayUnits);
   const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
 
-  const [design, setDesign] = useState<HudDesign>("horizontal");
+  // Start from the cached value so a recreated window renders the right
+  // layout immediately; the backend value below is authoritative.
+  const [design, setDesign] = useState<HudDesign>(getCachedHudDesign);
 
-  // Load design from backend on mount
   useEffect(() => {
+    let alive = true;
     invoke<string>("get_hud_design")
-      .then((d) => setDesign(d as HudDesign))
+      .then((value) => {
+        const d = parseHudDesign(value);
+        if (alive && d) {
+          setDesign(d);
+          cacheHudDesign(d);
+        }
+      })
       .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  // Listen for design changes pushed from main window via eval
+  // Listen for design changes pushed from the dashboard via eval
   useEffect(() => {
     const handler = () => {
-      const d = (window as any).__FLUXNET_HUD_DESIGN;
-      if (d === "horizontal" || d === "vertical") {
+      const d = parseHudDesign(
+        (window as { __FLUXNET_HUD_DESIGN?: unknown }).__FLUXNET_HUD_DESIGN,
+      );
+      if (d) {
         setDesign(d);
+        cacheHudDesign(d);
       }
     };
     window.addEventListener("fluxnet_hud_design_changed", handler);

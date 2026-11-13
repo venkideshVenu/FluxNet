@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { ColorMode, getStoredHudDesign } from "@/utils";
+import {
+  ColorMode,
+  cacheHudDesign,
+  getCachedHudDesign,
+  parseHudDesign,
+} from "@/utils";
+import { invoke } from "@/api";
 import { Toggle } from "@/components";
 import { WIDGET_LABELS, WidgetLabel } from "@/config";
 import { useWidgetPanelState } from "@/hooks";
@@ -457,27 +463,37 @@ function WidgetConfigPanel({ widgetLabel }: { widgetLabel: WidgetLabel }) {
   const state = useWidgetPanelState(config);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // HUD design state
-  const [hudDesign, setHudDesign] = useState<HudDesign>(getStoredHudDesign);
+  // HUD design: the backend is authoritative; localStorage is only a cache
+  // that the HUD window reads for its first frame.
+  const [hudDesign, setHudDesign] = useState<HudDesign>(getCachedHudDesign);
 
   const handleHudDesignChange = async (design: HudDesign) => {
+    const previous = hudDesign;
     setHudDesign(design);
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       await invoke("set_hud_design", { design });
+      cacheHudDesign(design);
     } catch (e) {
       console.error("Failed to set hud design:", e);
+      setHudDesign(previous);
     }
   };
 
   useEffect(() => {
-    if (widgetLabel === "hud") {
-      import("@tauri-apps/api/core").then(({ invoke }) => {
-        invoke<string>("get_hud_design")
-          .then((d) => setHudDesign(d as HudDesign))
-          .catch(() => {});
-      });
-    }
+    if (widgetLabel !== "hud") return;
+    let alive = true;
+    invoke<string>("get_hud_design")
+      .then((value) => {
+        const d = parseHudDesign(value);
+        if (alive && d) {
+          setHudDesign(d);
+          cacheHudDesign(d);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [widgetLabel]);
 
   const opacityDescription =
