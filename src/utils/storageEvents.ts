@@ -26,21 +26,3 @@ export function setStorageWithNotify(key: string, value: string): void {
     }),
   );
 }
-
-/**
- * Removes from localStorage and notifies same-window listeners.
- */
-export function removeStorageWithNotify(key: string): void {
-  const oldValue = localStorage.getItem(key);
-  localStorage.removeItem(key);
-
-  window.dispatchEvent(
-    new StorageEvent("storage", {
-      key,
-      oldValue,
-      newValue: null,
-      storageArea: localStorage,
-      url: window.location.href,
-    }),
-  );
-}

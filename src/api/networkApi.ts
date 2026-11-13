@@ -53,7 +53,9 @@ export type NormalizedPollResult = {
 export async function pollNetworkData(
   windowLabel: string,
 ): Promise<NormalizedPollResult> {
-  if (windowLabel === "pill" || windowLabel === "hud") {
+  // Widgets only show the current rate, so they use the light stats call.
+  // Only the dashboard needs peaks and the full history snapshot.
+  if (windowLabel !== "main") {
     const stats = await fetchNetworkStats();
     return {
       currentUpload: stats.upload_bytes_per_sec,

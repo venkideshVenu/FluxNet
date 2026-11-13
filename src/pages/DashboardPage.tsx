@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useShallow } from "zustand/react/shallow";
 import { useNetworkStore, useSettingsStore } from "@/store";
 import {
   formatSpeed,
@@ -29,7 +30,18 @@ export function DashboardPage() {
     peakUpload,
     history,
     dismissError,
-  } = useNetworkStore();
+  } = useNetworkStore(
+    useShallow((s) => ({
+      data: s.data,
+      isConnected: s.isConnected,
+      isInitialized: s.isInitialized,
+      lastError: s.lastError,
+      peakDownload: s.peakDownload,
+      peakUpload: s.peakUpload,
+      history: s.history,
+      dismissError: s.dismissError,
+    })),
+  );
   const pollIntervalMs = useSettingsStore((s) => s.pollIntervalMs);
   const displayUnits = useSettingsStore((s) => s.displayUnits);
   const timeFormat = useSettingsStore((s) => s.timeFormat);

@@ -13,9 +13,7 @@ export type StorageSchema = {
   fluxnet_pill_always_on_top: string;
   fluxnet_compact_always_on_top: string;
   fluxnet_hud_always_on_top: string;
-  fluxnet_display_units: string;
   fluxnet_configured: string;
-  fluxnet_ping_target: string;
 };
 
 export function getStorageItem<K extends keyof StorageSchema>(

@@ -1,6 +1,5 @@
 import { invokeWithTimeout } from "@/utils";
 import type {
-  BandwidthSample,
   DailyUsage,
   HourlyUsage,
   MonthlyUsage,
@@ -9,12 +8,6 @@ import type {
 
 export async function fetchUsageStats(): Promise<UsageStats> {
   return invokeWithTimeout<UsageStats>("get_usage_stats_cmd");
-}
-
-export async function fetchHistoryRange(
-  minutes = 60,
-): Promise<BandwidthSample[]> {
-  return invokeWithTimeout<BandwidthSample[]>("get_history_range", { minutes });
 }
 
 export async function fetchHourlySummary(hours = 48): Promise<HourlyUsage[]> {

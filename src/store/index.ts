@@ -1,6 +1,6 @@
 export { useNetworkStore } from "./networkStore";
 export type { NetworkData, HistoryPoint } from "./networkStore";
-export { useSettingsStore, getDisplayUnits } from "./settingsStore";
+export { useSettingsStore } from "./settingsStore";
 export type {
   DisplayUnits,
   TimeFormat,

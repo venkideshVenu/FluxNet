@@ -55,7 +55,7 @@ function getInterfaceIcon(
 const POLL_INTERVAL_MS = 3000;
 
 export function InterfacesPage() {
-  const { data } = useNetworkStore();
+  const currentInterface = useNetworkStore((s) => s.data.interfaceName);
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +76,15 @@ export function InterfacesPage() {
 
   useEffect(() => {
     loadInterfaces();
-    timerRef.current = setInterval(loadInterfaces, POLL_INTERVAL_MS);
+    // Skip refreshes while the dashboard is hidden (minimized or in the tray).
+    timerRef.current = setInterval(() => {
+      if (!document.hidden) loadInterfaces();
+    }, POLL_INTERVAL_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [loadInterfaces]);
 
-  const currentInterface = data.interfaceName;
   const prevInterfaceRef = useRef(currentInterface);
   useEffect(() => {
     if (prevInterfaceRef.current !== currentInterface) {
@@ -130,7 +132,7 @@ export function InterfacesPage() {
           </div>
           <div className="text-[12px] text-text-muted font-normal">
             Currently monitoring:{" "}
-            <strong className="text-text">{data.interfaceName || "—"}</strong>
+            <strong className="text-text">{currentInterface || "—"}</strong>
           </div>
         </div>
         <button
@@ -274,7 +276,7 @@ export function InterfacesPage() {
           ) : (
             <div className="flex flex-col gap-2">
               {[...upInterfaces, ...downInterfaces].map((iface) => {
-                const isActive = iface.name === data.interfaceName;
+                const isActive = iface.name === currentInterface;
                 const isPending = selecting === iface.name;
                 const isUp = iface.status.toLowerCase() === "up";
                 const isSelectable = isUp && !isActive && !isPending;

@@ -7,14 +7,14 @@ import { useNetworkStore, useSettingsStore } from "@/store";
 
 let mockWindowLabel = "pill";
 
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ label: mockWindowLabel }),
-}));
-
-// Mock the network API layer
+// Mock the network API layer. WINDOW_LABEL is a getter so each test can
+// switch windows; the real export is computed once at module load.
 const mockPollNetworkData = vi.fn();
 vi.mock("@/api", () => ({
   pollNetworkData: (...args: unknown[]) => mockPollNetworkData(...args),
+  get WINDOW_LABEL() {
+    return mockWindowLabel;
+  },
 }));
 
 // Mock useStoredInterval to return a controlled value
@@ -39,8 +39,6 @@ function resetStores() {
     peakUpload: 0,
     peakDownload: 0,
     history: [],
-    todayUploadBytes: 0,
-    todayDownloadBytes: 0,
   });
 }
 
@@ -48,7 +46,7 @@ function resetStores() {
 
 describe("useNetworkPoller", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     resetStores();
     mockPollNetworkData.mockReset();
   });
@@ -172,7 +170,7 @@ describe("useNetworkPoller", () => {
 
   // ── Dashboard / Compact path ─────────────────────────────────────────
 
-  describe("dashboard/compact window (full snapshot)", () => {
+  describe("dashboard window (full snapshot)", () => {
     beforeEach(() => {
       mockWindowLabel = "main";
     });
@@ -289,45 +287,6 @@ describe("useNetworkPoller", () => {
     });
   });
 
-  // ── Daily usage accumulation ──────────────────────────────────────────
-
-  describe("daily usage accumulation", () => {
-    beforeEach(() => {
-      mockWindowLabel = "pill";
-    });
-
-    it("accumulates today bytes after second poll", async () => {
-      mockPollNetworkData.mockResolvedValue({
-        currentUpload: 1000, // 1000 B/s
-        currentDownload: 2000, // 2000 B/s
-        liveData: {
-          uploadBytesPerSec: 1000,
-          downloadBytesPerSec: 2000,
-          interfaceName: "eth0",
-        },
-      });
-
-      renderHook(() => useNetworkPoller());
-
-      // First poll — sets lastSampleAt but no accumulation yet
-      await waitFor(() => {
-        expect(useNetworkStore.getState().isInitialized).toBe(true);
-      });
-
-      // Second poll — should accumulate based on elapsed time
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-
-      await waitFor(() => {
-        const state = useNetworkStore.getState();
-        // After 1 second at 1000 B/s upload = ~1000 bytes accumulated
-        expect(state.todayUploadBytes).toBeGreaterThan(0);
-        expect(state.todayDownloadBytes).toBeGreaterThan(0);
-      });
-    });
-  });
-
   // ── Error recovery ────────────────────────────────────────────────────
 
   describe("error recovery", () => {
@@ -399,6 +358,162 @@ describe("useNetworkPoller", () => {
         vi.advanceTimersByTime(5000);
       });
 
+      expect(mockPollNetworkData).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not write to the store after unmount", async () => {
+      let resolve!: (v: unknown) => void;
+      mockPollNetworkData.mockReturnValue(
+        new Promise((r) => {
+          resolve = r;
+        }),
+      );
+
+      const { unmount } = renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalled());
+      unmount();
+
+      await act(async () => {
+        resolve({
+          currentUpload: 9,
+          currentDownload: 9,
+          liveData: {
+            uploadBytesPerSec: 9,
+            downloadBytesPerSec: 9,
+            interfaceName: "late",
+          },
+        });
+      });
+
+      expect(useNetworkStore.getState().data.interfaceName).toBe("");
+    });
+  });
+
+  // ── Ordering ──────────────────────────────────────────────────────────
+
+  describe("ordering", () => {
+    beforeEach(() => {
+      mockWindowLabel = "pill";
+    });
+
+    it("never has two polls in flight while the backend is slow", async () => {
+      let resolveFirst!: (v: unknown) => void;
+      mockPollNetworkData.mockReturnValueOnce(
+        new Promise((r) => {
+          resolveFirst = r;
+        }),
+      );
+
+      renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalledTimes(1));
+
+      // Several intervals pass while the first request is still pending.
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(mockPollNetworkData).toHaveBeenCalledTimes(1);
+
+      mockPollNetworkData.mockResolvedValue({
+        currentUpload: 2,
+        currentDownload: 2,
+        liveData: {
+          uploadBytesPerSec: 2,
+          downloadBytesPerSec: 2,
+          interfaceName: "new",
+        },
+      });
+      await act(async () => {
+        resolveFirst({
+          currentUpload: 1,
+          currentDownload: 1,
+          liveData: {
+            uploadBytesPerSec: 1,
+            downloadBytesPerSec: 1,
+            interfaceName: "old",
+          },
+        });
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() =>
+        expect(useNetworkStore.getState().data.interfaceName).toBe("new"),
+      );
+    });
+  });
+
+  // ── Hidden dashboard ──────────────────────────────────────────────────
+
+  describe("visibility", () => {
+    afterEach(() => {
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: false,
+      });
+    });
+
+    it("skips polling while the dashboard is hidden", async () => {
+      mockWindowLabel = "main";
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: true,
+      });
+      mockPollNetworkData.mockResolvedValue({});
+
+      renderHook(() => useNetworkPoller());
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(mockPollNetworkData).not.toHaveBeenCalled();
+    });
+
+    it("keeps widgets polling even when hidden", async () => {
+      mockWindowLabel = "pill";
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: true,
+      });
+      mockPollNetworkData.mockResolvedValue({
+        currentUpload: 0,
+        currentDownload: 0,
+        liveData: {
+          uploadBytesPerSec: 0,
+          downloadBytesPerSec: 0,
+          interfaceName: "eth0",
+        },
+      });
+
+      renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalled());
+    });
+  });
+
+  // ── Interval clamping ─────────────────────────────────────────────────
+
+  describe("interval clamping", () => {
+    it("never polls faster than 500ms even if 0 is configured", async () => {
+      mockWindowLabel = "main";
+      useSettingsStore.setState({ pollIntervalMs: 0 });
+      mockPollNetworkData.mockResolvedValue({
+        currentUpload: 0,
+        currentDownload: 0,
+        snapshot: {
+          peakUpload: 0,
+          peakDownload: 0,
+          interfaceName: "eth0",
+          isConnected: true,
+          history: [],
+        },
+      });
+
+      renderHook(() => useNetworkPoller());
+      await waitFor(() => expect(mockPollNetworkData).toHaveBeenCalledTimes(1));
+
+      // An unclamped 0ms interval would have fired many times by now.
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
       expect(mockPollNetworkData).toHaveBeenCalledTimes(1);
     });
   });

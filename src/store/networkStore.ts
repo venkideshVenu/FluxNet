@@ -38,11 +38,8 @@ type NetworkStore = {
   peakUpload: number;
   peakDownload: number;
   history: HistoryPoint[];
-  todayUploadBytes: number;
-  todayDownloadBytes: number;
 
   setData: (data: NetworkData) => void;
-  setConnected: (v: boolean) => void;
   setError: (err: string | null) => void;
   setSnapshot: (snap: {
     currentUpload: number;
@@ -53,13 +50,12 @@ type NetworkStore = {
     isConnected?: boolean;
     history: HistoryPoint[];
   }) => void;
-  addTodayUsage: (uploadBytes: number, downloadBytes: number) => void;
-  resetTodayUsage: () => void;
   resetPeaks: () => void;
   dismissError: () => void;
 };
 
-const MAX_HISTORY_POINTS = 600;
+/** Matches the backend snapshot length (`MAX_HISTORY_POINTS` in network.rs). */
+export const MAX_HISTORY_POINTS = 600;
 
 export const useNetworkStore = create<NetworkStore>((set) => ({
   data: { uploadBytesPerSec: 0, downloadBytesPerSec: 0, interfaceName: "" },
@@ -69,12 +65,9 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
   peakUpload: 0,
   peakDownload: 0,
   history: [],
-  todayUploadBytes: 0,
-  todayDownloadBytes: 0,
 
   setData: (data) =>
     set({ data, isConnected: true, isInitialized: true, lastError: null }),
-  setConnected: (isConnected) => set({ isConnected }),
   setError: (lastError) => set({ lastError, isConnected: false }),
   dismissError: () => set({ lastError: null }),
 
@@ -93,12 +86,5 @@ export const useNetworkStore = create<NetworkStore>((set) => ({
       history: snap.history.slice(-MAX_HISTORY_POINTS),
     }),
 
-  addTodayUsage: (uploadBytes, downloadBytes) =>
-    set((state) => ({
-      todayUploadBytes: state.todayUploadBytes + Math.max(0, uploadBytes),
-      todayDownloadBytes: state.todayDownloadBytes + Math.max(0, downloadBytes),
-    })),
-
-  resetTodayUsage: () => set({ todayUploadBytes: 0, todayDownloadBytes: 0 }),
   resetPeaks: () => set({ peakUpload: 0, peakDownload: 0 }),
 }));

@@ -92,7 +92,10 @@ export function HistoryPage() {
       }
     }
     void load(false);
-    const id = setInterval(() => load(true), 10_000);
+    // Skip refreshes while the dashboard is hidden (minimized or in the tray).
+    const id = setInterval(() => {
+      if (!document.hidden) void load(true);
+    }, 10_000);
     return () => clearInterval(id);
   }, []);
 
@@ -383,6 +386,7 @@ export function HistoryPage() {
                           formatter={makeFormatter(todayUnit.unitLabel)}
                         />
                         <Bar
+                          isAnimationActive={false}
                           dataKey="download"
                           fill="var(--net-download)"
                           radius={[3, 3, 0, 0]}
@@ -390,6 +394,7 @@ export function HistoryPage() {
                           name="download"
                         />
                         <Bar
+                          isAnimationActive={false}
                           dataKey="upload"
                           fill="var(--net-upload)"
                           radius={[3, 3, 0, 0]}
@@ -450,6 +455,7 @@ export function HistoryPage() {
                           formatter={makeFormatter(weekUnit.unitLabel)}
                         />
                         <Bar
+                          isAnimationActive={false}
                           dataKey="download"
                           fill="var(--net-download)"
                           radius={[3, 3, 0, 0]}
@@ -457,6 +463,7 @@ export function HistoryPage() {
                           name="download"
                         />
                         <Bar
+                          isAnimationActive={false}
                           dataKey="upload"
                           fill="var(--net-upload)"
                           radius={[3, 3, 0, 0]}
@@ -562,6 +569,7 @@ export function HistoryPage() {
                             formatter={makeFormatter(monthlyUnit.unitLabel)}
                           />
                           <Bar
+                            isAnimationActive={false}
                             dataKey="download"
                             fill="var(--net-download)"
                             radius={[3, 3, 0, 0]}
@@ -569,6 +577,7 @@ export function HistoryPage() {
                             name="download"
                           />
                           <Bar
+                            isAnimationActive={false}
                             dataKey="upload"
                             fill="var(--net-upload)"
                             radius={[3, 3, 0, 0]}

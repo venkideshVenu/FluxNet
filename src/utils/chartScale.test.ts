@@ -1,5 +1,50 @@
 import { describe, it, expect } from "vitest";
 import { formatBytes, formatLinkSpeed } from "./formatSpeed";
+import { computeChartScale } from "./chartScale";
+
+describe("computeChartScale", () => {
+  it.each([0, -5, NaN, Infinity, -Infinity])(
+    "returns a finite minimal axis for %s",
+    (input) => {
+      const { step, yMax, precision } = computeChartScale(input);
+      expect(step).toBe(0.02);
+      expect(yMax).toBe(0.02);
+      expect(precision).toBe(2);
+    },
+  );
+
+  it.each([
+    [0.1, 0.02],
+    [0.5, 0.1],
+    [1, 0.2],
+    [2, 0.5],
+    [5, 1],
+    [20, 2],
+    [50, 5],
+    [100, 10],
+    [200, 20],
+    [500, 50],
+    [501, 100],
+  ])("uses step %s → %s at the boundary", (input, step) => {
+    expect(computeChartScale(input).step).toBe(step);
+  });
+
+  it("yMax is always at least the input and a multiple of step", () => {
+    for (const v of [0.07, 0.33, 1.7, 3.3, 17, 43, 99, 151, 499, 1234]) {
+      const { step, yMax } = computeChartScale(v);
+      expect(yMax).toBeGreaterThanOrEqual(v);
+      expect(Math.abs(yMax / step - Math.round(yMax / step))).toBeLessThan(
+        1e-9,
+      );
+    }
+  });
+
+  it("chooses precision by magnitude", () => {
+    expect(computeChartScale(0.5).precision).toBe(2);
+    expect(computeChartScale(5).precision).toBe(1);
+    expect(computeChartScale(50).precision).toBe(0);
+  });
+});
 
 describe("formatBytes", () => {
   it("returns 0 B for zero input", () => {
@@ -34,8 +79,8 @@ describe("formatBytes", () => {
 });
 
 describe("formatLinkSpeed", () => {
-  it("returns '0 bps' for zero", () => {
-    expect(formatLinkSpeed(0)).toBe("0 bps");
+  it("returns a dash for zero (link speed unknown)", () => {
+    expect(formatLinkSpeed(0)).toBe("—");
   });
 
   it("formats megabits", () => {
@@ -52,8 +97,8 @@ describe("formatLinkSpeed", () => {
   });
 
   it("handles invalid input", () => {
-    expect(formatLinkSpeed(-1)).toBe("0 bps");
-    expect(formatLinkSpeed(NaN)).toBe("0 bps");
-    expect(formatLinkSpeed(Infinity)).toBe("0 bps");
+    expect(formatLinkSpeed(-1)).toBe("—");
+    expect(formatLinkSpeed(NaN)).toBe("—");
+    expect(formatLinkSpeed(Infinity)).toBe("—");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useNetworkStore } from "./networkStore";
+import { useNetworkStore, MAX_HISTORY_POINTS } from "./networkStore";
 
 describe("networkStore", () => {
   beforeEach(() => {
@@ -11,8 +11,6 @@ describe("networkStore", () => {
       peakUpload: 0,
       peakDownload: 0,
       history: [],
-      todayUploadBytes: 0,
-      todayDownloadBytes: 0,
     });
   });
 
@@ -66,8 +64,9 @@ describe("networkStore", () => {
       expect(state.history).toHaveLength(1);
     });
 
-    it("caps history at 300 points", () => {
-      const bigHistory = Array.from({ length: 500 }, (_, i) => ({
+    it("caps history at MAX_HISTORY_POINTS", () => {
+      const total = MAX_HISTORY_POINTS + 200;
+      const bigHistory = Array.from({ length: total }, (_, i) => ({
         upload: i,
         download: i * 2,
         t: i,
@@ -82,8 +81,10 @@ describe("networkStore", () => {
         history: bigHistory,
       });
 
-      expect(useNetworkStore.getState().history).toHaveLength(300);
-      // Should keep the LAST 300 points
+      expect(useNetworkStore.getState().history).toHaveLength(
+        MAX_HISTORY_POINTS,
+      );
+      // Should keep the most recent points
       expect(useNetworkStore.getState().history[0].t).toBe(200);
     });
 
@@ -116,36 +117,6 @@ describe("networkStore", () => {
       useNetworkStore.setState({ lastError: "Some error" });
       useNetworkStore.getState().dismissError();
       expect(useNetworkStore.getState().lastError).toBeNull();
-    });
-  });
-
-  describe("addTodayUsage", () => {
-    it("accumulates positive bytes", () => {
-      useNetworkStore.getState().addTodayUsage(100, 200);
-      useNetworkStore.getState().addTodayUsage(50, 75);
-      const state = useNetworkStore.getState();
-      expect(state.todayUploadBytes).toBe(150);
-      expect(state.todayDownloadBytes).toBe(275);
-    });
-
-    it("clamps negative values to zero", () => {
-      useNetworkStore.getState().addTodayUsage(-100, -200);
-      const state = useNetworkStore.getState();
-      expect(state.todayUploadBytes).toBe(0);
-      expect(state.todayDownloadBytes).toBe(0);
-    });
-  });
-
-  describe("resetTodayUsage", () => {
-    it("zeros out today bytes", () => {
-      useNetworkStore.setState({
-        todayUploadBytes: 5000,
-        todayDownloadBytes: 10000,
-      });
-      useNetworkStore.getState().resetTodayUsage();
-      const state = useNetworkStore.getState();
-      expect(state.todayUploadBytes).toBe(0);
-      expect(state.todayDownloadBytes).toBe(0);
     });
   });
 

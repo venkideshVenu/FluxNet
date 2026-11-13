@@ -44,14 +44,14 @@ describe("PillWidget", () => {
 
   it("shows live dot when connected", () => {
     render(<PillWidget />);
-    const dot = document.querySelector(".pill-live-dot.live");
+    const dot = document.querySelector('[data-state="live"]');
     expect(dot).toBeTruthy();
   });
 
   it("shows dead dot when disconnected", () => {
     useNetworkStore.setState({ isConnected: false });
     render(<PillWidget />);
-    const dot = document.querySelector(".pill-live-dot.dead");
+    const dot = document.querySelector('[data-state="dead"]');
     expect(dot).toBeTruthy();
   });
 

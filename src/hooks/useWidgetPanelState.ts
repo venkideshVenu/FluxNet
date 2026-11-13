@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
-import { invoke, WebviewWindow } from "@/api";
+import { useEffect, useRef, useState } from "react";
+import {
+  invoke,
+  listen,
+  WIDGET_VISIBILITY_EVENT,
+  type UnlistenFn,
+  type WidgetVisibilityPayload,
+} from "@/api";
 import { ColorMode, setStorageWithNotify } from "@/utils";
 import { WidgetRegistryEntry } from "@/config";
 
@@ -18,29 +24,66 @@ export function useWidgetPanelState(config: WidgetRegistryEntry) {
   });
 
   const [opacity, setOpacity] = useState(() => {
-    const saved = localStorage.getItem(config.opacityKey);
-    return saved ? Number(saved) : config.defaultOpacity;
+    const saved = Number(localStorage.getItem(config.opacityKey) ?? NaN);
+    return Number.isFinite(saved) && saved > 0 ? saved : config.defaultOpacity;
   });
   const [colorMode, setColorMode] = useState<ColorMode>(config.getStoredMode());
   const [intervalMs, setIntervalMs] = useState(config.getStoredInterval());
 
+  const togglingRef = useRef(false);
+
+  // Widget windows are created and destroyed on demand, so read the persisted
+  // visibility from the backend and follow its change events (tray toggles,
+  // Alt+F4 on a widget, other panels) instead of probing the window.
   useEffect(() => {
-    WebviewWindow.getByLabel(config.label).then((win) => {
-      if (win) {
-        win.isVisible().then(setVisible);
-      } else {
-        setVisible(false);
-      }
-    });
+    let alive = true;
+    let eventSeen = false;
+    let unlisten: UnlistenFn | undefined;
+
+    listen<WidgetVisibilityPayload>(WIDGET_VISIBILITY_EVENT, (event) => {
+      if (event.payload?.label !== config.label) return;
+      eventSeen = true;
+      setVisible(Boolean(event.payload.visible));
+    })
+      .then((fn) => {
+        if (alive) unlisten = fn;
+        else fn();
+      })
+      .catch((err) => console.error("Visibility listener failed:", err));
+
+    invoke<boolean>("get_widget_visibility", { label: config.label })
+      .then((value) => {
+        // A change event is newer than this initial read.
+        if (alive && !eventSeen) setVisible(Boolean(value));
+      })
+      .catch((err) => {
+        console.error("get_widget_visibility failed:", err);
+        if (alive && !eventSeen) setVisible(false);
+      });
+
+    return () => {
+      alive = false;
+      unlisten?.();
+    };
   }, [config.label]);
 
   const toggleVisible = async () => {
-    const next = !visible;
+    if (visible === null || togglingRef.current) return;
+    const previous = visible;
+    const next = !previous;
+    togglingRef.current = true;
     setVisible(next);
-    await invoke("set_widget_visibility", {
-      label: config.label,
-      visible: next,
-    });
+    try {
+      await invoke("set_widget_visibility", {
+        label: config.label,
+        visible: next,
+      });
+    } catch (err) {
+      console.error("set_widget_visibility failed:", err);
+      setVisible(previous);
+    } finally {
+      togglingRef.current = false;
+    }
   };
 
   const handleAlwaysOnTop = async (value: boolean) => {

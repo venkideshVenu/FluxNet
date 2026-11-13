@@ -32,13 +32,13 @@ export const PillPresentation = memo(function PillPresentation({
   const dotColor = !hasInterface
     ? "bg-[#ef4444] shadow-[0_0_6px_rgba(239,68,68,0.6)]"
     : isConnected
-      ? "bg-[#0f8c42] shadow-[0_0_6px_rgba(15,140,66,0.6)] in-data-[theme='dark']_&]:bg-[#22d97d] in-data-[theme='dark']_&]:shadow-[0_0_6px_rgba(34,217,125,0.7)]"
+      ? "bg-[#0f8c42] shadow-[0_0_6px_rgba(15,140,66,0.6)] in-data-[theme='dark']:bg-[#22d97d] in-data-[theme='dark']:shadow-[0_0_6px_rgba(34,217,125,0.7)]"
       : "bg-[#8a8590]";
 
   return (
-    <div className="inline-flex items-center justify-center bg-(--pill-bg) border border-(--pill-border) ... rounded-full px-2.5 py-1.25 gap-1.75 w-full cursor-grab active:cursor-grabbing">
-      <div className="flex items-center gap-1.5 w-16.5 shrink-0">
-        <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-8.5 text-right tabular-nums overflow-hidden whitespace-nowrap text-net-download">
+    <div className="inline-flex items-center justify-center bg-(--pill-bg) border border-(--pill-border) rounded-full px-2.5 py-1.25 gap-1.75 w-full cursor-grab active:cursor-grabbing">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-[6ch] text-right tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-net-download">
           {downloadValue}
         </span>
         <span
@@ -48,8 +48,8 @@ export const PillPresentation = memo(function PillPresentation({
         </span>
       </div>
       <div className="w-px h-3.25 bg-(--pill-sep) mx-px" />
-      <div className="flex items-center gap-1.5 w-16.5 shrink-0">
-        <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-8.5 text-right tabular-nums overflow-hidden whitespace-nowrap text-net-upload">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-[12px] font-bold font-mono leading-none tracking-[-0.03em] w-[6ch] text-right tabular-nums overflow-hidden text-ellipsis whitespace-nowrap text-net-upload">
           {uploadValue}
         </span>
         <span
@@ -60,6 +60,9 @@ export const PillPresentation = memo(function PillPresentation({
       </div>
       <div
         className={`w-1.75 h-1.75 ml-0.5 rounded-full ${dotColor}`}
+        data-state={
+          !hasInterface ? "no-interface" : isConnected ? "live" : "dead"
+        }
         aria-hidden="true"
       />
     </div>

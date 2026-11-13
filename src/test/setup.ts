@@ -21,8 +21,6 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-vi.mock("@tauri-apps/api/webviewWindow", () => ({
-  WebviewWindow: {
-    getByLabel: vi.fn().mockResolvedValue(null),
-  },
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
 }));

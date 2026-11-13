@@ -13,7 +13,6 @@ export type {
 
 export {
   fetchUsageStats,
-  fetchHistoryRange,
   fetchHourlySummary,
   fetchDailySummary,
   fetchMonthlySummary,
@@ -21,10 +20,12 @@ export {
 
 export {
   invoke,
+  listen,
   getCurrentWindow,
-  WebviewWindow,
   WINDOW_LABEL,
+  WIDGET_VISIBILITY_EVENT,
   startDragging,
   getWindowPosition,
   setWindowPosition,
 } from "./tauri";
+export type { UnlistenFn, WidgetVisibilityPayload } from "./tauri";
