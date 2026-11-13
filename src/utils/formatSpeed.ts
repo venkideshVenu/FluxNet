@@ -20,6 +20,49 @@ const Kbit = 1000;
 const Mbit = 1000 * Kbit;
 const Gbit = 1000 * Mbit;
 
+type Scale = { unit: string; divisor: number; digits: number }[];
+
+const BYTE_SPEED_SCALE: Scale = [
+  { unit: "B/s", divisor: 1, digits: 0 },
+  { unit: "KB/s", divisor: KB, digits: 1 },
+  { unit: "MB/s", divisor: MB, digits: 1 },
+  { unit: "GB/s", divisor: GB, digits: 2 },
+];
+
+const BIT_SPEED_SCALE: Scale = [
+  { unit: "bps", divisor: 1, digits: 0 },
+  { unit: "Kbps", divisor: Kbit, digits: 1 },
+  { unit: "Mbps", divisor: Mbit, digits: 1 },
+  { unit: "Gbps", divisor: Gbit, digits: 2 },
+];
+
+const BYTE_TOTAL_SCALE: Scale = [
+  { unit: "B", divisor: 1, digits: 0 },
+  { unit: "KB", divisor: KB, digits: 1 },
+  { unit: "MB", divisor: MB, digits: 1 },
+  { unit: "GB", divisor: GB, digits: 1 },
+];
+
+/**
+ * Picks the largest unit the value reaches, then moves up one unit if
+ * rounding would display the next unit's base (e.g. 1048575 B/s would
+ * otherwise show as "1024.0 KB/s" instead of "1.0 MB/s").
+ */
+function formatOnScale(value: number, scale: Scale): SpeedResult {
+  let i = scale.length - 1;
+  while (i > 0 && value < scale[i].divisor) i -= 1;
+
+  let text = (value / scale[i].divisor).toFixed(scale[i].digits);
+  while (
+    i < scale.length - 1 &&
+    Number(text) * scale[i].divisor >= scale[i + 1].divisor
+  ) {
+    i += 1;
+    text = (value / scale[i].divisor).toFixed(scale[i].digits);
+  }
+  return { value: text, unit: scale[i].unit };
+}
+
 /**
  * Format a bytes-per-second value into a human-readable speed string.
  *
@@ -30,43 +73,22 @@ export function formatSpeed(
   bytesPerSec: number,
   mode: DisplayUnits = "bytes",
 ): SpeedResult {
-  if (bytesPerSec <= 0 || !isFinite(bytesPerSec)) {
+  if (!(bytesPerSec > 0) || !isFinite(bytesPerSec)) {
     return { value: "0.0", unit: mode === "bits" ? "bps" : "B/s" };
   }
-
-  if (mode === "bits") {
-    const bitsPerSec = bytesPerSec * 8;
-    if (bitsPerSec >= Gbit)
-      return { value: (bitsPerSec / Gbit).toFixed(2), unit: "Gbps" };
-    if (bitsPerSec >= Mbit)
-      return { value: (bitsPerSec / Mbit).toFixed(1), unit: "Mbps" };
-    if (bitsPerSec >= Kbit)
-      return { value: (bitsPerSec / Kbit).toFixed(1), unit: "Kbps" };
-    return { value: bitsPerSec.toFixed(0), unit: "bps" };
-  }
-
-  // Bytes mode (default)
-  if (bytesPerSec >= GB)
-    return { value: (bytesPerSec / GB).toFixed(2), unit: "GB/s" };
-  if (bytesPerSec >= MB)
-    return { value: (bytesPerSec / MB).toFixed(1), unit: "MB/s" };
-  if (bytesPerSec >= KB)
-    return { value: (bytesPerSec / KB).toFixed(1), unit: "KB/s" };
-  return { value: bytesPerSec.toFixed(0), unit: "B/s" };
+  return mode === "bits"
+    ? formatOnScale(bytesPerSec * 8, BIT_SPEED_SCALE)
+    : formatOnScale(bytesPerSec, BYTE_SPEED_SCALE);
 }
 
 /**
  * Format a total byte count into human-readable form (always base 1024).
  */
 export function formatBytes(bytes: number): BytesResult {
-  if (bytes <= 0 || !isFinite(bytes)) {
+  if (!(bytes > 0) || !isFinite(bytes)) {
     return { value: "0", unit: "B" };
   }
-
-  if (bytes >= GB) return { value: (bytes / GB).toFixed(1), unit: "GB" };
-  if (bytes >= MB) return { value: (bytes / MB).toFixed(1), unit: "MB" };
-  if (bytes >= KB) return { value: (bytes / KB).toFixed(1), unit: "KB" };
-  return { value: bytes.toFixed(0), unit: "B" };
+  return formatOnScale(bytes, BYTE_TOTAL_SCALE);
 }
 
 /**

@@ -1,8 +1,10 @@
-export function computeChartScale(maxValue: number): {
+export function computeChartScale(rawMax: number): {
   step: number;
   yMax: number;
   precision: number;
 } {
+  // NaN, Infinity or negative input would otherwise produce a NaN axis.
+  const maxValue = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 0;
   const step =
     maxValue <= 0.1
       ? 0.02
