@@ -26,7 +26,7 @@ tauri-plugin-autostart = "2"
 rusqlite = { version = "0.31", features = ["bundled"] }
 rusqlite_migration = "1.2"
 chrono = { version = "0.4", features = ["serde"] }
-parking_lot = "0.12.5"
+parking_lot = "0.13.0"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
