@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
 
+mod app_windows;
 mod background;
 mod commands;
 mod dto;
@@ -30,7 +31,7 @@ use commands::visibility::{
 };
 use persistence::app_settings::SettingsStore;
 use std::sync::Arc;
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
 fn init_logging() {
@@ -127,11 +128,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
+            app_windows::open_dashboard(app);
         }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -187,9 +184,9 @@ fn main() {
                     if let Some(store) = app_handle.try_state::<Arc<SettingsStore>>() {
                         let minimize = store.read(|s| s.minimize_to_tray);
                         if minimize {
-                            api.prevent_close();
-                            window.hide().ok();
-                            tracing::debug!("Main window hidden to tray (minimize_to_tray=true)");
+                            // Let the window close: destroying the webview frees its
+                            // renderer memory. The tray recreates it on demand.
+                            tracing::debug!("Main window closed to tray (minimize_to_tray=true)");
                         } else {
                             api.prevent_close();
                             tracing::debug!("minimize_to_tray=false, shutting down app");
@@ -232,6 +229,17 @@ fn main() {
             _ => {}
         })
         .setup(setup::setup)
-        .run(tauri::generate_context!())
-        .expect("error while running FluxNet");
+        .build(tauri::generate_context!())
+        .expect("error while building FluxNet")
+        .run(|_app, event| {
+            // With no windows open (dashboard closed to tray, widgets off) Tauri
+            // asks to exit with no code. Keep running in the tray; explicit
+            // `app.exit(code)` calls carry a code and still exit.
+            if let RunEvent::ExitRequested {
+                code: None, api, ..
+            } = event
+            {
+                api.prevent_exit();
+            }
+        });
 }

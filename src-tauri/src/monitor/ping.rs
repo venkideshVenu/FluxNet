@@ -6,10 +6,11 @@ pub struct PingResult {
     pub loss: bool,
 }
 
-// ── Raw FFI declarations at module level ──────────────────────────────────────
+// ── Raw FFI declarations at module level (Windows only) ───────────────────────
 // iphlpapi.dll is already linked by the `windows` crate (GetAdaptersAddresses).
 // These functions live in the same DLL, so no additional #[link] is needed.
 
+#[cfg(windows)]
 #[repr(C)]
 #[allow(non_snake_case, non_camel_case_types, dead_code)]
 struct IP_OPTION_INFORMATION {
@@ -20,6 +21,7 @@ struct IP_OPTION_INFORMATION {
     OptionsData: *mut u8,
 }
 
+#[cfg(windows)]
 #[repr(C)]
 #[allow(non_snake_case, non_camel_case_types, dead_code)]
 struct ICMP_ECHO_REPLY {
@@ -32,8 +34,10 @@ struct ICMP_ECHO_REPLY {
     Options: IP_OPTION_INFORMATION,
 }
 
+#[cfg(windows)]
 type HANDLE = *mut std::ffi::c_void;
 
+#[cfg(windows)]
 #[link(name = "iphlpapi")]
 unsafe extern "system" {
     fn IcmpCreateFile() -> HANDLE;
@@ -50,12 +54,16 @@ unsafe extern "system" {
     ) -> u32;
 }
 
+#[cfg(windows)]
 const INVALID_HANDLE_VALUE: HANDLE = -1isize as HANDLE;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /// Measure ping using the Windows ICMP API (IcmpSendEcho).
 /// Does NOT use raw sockets, does NOT require admin, does NOT flash a console.
+///
+/// On other platforms (development only) this falls back to timing a TCP
+/// connect, since unprivileged ICMP is not portable.
 pub async fn measure_ping(target: IpAddr) -> PingResult {
     let target = match target {
         IpAddr::V4(v4) => v4,
@@ -67,7 +75,12 @@ pub async fn measure_ping(target: IpAddr) -> PingResult {
         }
     };
 
-    tokio::task::spawn_blocking(move || ping_icmp_v4(target, Duration::from_secs(2)))
+    #[cfg(windows)]
+    let probe = ping_icmp_v4;
+    #[cfg(not(windows))]
+    let probe = ping_tcp_v4;
+
+    tokio::task::spawn_blocking(move || probe(target, Duration::from_secs(2)))
         .await
         .unwrap_or(PingResult {
             latency_ms: None,
@@ -75,6 +88,31 @@ pub async fn measure_ping(target: IpAddr) -> PingResult {
         })
 }
 
+#[cfg(not(windows))]
+fn ping_tcp_v4(target: std::net::Ipv4Addr, timeout: Duration) -> PingResult {
+    use std::io::ErrorKind;
+    use std::net::{SocketAddr, TcpStream};
+
+    let addr = SocketAddr::from((target, 443));
+    let started = std::time::Instant::now();
+    match TcpStream::connect_timeout(&addr, timeout) {
+        // A refused connection still proves the host answered.
+        Ok(_) => {}
+        Err(e) if e.kind() == ErrorKind::ConnectionRefused => {}
+        Err(_) => {
+            return PingResult {
+                latency_ms: None,
+                loss: true,
+            };
+        }
+    }
+    PingResult {
+        latency_ms: Some(started.elapsed().as_secs_f64() * 1000.0),
+        loss: false,
+    }
+}
+
+#[cfg(windows)]
 fn ping_icmp_v4(target: std::net::Ipv4Addr, timeout: Duration) -> PingResult {
     let handle = unsafe { IcmpCreateFile() };
     if handle == INVALID_HANDLE_VALUE || handle.is_null() {
