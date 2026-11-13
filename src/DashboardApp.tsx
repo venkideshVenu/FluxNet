@@ -1,23 +1,25 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useNetworkPoller, useThemeSync, useOnboardingGuard } from "@/hooks";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useNetworkPoller, useOnboardingGuard, useThemeSync } from "@/hooks";
 import { Sidebar } from "@/components";
+import { ProgressRing } from "@/components/fluent";
 import {
   DashboardPage,
   HistoryPage,
   InterfacesPage,
+  OnboardingPage,
   SettingsPage,
   WidgetSettingsPage,
-  OnboardingPage,
 } from "@/pages";
 import { AppProviders } from "@/AppProviders";
 
 function OnboardingRouter() {
+  useThemeSync();
   const completed = useOnboardingGuard();
 
   if (completed === null) {
     return (
-      <div className="w-screen h-screen bg-bg flex items-center justify-center">
-        <div className="text-[12px] text-text-muted">Loading…</div>
+      <div className="flex h-screen w-screen items-center justify-center">
+        <ProgressRing />
       </div>
     );
   }
@@ -35,28 +37,30 @@ function OnboardingRouter() {
 
 function DashboardContent() {
   useNetworkPoller();
-  useThemeSync();
 
   return (
-    <div className="flex w-screen h-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden">
       <a
         href="#main-content"
-        className="absolute -top-full left-0 z-9999 px-4 py-2 bg-accent text-white text-sm font-medium no-underline rounded-br-md focus:top-0 transition-[top] duration-200"
+        className="absolute -top-full left-2 z-50 rounded-control bg-accent px-3 py-1.5 text-on-accent focus:top-2"
       >
-        Skip to main content
+        Skip to content
       </a>
-
       <Sidebar />
+      {/* The content layer: on Windows 11 it floats over Mica like WinUI apps. */}
       <main
         id="main-content"
-        className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-bg scrollbar-none"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded-tl-card border-t border-l border-layer-stroke bg-layer"
       >
         <Routes>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/interfaces" element={<InterfacesPage />} />
+          <Route path="/usage" element={<HistoryPage />} />
+          <Route path="/adapters" element={<InterfacesPage />} />
           <Route path="/widgets" element={<WidgetSettingsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          {/* Old paths, kept so saved links and habits keep working. */}
+          <Route path="/history" element={<Navigate to="/usage" replace />} />
+          <Route path="/interfaces" element={<Navigate to="/adapters" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
