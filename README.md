@@ -1,356 +1,143 @@
-# FluxNet
-
 <div align="center">
-  <img src="public/branding/logo-primary.png" alt="FluxNet Logo" width="256">
-  <br>
-  <strong>Real‑Time Network Monitoring for Windows</strong>
-  <br>
-  <sub>Lightweight · Native · Beautiful</sub>
+  <img src="public/branding/logo-primary.png" alt="FluxNet" width="200">
+
+  <p><strong>See your network speed at a glance on Windows.</strong></p>
+
+[![CI](https://github.com/venkideshVenu/FluxNet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/venkideshVenu/FluxNet/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/venkideshVenu/FluxNet?sort=semver)](https://github.com/venkideshVenu/FluxNet/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/venkideshVenu/FluxNet/total)](https://github.com/venkideshVenu/FluxNet/releases)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
+
 </div>
 
----
+FluxNet shows your download and upload speed live, from small desktop widgets
+or a game overlay, and keeps a record of how much data you use. It runs in the
+notification area, stores everything on your PC, and is built with Rust and
+[Tauri](https://tauri.app/) to stay light.
 
-[![Rust](https://img.shields.io/badge/Rust-Stable-orange)]()
-[![Tauri](https://img.shields.io/badge/Tauri-2.x-purple)](https://tauri.app/)
-[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
-[![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/venkideshVenu/fluxnet/ci.yml?branch=main)](https://github.com/venkideshVenu/fluxnet/actions)
-[![Downloads](https://img.shields.io/github/downloads/venkideshVenu/fluxnet/total)](https://github.com/venkideshVenu/fluxnet/releases)
-
----
-
-## 📖 Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Technology Stack](#technology-stack)
-- [Architecture Overview](#architecture-overview)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Development](#development)
-  - [Building](#building)
-- [Configuration](#configuration)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-
----
-
-## Overview
-
-**FluxNet** is a production‑grade desktop application that brings real‑time network monitoring to your Windows system tray. With a focus on **performance**, **accuracy**, and **beauty**, FluxNet provides floating widgets that display live upload/download speeds, latency, and packet loss – all without cluttering your workflow.
-
-Whether you are a developer debugging network‑dependent code, a gamer tracking latency, or a power user understanding bandwidth usage, FluxNet gives you the insights you need at a glance.
-
----
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="FluxNet Overview page" width="90%">
+</p>
 
 ## Features
 
-### 🚀 Real‑Time Monitoring
+- **Live speeds.** Download and upload measured twice a second, with peak
+  speeds and a live chart.
+- **Desktop widgets.** A slim pill, a compact card with today's totals, and a
+  game overlay with ping and packet loss. Drag them anywhere, including over the
+  taskbar. Each has its own opacity, theme, refresh rate and always-on-top
+  setting.
+- **Data usage history.** Hourly, daily and monthly totals in charts or a
+  table, kept for as long as you use FluxNet.
+- **Adapter choice.** Follows your best connection automatically, or stays on
+  the adapter you pick: Ethernet, Wi-Fi, USB tethering or VPN.
+- **Fits into Windows 11.** Mica background, your accent colour, light and dark
+  mode, and Windows Settings-style pages. Works on Windows 10 too.
+- **Multi-monitor aware.** Widgets stay the right size on monitors with
+  different scaling, and come back where you left them.
+- **Private.** No account, no telemetry. See [Privacy](#privacy).
 
-- **500ms sample interval** for accurate bandwidth measurements  
-- Live upload and download speeds (B/s, KB/s, MB/s, GB/s)  
-- Peak speed tracking since last reset  
-- Connection status indicator (connected / disconnected)  
+## Install
 
-### 🖥️ Native Windows 11 Integration
+1. Download `FluxNet_x.y.z_x64-setup.exe` from the
+   [latest release](https://github.com/venkideshVenu/FluxNet/releases/latest).
+2. Run it. FluxNet installs for your user only and needs no administrator
+   rights.
+3. Follow the first-run setup to pick an adapter and turn on widgets.
 
-- **Mica** and **Acrylic** materials for a modern look  
-- System tray icon with quick access menu  
-- Theme‑aware tray icon (light/dark)  
-- Full DPI scaling support  
+Requires 64-bit Windows 10 or 11. The installer adds Microsoft WebView2 if it's
+missing (Windows 11 already has it).
 
-### 🧩 Floating Widgets
+> [!NOTE]
+> The installer isn't code-signed yet, so Windows SmartScreen may show
+> "Windows protected your PC". Choose **More info**, then **Run anyway**. You
+> can check the download against `SHA256SUMS.txt` on the release page with
+> `Get-FileHash .\FluxNet_x.y.z_x64-setup.exe`.
 
-- **Pill** – minimal inline speed bar  
-- **Compact** – detailed card with daily totals  
-- **HUD** – gaming overlay with ping and loss  
-- Drag‑to‑move and keyboard nudge (`Arrow` keys)  
-- Individual opacity and always‑on‑top settings  
+## Using FluxNet
 
-### 📊 Historical Data
+- Click the FluxNet icon in the notification area to open the main window.
+  Right-click it to turn widgets on or off or to quit.
+- Drag a widget to move it. With a widget selected, the arrow keys nudge it,
+  and Shift moves it further.
+- Closing the main window keeps FluxNet running in the notification area. You
+  can turn this off in **Settings → Startup**.
 
-- Persistent **SQLite** database  
-- Raw samples stored for **7 days**  
-- Hourly, daily, and monthly aggregates (kept forever)  
-- Interactive charts with panning and zooming  
-- Usage summary: Today, Week, Month, all‑time peaks  
+## Privacy
 
-### ⚙️ Customizable Settings
+FluxNet reads your network adapters' traffic counters. It never captures or
+inspects your traffic. The only network traffic it creates is a ping to
+Cloudflare's `1.1.1.1` every 5 seconds, which it uses to measure latency.
 
-- Refresh interval (500ms – 5000ms)  
-- Display units (Bytes or Bits per second)  
-- Ping target (IP or hostname)  
-- Minimize to tray behaviour  
-- Theme mode (Light / Dark / System)  
-- Accent colour picker  
+Everything stays on your PC:
 
-### 🔒 Built for Performance
+| What                          | Where                                  |
+| ----------------------------- | -------------------------------------- |
+| Usage history (SQLite)        | `%APPDATA%\com.fluxnet.app\fluxnet.db` |
+| Settings and widget positions | `%APPDATA%\com.fluxnet.app\*.json`     |
+| Logs                          | `%APPDATA%\fluxnet\logs`               |
 
-- CPU usage **< 2%** average  
-- Memory footprint **< 150 MB**  
-- Instant startup (< 2 seconds)  
-- Zero data transmission – **100% local**  
+Uninstalling from **Settings → Apps** removes the app. Delete these folders as
+well to remove your history.
 
----
+## Screenshots
 
-## 📸 Screenshots
+<table>
+  <tr>
+    <td><img src="docs/screenshots/history.png" alt="Data usage page"></td>
+    <td><img src="docs/screenshots/widgets.png" alt="Widgets page"></td>
+  </tr>
+  <tr>
+    <td align="center">Data usage</td>
+    <td align="center">Widgets</td>
+  </tr>
+</table>
 
-### 📊 Dashboard
-Real-time network activity overview with live upload/download statistics, peak speeds, and bandwidth charts.
+## Building from source
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="90%">
-</p>
-
-### 🧩 Widgets
-Configure and manage floating desktop widgets with customizable appearance, refresh intervals, and display modes.
-
-<p align="center">
-  <img src="docs/screenshots/widgets.png" alt="Widgets" width="90%">
-</p>
-
-### 📈 History
-Explore historical bandwidth usage with interactive charts and detailed traffic summaries.
-
-<p align="center">
-  <img src="docs/screenshots/history.png" alt="History" width="90%">
-</p>
-
-### ⚙️ Settings
-Personalize FluxNet with theme preferences, startup behavior, display units, and monitoring options.
-
-<p align="center">
-  <img src="docs/screenshots/settings.png" alt="Settings" width="90%">
-</p>
-
----
----
-
-## Technology Stack
-
-| Layer           | Technology                                                                 |
-| --------------- | -------------------------------------------------------------------------- |
-| **Backend**     | Rust, Tauri, Tokio, SQLite, Windows API (`windows` crate), sysinfo         |
-| **Frontend**    | React 19, TypeScript, Vite, Tailwind CSS, Zustand, Recharts                |
-| **IPC**         | Tauri commands and events (JSON over WebSocket)                            |
-| **Persistence** | SQLite (raw & aggregated data) + JSON (settings)                           |
-| **Build**       | Tauri CLI, pnpm, GitHub Actions                                            |
-
----
-
-## Architecture Overview
-
-FluxNet follows a **layered architecture** with clear separation between the Rust backend and the React frontend.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     React Frontend (WebView)                    │
-│  Dashboard | Widgets (Pill, Compact, HUD) | Settings | History  │
-└─────────────────────────────────────────────────────────────────┘
-                              │ IPC (Commands + Events)
-┌─────────────────────────────────────────────────────────────────┐
-│                     Tauri Core (Rust)                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
-│  │  Sampler    │  │  Monitor    │  │  Tray & Window Manager  │ │
-│  │  (500ms)    │  │  State      │  │                         │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
-│  │  SQLite DB  │  │  Settings   │  │  Widget State           │ │
-│  │  (raw +     │  │  Store      │  │  (position, visibility) │ │
-│  │   aggr.)    │  │             │  │                         │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                    Platform Layer (Windows)                     │
-│  • IP Helper API (GetAdaptersAddresses)                        │
-│  • sysinfo counters (tx/rx)                                    │
-│  • System tray / window management                             │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-- **Sampling Engine** runs every 500ms, reads network counters, calculates speeds, and stores samples.  
-- **Aggregation Pipeline** rolls up data into hourly, daily, and monthly summaries.  
-- **IPC** exposes commands (e.g., `get_network_stats`) and events (e.g., `network-stats`) for the frontend.  
-- **Widgets** are separate WebView windows that subscribe to live data and handle drag/opacity/always‑on‑top.  
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- [Rust](https://www.rust-lang.org/tools/install) (MSRV: 1.70+)  
-- [Node.js](https://nodejs.org/) (v18 or later)  
-- [pnpm](https://pnpm.io/installation) (v8+)  
-- Windows 10/11 (development and target – other platforms are planned but not yet supported)  
-
-### Installation
-
-Clone the repository:
+You need Node.js 24, pnpm, Rust and the
+[Tauri prerequisites for Windows](https://tauri.app/start/prerequisites/#windows).
 
 ```bash
-git clone https://github.com/venkideshVenu/fluxnet.git
-cd fluxnet
-```
-
-Install frontend dependencies:
-
-```bash
+git clone https://github.com/venkideshVenu/FluxNet.git
+cd FluxNet
 pnpm install
+pnpm dev            # run with hot reload
+pnpm build:desktop  # build the installer into src-tauri/target/release/bundle
 ```
 
-### Development
+To work on the interface on macOS or Linux, run `pnpm dev:web`. It opens the
+frontend in your browser with a simulated backend. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full setup, tests and checks.
 
-Start the development server with hot‑reload:
+## Documentation
 
-```bash
-pnpm dev
-```
+- [Architecture](docs/ARCHITECTURE.md): how the backend, storage and windows fit together
+- [Contributing](CONTRIBUTING.md): development setup, checks and pull requests
+- [Releasing](docs/RELEASING.md): how a new version is published
+- [Changelog](CHANGELOG.md): what changed in each version
+- [Requirements](docs/requirements.md): the original specification
 
-This will launch the Tauri development window with the React frontend at `http://localhost:1420`.
+## Contributing
 
-### Building
-
-Build the production application:
-
-```bash
-pnpm tauri build
-```
-
-or use the dedicated npm script:
-
-```bash
-pnpm build:desktop
-```
-
-The installer (`.exe`) and portable binary will be placed in `src-tauri/target/release/bundle/`.
-
-### Testing
-
-Run frontend unit tests:
-
-```bash
-pnpm test
-```
-
-Run Rust tests:
-
-```bash
-cd src-tauri
-cargo test
-```
-
----
-
-## Configuration
-
-### Application Settings
-
-User settings are stored in `%APPDATA%\fluxnet\app-settings.json` (Windows).  
-The schema includes:
-
-```json
-{
-  "pingTarget": "1.1.1.1",
-  "refreshIntervalMs": 500,
-  "onboardingCompleted": false,
-  "minimizeToTray": true
-}
-```
-
-### Widget State
-
-Widget positions, visibility, and always‑on‑top flags are stored in `%APPDATA%\fluxnet\widget-state.json`.
-
-### Database
-
-Raw samples and aggregates are stored in `%APPDATA%\fluxnet\fluxnet.db` (SQLite).
-
----
-
-## Project Structure
-
-```
-fluxnet/
-├── src/                         # Frontend source
-│   ├── api/                     # Tauri IPC wrappers
-│   ├── components/              # React components (UI, widgets)
-│   ├── hooks/                   # Custom React hooks
-│   ├── pages/                   # Page components
-│   ├── store/                   # Zustand stores
-│   ├── styles/                  # Global CSS & design tokens
-│   ├── types/                   # TypeScript type definitions
-│   ├── utils/                   # Utility functions
-│   ├── AppProviders.tsx         # Root providers
-│   ├── DashboardApp.tsx         # Main application entry
-│   ├── PillApp.tsx              # Pill widget entry
-│   ├── CompactApp.tsx           # Compact widget entry
-│   └── HudApp.tsx               # HUD widget entry
-├── src-tauri/                   # Rust backend
-│   ├── src/                     # Source code
-│   │   ├── main.rs              # Entry point
-│   │   ├── setup.rs             # App initialisation
-│   │   ├── background/          # Sampler and background tasks
-│   │   ├── commands/            # Tauri command handlers
-│   │   ├── dto/                 # Data transfer objects
-│   │   ├── monitor/             # Network monitoring logic
-│   │   ├── persistence/         # Settings & widget state
-│   │   ├── storage/             # Database & aggregation
-│   │   ├── tray.rs              # System tray integration
-│   │   └── theme.rs             # Theme detection
-│   ├── Cargo.toml               # Rust dependencies
-│   └── tauri.conf.json          # Tauri configuration
-├── public/                      # Static assets
-│   ├── favicon.ico
-│   └── branding/                # Logos and icons
-├── docs/                        # Documentation
-├── package.json                 # Frontend dependencies
-├── pnpm-lock.yaml               # Lockfile
-├── tsconfig.json                # TypeScript config
-├── vite.config.ts               # Vite config
-└── README.md                    # This file
-```
-
----
+Bug reports, ideas and pull requests are welcome. Please read
+[CONTRIBUTING.md](CONTRIBUTING.md) and follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). For security problems, see
+[SECURITY.md](SECURITY.md) instead of opening an issue.
 
 ## License
 
-Copyright (C) 2026 Venkidesh
+Copyright © 2026 Venkidesh Venu.
 
-FluxNet is licensed under the **GNU General Public License v3.0 (GPLv3)**.
-
-This means you are free to:
-
-- Use FluxNet
-- Study the source code
-- Modify the source code
-- Distribute copies
-- Distribute modified versions
-
-Any distributed modifications must also be licensed under GPLv3 and provide source code.
-
-See the [LICENSE](LICENSE) file for details.
-
----
+FluxNet is free software, licensed under the
+[GNU General Public License v3.0 or later](LICENSE). You can use, study, change
+and share it. If you distribute a modified version, you must release its source
+under the same license.
 
 ## Acknowledgements
 
-- [Tauri](https://tauri.app/) – the secure, cross‑platform app framework  
-- [React](https://reactjs.org/) – UI library  
-- [Recharts](https://recharts.org/) – charting library  
-- [Zustand](https://zustand-demo.pmnd.rs/) – state management  
-- [SQLite](https://www.sqlite.org/) – embedded database  
-- All contributors and open‑source maintainers  
-
----
-
-<div align="center">
-  <sub>Built with ❤️.</sub>
-</div>
-
----
+Built with [Tauri](https://tauri.app/), [React](https://react.dev/),
+[Recharts](https://recharts.org/), [Zustand](https://zustand.docs.pmnd.rs/),
+[sysinfo](https://github.com/GuillaumeGomez/sysinfo),
+[rusqlite](https://github.com/rusqlite/rusqlite) and
+[Lucide](https://lucide.dev/) icons.
