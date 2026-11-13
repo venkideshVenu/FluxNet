@@ -24,7 +24,9 @@ export const HudPresentation = memo(function HudPresentation(
 });
 
 /* ── Horizontal ────────────────────────────────────────────────────────── */
-// Window size: 380 × 36 (was 320 × 36) — gives loss room to breathe
+// Window size: 300 × 36 logical (see `hud_size_for_design` in visibility.rs).
+// Ping and loss keep their width; the traffic column shrinks with an ellipsis
+// when the largest values ("1023.9KB") or Windows text scaling need more room.
 
 function HudHorizontal({
   downloadValue,
@@ -66,7 +68,8 @@ function HudHorizontal({
           border-(--hud-border)
           bg-(--hud-bg-card)
           backdrop-blur-md
-          px-3
+          px-2.5
+          gap-2
           flex
           items-center
           justify-between
@@ -90,15 +93,21 @@ function HudHorizontal({
         </div>
 
         {/* Traffic */}
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="flex items-center gap-1 text-(--hud-dn)">
-            <span>↓</span>
-            <span>{compactDownload}</span>
+        <div className="flex items-center justify-center gap-3 min-w-0 shrink">
+          <div
+            className="flex items-center gap-1 min-w-0 text-(--hud-dn)"
+            title={compactDownload}
+          >
+            <span className="shrink-0">↓</span>
+            <span className="truncate">{compactDownload}</span>
           </div>
 
-          <div className="flex items-center gap-1 text-(--hud-up)">
-            <span>↑</span>
-            <span>{compactUpload}</span>
+          <div
+            className="flex items-center gap-1 min-w-0 text-(--hud-up)"
+            title={compactUpload}
+          >
+            <span className="shrink-0">↑</span>
+            <span className="truncate">{compactUpload}</span>
           </div>
         </div>
 
@@ -118,7 +127,7 @@ function HudHorizontal({
 }
 
 /* ── Vertical Card ─────────────────────────────────────────────────────── */
-// Window size: 150 × 130 (was 130 × 105) — more breathing room, larger text
+// Window size: 120 × 130 logical (see `hud_size_for_design` in visibility.rs).
 
 function HudVertical({
   downloadValue,
