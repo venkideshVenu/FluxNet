@@ -1,11 +1,14 @@
 [package]
 name = "fluxnet"
 version = "0.1.2"
-description = "Real-time network monitoring desktop application built with Tauri, Rust, and React"
-authors = ["Venkidesh"]
+description = "Real-time network monitor for Windows with desktop widgets, a game overlay and local usage history"
+authors = ["Venkidesh Venu"]
 license = "GPL-3.0-or-later"
 repository = "https://github.com/venkideshVenu/FluxNet"
+homepage = "https://github.com/venkideshVenu/FluxNet"
 edition = "2024"
+# A desktop application, not a library: never publish to crates.io.
+publish = false
 
 build = "build.rs"
 
