@@ -41,6 +41,7 @@ windows = { version = "0.62", features = [
 ] }
 winreg = "0.56"
 # Must match the versions Tauri's webview (wry) uses so COM types line up.
+# After updating Tauri, check with `cargo tree -i webview2-com --target x86_64-pc-windows-msvc`.
 webview2-com = "0.39"
 windows-core = "0.62"
 

@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overview leads with live download and upload speeds above a full-width chart.
 - First-run setup is rebuilt as a step-by-step flow with live widget previews.
 - The weekly usage total covers exactly the last 7 days, including today.
+- Updated Tauri to 2.12, sysinfo to 0.40, React to 19.3 and other dependencies.
 - Windows are created only while they are shown and destroyed when closed,
   and the main window uses less memory while minimized, which lowers
   FluxNet's memory use.
