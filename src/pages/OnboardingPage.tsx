@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Check, MonitorDown, Power } from "lucide-react";
 import { invoke } from "@/api";
 import { cacheHudDesign, invokeWithTimeout, setStorageItem } from "@/utils";
@@ -161,6 +155,31 @@ function ChoiceRow({
   );
 }
 
+/**
+ * Lists network adapters, retrying a few times because the backend can still
+ * be starting on first launch. Resolves to `null` if every attempt fails.
+ */
+async function fetchAdapters({
+  attempts = 3,
+  initialDelayMs = 0,
+} = {}): Promise<InterfaceInfo[] | null> {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  if (initialDelayMs > 0) await wait(initialDelayMs);
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await invokeWithTimeout<InterfaceInfo[]>(
+        "get_interfaces",
+        undefined,
+        10_000,
+      );
+    } catch (err) {
+      console.error(`Adapter fetch attempt ${attempt + 1} failed:`, err);
+      if (attempt < attempts - 1) await wait(1000);
+    }
+  }
+  return null;
+}
+
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome");
   const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
@@ -173,41 +192,35 @@ export function OnboardingPage() {
   const [startWithWindows, setStartWithWindows] = useState(true);
   const [keepRunning, setKeepRunning] = useState(true);
   const [finishing, setFinishing] = useState(false);
-  const fetched = useRef(false);
 
-  const loadInterfaces = useCallback(async (attempts = 3) => {
-    setLoadingIfaces(true);
-    setIfaceError(null);
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      try {
-        // The backend may still be starting on the very first launch.
-        if (attempt === 0 && !fetched.current)
-          await new Promise((r) => setTimeout(r, 500));
-        const result = await invokeWithTimeout<InterfaceInfo[]>(
-          "get_interfaces",
-          undefined,
-          10_000,
-        );
-        setInterfaces(result);
-        const best = pickAutomatic(result);
-        setSelectedIface(best?.name ?? result.find(isUp)?.name ?? "");
-        if (!best) setUseAuto(false);
-        fetched.current = true;
-        setLoadingIfaces(false);
-        return;
-      } catch (err) {
-        console.error(`Adapter fetch attempt ${attempt + 1} failed:`, err);
-        if (attempt < attempts - 1)
-          await new Promise((r) => setTimeout(r, 1000));
-      }
+  const applyAdapters = useCallback((result: InterfaceInfo[] | null) => {
+    if (result) {
+      setInterfaces(result);
+      const best = pickAutomatic(result);
+      setSelectedIface(best?.name ?? result.find(isUp)?.name ?? "");
+      if (!best) setUseAuto(false);
+    } else {
+      setIfaceError("FluxNet couldn't list your network adapters.");
     }
-    setIfaceError("FluxNet couldn't list your network adapters.");
     setLoadingIfaces(false);
   }, []);
 
   useEffect(() => {
-    void loadInterfaces();
-  }, [loadInterfaces]);
+    let alive = true;
+    // The backend may still be starting on the very first launch.
+    fetchAdapters({ initialDelayMs: 500 }).then((result) => {
+      if (alive) applyAdapters(result);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [applyAdapters]);
+
+  const retry = () => {
+    setLoadingIfaces(true);
+    setIfaceError(null);
+    void fetchAdapters().then(applyAdapters);
+  };
 
   const go = (direction: 1 | -1) =>
     setStep(
@@ -333,9 +346,7 @@ export function OnboardingPage() {
             <InfoBar
               severity="error"
               message={ifaceError}
-              action={
-                <Button onClick={() => void loadInterfaces()}>Try again</Button>
-              }
+              action={<Button onClick={retry}>Try again</Button>}
             />
           ) : interfaces.length === 0 ? (
             <InfoBar

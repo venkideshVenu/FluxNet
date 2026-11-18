@@ -80,24 +80,30 @@ function useUsageStats() {
 }
 
 function useAdapter(name: string) {
-  const [adapter, setAdapter] = useState<InterfaceInfo | null>(null);
+  // Keyed by name, so a lookup for the previous adapter is never shown for
+  // the current one while the new lookup is in flight.
+  const [found, setFound] = useState<{
+    name: string;
+    adapter: InterfaceInfo | null;
+  } | null>(null);
   useEffect(() => {
-    if (!name) {
-      setAdapter(null);
-      return;
-    }
+    if (!name) return;
     let alive = true;
     invokeWithTimeout<InterfaceInfo[]>("get_interfaces")
-      .then(
-        (list) =>
-          alive && setAdapter(list.find((i) => i.name === name) ?? null),
-      )
+      .then((list) => {
+        if (alive) {
+          setFound({
+            name,
+            adapter: list.find((i) => i.name === name) ?? null,
+          });
+        }
+      })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [name]);
-  return adapter;
+  return name && found?.name === name ? found.adapter : null;
 }
 
 export function DashboardPage() {
