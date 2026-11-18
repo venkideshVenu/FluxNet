@@ -118,9 +118,7 @@ pub fn with_backdrop<'a, R: Runtime, M: Manager<R>>(
         if mica_supported() {
             return builder.transparent(true).effects(WindowEffectsConfig {
                 effects: vec![WindowEffect::Mica],
-                state: None,
-                radius: None,
-                color: None,
+                ..Default::default()
             });
         }
     }

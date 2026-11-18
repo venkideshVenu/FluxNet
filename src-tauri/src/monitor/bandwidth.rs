@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use sysinfo::Networks;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -20,20 +21,39 @@ pub fn calculate_speed(current_bytes: u64, previous_bytes: u64, elapsed_secs: f6
     (current_bytes - previous_bytes) as f64 / elapsed_secs
 }
 
-pub fn read_total_counters(networks: &Networks, interface_name: &str) -> Option<(u64, u64)> {
-    for (name, data) in networks {
-        if name == interface_name {
-            // total_transmitted / total_received = cumulative since boot
-            return Some((data.total_transmitted(), data.total_received()));
+/// Loads the adapter list with fresh counters. `None` if the OS won't
+/// enumerate adapters (sysinfo reports this as an error; Windows never does).
+pub fn load_networks() -> Option<Networks> {
+    match Networks::new_with_refreshed_list() {
+        Ok(networks) => Some(networks),
+        Err(e) => {
+            tracing::warn!("Couldn't list network adapters: {e}");
+            None
         }
     }
-    None
+}
+
+pub fn read_total_counters(networks: &Networks, interface_name: &str) -> Option<(u64, u64)> {
+    // total_transmitted / total_received = cumulative since boot
+    networks
+        .get(OsStr::new(interface_name))
+        .map(|data| (data.total_transmitted(), data.total_received()))
 }
 
 // ─── TESTS ───────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn counters_are_found_by_name_for_every_listed_adapter() {
+        let networks = load_networks().expect("adapter list");
+        for name in networks.keys() {
+            let Some(name) = name.to_str() else { continue };
+            assert!(read_total_counters(&networks, name).is_some(), "{name}");
+        }
+        assert_eq!(read_total_counters(&networks, "no-such-adapter"), None);
+    }
 
     #[test]
     fn test_speed_basic_calculation() {

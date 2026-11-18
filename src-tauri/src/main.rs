@@ -14,6 +14,11 @@ mod theme;
 mod tray;
 mod window_positions;
 
+// File logging (and so tracing-appender) is release-only; this keeps debug
+// builds from reporting the dependency as unused.
+#[cfg(debug_assertions)]
+use tracing_appender as _;
+
 use crate::window_positions::{PositionSender, enqueue_position};
 use commands::network::{
     get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,

@@ -103,8 +103,7 @@ export function UsageChart({
           cursor={{ fill: "var(--subtle-hover)" }}
           content={({ active, payload }) => {
             const b = payload?.[0]?.payload as
-              | (typeof data)[number]
-              | undefined;
+              (typeof data)[number] | undefined;
             if (!active || !b || b.future) return null;
             return (
               <TooltipCard

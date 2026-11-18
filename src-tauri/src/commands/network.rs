@@ -213,7 +213,7 @@ fn is_noise_interface(name: &str, description: &str, if_type: u32) -> bool {
 }
 
 fn interface_exists_in_sysinfo(networks: &Networks, name: &str) -> bool {
-    networks.iter().any(|(n, _)| n == name)
+    networks.contains_key(std::ffi::OsStr::new(name))
 }
 
 // ── Interface auto-selection ──────────────────────────────────────────────────
@@ -477,9 +477,12 @@ pub fn read_interfaces() -> Vec<InterfaceInfo> {
 
 #[cfg(not(windows))]
 fn read_interfaces_from_sysinfo() -> Vec<InterfaceInfo> {
-    let networks = Networks::new_with_refreshed_list();
+    let Some(networks) = crate::monitor::bandwidth::load_networks() else {
+        return Vec::new();
+    };
     let mut interfaces: Vec<InterfaceInfo> = networks
         .iter()
+        .filter_map(|(name, data)| Some((name.to_str()?.to_string(), data)))
         .filter(|(name, _)| !name.starts_with("lo"))
         .enumerate()
         .map(|(i, (name, data))| {
@@ -620,11 +623,12 @@ pub fn select_interface_outside_lock(networks: &Networks) -> String {
     if !selected.is_empty() && interface_exists_in_sysinfo(networks, &selected) {
         return selected;
     }
-    busiest_interface(networks.iter().map(|(name, data)| {
-        (
-            name.as_str(),
+    // Adapter names that aren't valid Unicode can't be stored or shown, so skip them.
+    busiest_interface(networks.iter().filter_map(|(name, data)| {
+        Some((
+            name.to_str()?,
             data.total_received() + data.total_transmitted(),
-        )
+        ))
     }))
 }
 

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type KeyboardEvent,
@@ -104,6 +105,21 @@ export function pickAutomatic(
   );
 }
 
+type FetchResult =
+  { ok: true; list: InterfaceInfo[] } | { ok: false; error: string };
+
+async function fetchInterfaces(): Promise<FetchResult> {
+  try {
+    const list = await invokeWithTimeout<InterfaceInfo[]>("get_interfaces");
+    return { ok: true, list };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 function statusText(i: InterfaceInfo): string {
   return isUp(i) ? "Connected" : i.status;
 }
@@ -119,24 +135,19 @@ export function InterfacesPage() {
   );
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const loadInterfaces = useCallback(async () => {
-    try {
-      const result = await invokeWithTimeout<InterfaceInfo[]>("get_interfaces");
-      setInterfaces(result);
+  const applyResult = useCallback((result: FetchResult) => {
+    if (result.ok) {
+      setInterfaces(result.list);
       setLoadError(null);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
+    } else {
+      setLoadError(result.error);
     }
   }, []);
 
-  useEffect(() => {
-    void loadInterfaces();
-    // Skip refreshes while the dashboard is hidden (minimized or in the tray).
-    const id = setInterval(() => {
-      if (!document.hidden) void loadInterfaces();
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [loadInterfaces]);
+  const loadInterfaces = useCallback(
+    () => fetchInterfaces().then(applyResult),
+    [applyResult],
+  );
 
   const select = useCallback(
     async (name: string) => {
@@ -161,18 +172,33 @@ export function InterfacesPage() {
   const sorted = [...list.filter(isUp), ...list.filter((i) => !isUp(i))];
   const inUse = list.find((i) => i.name === currentInterface);
 
-  // In automatic mode, follow the best connected adapter while this page is open.
-  useEffect(() => {
-    if (
-      automatic &&
-      automaticPick &&
-      automaticPick.name !== currentInterface &&
-      switching === null
-    ) {
-      void select(automaticPick.name);
+  // In automatic mode, follow the best connected adapter while this page is
+  // open. Runs after each poll with the latest state.
+  const followAutomatic = useEffectEvent((list: InterfaceInfo[]) => {
+    const best = pickAutomatic(list);
+    if (automatic && best && best.name !== currentInterface && !switching) {
+      void select(best.name);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [automatic, automaticPick?.name, currentInterface]);
+  });
+
+  useEffect(() => {
+    let alive = true;
+    const poll = () =>
+      fetchInterfaces().then((result) => {
+        if (!alive) return;
+        applyResult(result);
+        if (result.ok) followAutomatic(result.list);
+      });
+    void poll();
+    // Skip refreshes while the dashboard is hidden (minimized or in the tray).
+    const id = setInterval(() => {
+      if (!document.hidden) void poll();
+    }, POLL_INTERVAL_MS);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [applyResult]);
 
   const setMode = (auto: boolean) => {
     setAutomatic(auto);
