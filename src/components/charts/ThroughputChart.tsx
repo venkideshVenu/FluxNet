@@ -213,8 +213,7 @@ export function ThroughputChart({
               cursor={{ stroke: "var(--fg-tertiary)", strokeWidth: 1 }}
               content={({ active, payload }) => {
                 const point = payload?.[0]?.payload as
-                  | (typeof data)[number]
-                  | undefined;
+                  (typeof data)[number] | undefined;
                 if (!active || !point) return null;
                 const fmt = (v: number) => {
                   const r = formatSpeed(v, displayUnits);

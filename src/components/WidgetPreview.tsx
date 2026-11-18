@@ -35,9 +35,7 @@ export interface HudViewConfig {
   ) => HudPresentationProps;
 }
 export type WidgetViewConfig =
-  | PillViewConfig
-  | CompactViewConfig
-  | HudViewConfig;
+  PillViewConfig | CompactViewConfig | HudViewConfig;
 
 export const WIDGET_VIEWS: Record<WidgetLabel, WidgetViewConfig> = {
   pill: {
