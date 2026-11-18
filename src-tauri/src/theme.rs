@@ -54,7 +54,7 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
             RegOpenKeyExW(
                 HKEY_CURRENT_USER,
                 w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-                0,
+                None, // ulOptions: reserved
                 KEY_NOTIFY,
                 &mut hkey,
             )
