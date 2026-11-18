@@ -45,9 +45,11 @@ fixes only.
 6. **Publish.** The [Release workflow](../.github/workflows/release.yml) checks
    that the tag matches the version in all three files, runs the frontend tests,
    builds the NSIS installer and attaches it to a **draft** release with
-   `SHA256SUMS.txt`. Review the draft on the
-   [releases page](https://github.com/venkideshVenu/FluxNet/releases), paste
-   the changelog section into the notes, then publish it.
+   `SHA256SUMS.txt`. The notes are the version's `CHANGELOG.md` section plus
+   install instructions (`scripts/release-notes.mjs`), so the release fails if
+   that section is missing. Review the draft on the
+   [releases page](https://github.com/venkideshVenu/FluxNet/releases), then
+   publish it.
 
 ## If something goes wrong
 
