@@ -5,7 +5,6 @@ description = "Real-time network monitor for Windows with desktop widgets, a gam
 authors = ["Venkidesh Venu"]
 license = "GPL-3.0-or-later"
 repository = "https://github.com/venkideshVenu/FluxNet"
-homepage = "https://github.com/venkideshVenu/FluxNet"
 edition = "2024"
 # A desktop application, not a library: never publish to crates.io.
 publish = false
@@ -42,8 +41,8 @@ windows = { version = "0.58", features = [
 ] }
 winreg = "0.55"
 # Must match the versions Tauri's webview (wry) uses so COM types line up.
-webview2-com = "0.38"
-windows-core = "0.61"
+webview2-com = "0.39"
+windows-core = "0.62"
 
 [dev-dependencies]
 chrono-tz = "0.10"
