@@ -2,6 +2,7 @@ use crate::commands::network::{
     SharedMonitorState, select_interface_outside_lock, tick_sample_with_networks,
 };
 use crate::commands::ping::SharedPingState;
+use crate::monitor::bandwidth::load_networks;
 use crate::monitor::ping::measure_ping;
 use crate::storage::DbState;
 use crate::storage::aggregation::{catch_up, refresh_today};
@@ -13,7 +14,6 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use sysinfo::Networks;
 use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio_util::sync::CancellationToken;
@@ -111,7 +111,7 @@ pub fn start_sampler(
 
         // Create once; refresh() updates counters, and the full list is
         // re-read every 5 minutes to detect hot-plugged adapters.
-        let mut networks = Networks::new_with_refreshed_list();
+        let mut networks = load_networks();
 
         loop {
             tokio::select! {
@@ -131,11 +131,23 @@ pub fn start_sampler(
 
                     let now_ts = Local::now().timestamp();
 
-                    if tick_counter.is_multiple_of(IFACE_LIST_REFRESH_TICKS) {
-                        networks = Networks::new_with_refreshed_list();
-                    } else {
-                        networks.refresh();
-                    }
+                    // Without an adapter list (only if the OS refused to give
+                    // one), try again next tick.
+                    let networks = match &mut networks {
+                        Some(n) if tick_counter.is_multiple_of(IFACE_LIST_REFRESH_TICKS) => {
+                            // Also drops adapters that have been removed.
+                            n.refresh(true);
+                            n
+                        }
+                        Some(n) => {
+                            n.refresh(false);
+                            n
+                        }
+                        None => match load_networks() {
+                            Some(n) => networks.insert(n),
+                            None => continue,
+                        },
+                    };
 
                     // Auto-select interface if none is set
                     let needs_selection = {
@@ -143,7 +155,7 @@ pub fn start_sampler(
                         s.interface.is_empty()
                     };
                     if needs_selection {
-                        let selected = select_interface_outside_lock(&networks);
+                        let selected = select_interface_outside_lock(networks);
                         if !selected.is_empty() {
                             let mut s = monitor_state.lock();
                             if s.interface.is_empty() {
@@ -156,16 +168,16 @@ pub fn start_sampler(
                     let iface_missing = {
                         let s = monitor_state.lock();
                         !s.interface.is_empty()
-                            && !networks.iter().any(|(n, _)| n == &s.interface)
+                            && !networks.contains_key(std::ffi::OsStr::new(&s.interface))
                     };
                     if iface_missing {
-                        networks = Networks::new_with_refreshed_list();
+                        networks.refresh(true);
                     }
 
                     let (dl, ul, elapsed_ms, iface, was_uninitialized) = {
                         let mut s = monitor_state.lock();
                         let uninit = s.last_sample.is_none();
-                        tick_sample_with_networks(&mut s, &networks, now_ts);
+                        tick_sample_with_networks(&mut s, networks, now_ts);
                         (
                             s.last_download,
                             s.last_upload,
