@@ -43,6 +43,10 @@ jobs:
       - name: Check the tag matches the app version
         run: node scripts/version.mjs check ${{ github.ref_name }}
 
+      - name: Write release notes
+        shell: bash
+        run: node scripts/release-notes.mjs "${{ github.ref_name }}" > release-notes.md
+
       - name: Run frontend tests
         run: pnpm test:run
 
@@ -78,9 +82,7 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           name: FluxNet ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          body: |
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for the full list of changes.
+          body_path: release-notes.md
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.zip
