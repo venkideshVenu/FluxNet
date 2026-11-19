@@ -7,6 +7,7 @@ import {
   LS_MODE,
   type ColorMode,
 } from "@/utils";
+import { onSystemThemeChange } from "./systemTheme";
 
 /** Applies the stored colour mode to the page and the native window frame. */
 export function applyThemeMode(mode: ColorMode = safeStoredMode()) {
@@ -39,7 +40,6 @@ export function useThemeSync() {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === LS_MODE) applyThemeMode();
     };
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
       if (safeStoredMode() === "system") applyColorMode("system");
     };
@@ -48,11 +48,11 @@ export function useThemeSync() {
 
     window.addEventListener("storage", handleStorage);
     window.addEventListener("focus", handleFocus);
-    mediaQuery.addEventListener("change", handleSystemChange);
+    const stopSystemTheme = onSystemThemeChange(handleSystemChange);
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("focus", handleFocus);
-      mediaQuery.removeEventListener("change", handleSystemChange);
+      stopSystemTheme();
     };
   }, []);
 }

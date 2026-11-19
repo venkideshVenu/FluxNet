@@ -15,3 +15,4 @@ export {
 } from "./useDragToMove";
 export { useSettingsSync } from "./useSettingsSync";
 export { useOnboardingGuard } from "./useOnboarding";
+export { useFitWindow } from "./useFitWindow";

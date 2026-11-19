@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useEffectEvent,
   useRef,
   useState,
   type KeyboardEvent,
@@ -20,12 +19,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useNetworkStore } from "@/store";
-import {
-  formatLinkSpeed,
-  getStorageItem,
-  invokeWithTimeout,
-  setStorageItem,
-} from "@/utils";
+import { formatLinkSpeed, invokeWithTimeout, setStorageItem } from "@/utils";
 import {
   Button,
   Card,
@@ -92,19 +86,6 @@ export function adapterIcon(type: string) {
 
 export const isUp = (i: InterfaceInfo) => i.status.toLowerCase() === "up";
 
-/** The adapter automatic mode picks: connected Ethernet/Wi-Fi first. */
-export function pickAutomatic(
-  list: InterfaceInfo[],
-): InterfaceInfo | undefined {
-  return (
-    list.find(
-      (i) =>
-        isUp(i) &&
-        ["ethernet", "wifi"].includes(i.interface_type.toLowerCase()),
-    ) ?? list.find(isUp)
-  );
-}
-
 type FetchResult =
   { ok: true; list: InterfaceInfo[] } | { ok: false; error: string };
 
@@ -130,9 +111,8 @@ export function InterfacesPage() {
   const [switching, setSwitching] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectError, setSelectError] = useState<string | null>(null);
-  const [automatic, setAutomatic] = useState(
-    () => getStorageItem("fluxnet_interface_mode", "auto") !== "manual",
-  );
+  // The backend decides; this mirrors it for the switch.
+  const [automatic, setAutomatic] = useState(true);
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const applyResult = useCallback((result: FetchResult) => {
@@ -154,7 +134,9 @@ export function InterfacesPage() {
       setSwitching(name);
       setSelectError(null);
       try {
+        // Choosing an adapter turns automatic mode off (in the backend too).
         await invokeWithTimeout("set_interface", { name });
+        setAutomatic(false);
         setStorageItem("fluxnet_configured", "true");
         await loadInterfaces();
       } catch (e) {
@@ -168,18 +150,8 @@ export function InterfacesPage() {
   );
 
   const list = interfaces ?? [];
-  const automaticPick = pickAutomatic(list);
   const sorted = [...list.filter(isUp), ...list.filter((i) => !isUp(i))];
   const inUse = list.find((i) => i.name === currentInterface);
-
-  // In automatic mode, follow the best connected adapter while this page is
-  // open. Runs after each poll with the latest state.
-  const followAutomatic = useEffectEvent((list: InterfaceInfo[]) => {
-    const best = pickAutomatic(list);
-    if (automatic && best && best.name !== currentInterface && !switching) {
-      void select(best.name);
-    }
-  });
 
   useEffect(() => {
     let alive = true;
@@ -187,7 +159,6 @@ export function InterfacesPage() {
       fetchInterfaces().then((result) => {
         if (!alive) return;
         applyResult(result);
-        if (result.ok) followAutomatic(result.list);
       });
     void poll();
     // Skip refreshes while the dashboard is hidden (minimized or in the tray).
@@ -200,14 +171,38 @@ export function InterfacesPage() {
     };
   }, [applyResult]);
 
-  const setMode = (auto: boolean) => {
-    setAutomatic(auto);
-    setStorageItem("fluxnet_interface_mode", auto ? "auto" : "manual");
+  useEffect(() => {
+    let alive = true;
+    invokeWithTimeout<boolean>("get_interface_automatic")
+      .then((value) => {
+        if (alive && typeof value === "boolean") setAutomatic(value);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const setMode = async (auto: boolean) => {
+    setSelectError(null);
+    if (!auto) {
+      // Keep measuring the current adapter, now as a manual choice.
+      if (currentInterface) await select(currentInterface);
+      else setAutomatic(false);
+      return;
+    }
+    try {
+      await invokeWithTimeout("set_interface_automatic");
+      setAutomatic(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setSelectError(`Couldn't turn on automatic mode. ${msg}`);
+    }
   };
 
   const chooseManually = (iface: InterfaceInfo) => {
-    if (!isUp(iface) || iface.name === currentInterface) return;
-    setMode(false);
+    if (!isUp(iface)) return;
+    if (iface.name === currentInterface && !automatic) return;
     void select(iface.name);
   };
 
@@ -254,24 +249,15 @@ export function InterfacesPage() {
           icon={<Sparkles />}
           header="Choose adapter automatically"
           description={
-            automaticPick
-              ? `Uses the best connected adapter. Now: ${automaticPick.name}`
-              : "Uses the best connected adapter"
+            automatic && currentInterface
+              ? `Follows the adapter Windows uses for the internet. Now: ${currentInterface}`
+              : "Follows the adapter Windows uses for the internet, for example switching to Ethernet when you plug in a cable"
           }
         >
           <ToggleSwitch
             label="Choose adapter automatically"
             checked={automatic}
-            onChange={(v) => {
-              setMode(v);
-              if (
-                v &&
-                automaticPick &&
-                automaticPick.name !== currentInterface
-              ) {
-                void select(automaticPick.name);
-              }
-            }}
+            onChange={(v) => void setMode(v)}
           />
         </SettingsCard>
       </SettingsGroup>

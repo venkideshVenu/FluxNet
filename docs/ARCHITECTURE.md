@@ -50,6 +50,12 @@ including how long the interval really was, so totals stay correct when
 a tick is late. The full adapter list is re-read every 5 minutes, or straight
 away if the selected adapter disappears.
 
+In automatic mode (the default) the sampler asks Windows every 5 seconds which
+adapter carries its internet route (`GetBestInterface`, a route lookup that
+sends nothing) and switches to it when it changes, keeping the chart history.
+Choosing an adapter in Network adapters turns automatic mode off; the choice
+is saved as `manual_interface` in `app-settings.json`.
+
 The ping runs every 5 seconds on its own task, so a slow reply (it times out
 after 2 seconds) never delays sampling.
 
@@ -95,6 +101,11 @@ creation always happens in `async` commands or on a spawned task
 (`spawn_on_app`). Turning a widget on or off emits `widget-visibility-changed`
 to every window, so the Widgets page and first-run setup stay in step with the tray menu.
 
+Each widget sizes itself to its content and reports that size with
+`fit_widget_window` (see `useFitWindow`), which locks its window to it. Text
+width depends on fonts and Windows' text settings, so fixed window sizes
+either clipped widgets or left invisible margins that caught clicks.
+
 Widget positions are saved in physical pixels. On restore, `placement.rs`
 puts the widget on the monitor that contains its centre (or the nearest one, if
 that monitor has been unplugged) and keeps it inside that monitor's bounds. It
@@ -107,11 +118,11 @@ changes, which keeps it the same visual size across mixed-DPI monitors.
 
 In `%APPDATA%\com.fluxnet.app`:
 
-| File                | Contents                                                     |
-| ------------------- | ------------------------------------------------------------ |
-| `app-settings.json` | Refresh rate, first-run completion, keep running in the tray |
-| `widget-state.json` | Per widget: visible, position, always on top; the HUD layout |
-| `fluxnet.db`        | Usage history (see above)                                    |
+| File                | Contents                                                                     |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `app-settings.json` | Refresh rate, first-run completion, keep running in the tray, chosen adapter |
+| `widget-state.json` | Per widget: visible, position, always on top; the HUD layout                 |
+| `fluxnet.db`        | Usage history (see above)                                                    |
 
 Writes go to a temporary file, are flushed to disk, then replace the original,
 so a crash or power cut can't leave a half-written file. Logs are written to
@@ -153,7 +164,14 @@ widget visibility, always-on-top, the HUD layout and the first-run state.
 The UI follows Windows 11 (WinUI 3) design. Colours, type sizes and corner radii
 come from `src/styles/tokens.css`. At startup the main window asks the backend
 for the Windows accent colour and backdrop, and applies them before its first
-paint (waiting at most 300 ms for the answer). Chart colours were checked for colour-blind safety and contrast in both
+paint (waiting at most 300 ms for the answer).
+
+"System" theme means Windows' app theme, which the backend injects into every
+window before it loads (`window.__FLUXNET_SYSTEM_THEME`) and updates with the
+`system-theme-changed` event. The UI can't use `prefers-color-scheme` on
+Windows: WebView2 shares one colour-scheme preference between all of
+FluxNet's windows, and setting the main window to light or dark changes it
+for the widgets too. Chart colours were checked for colour-blind safety and contrast in both
 themes.
 
 ## Build and release

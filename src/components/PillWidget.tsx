@@ -1,7 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { useNetworkStore, useSettingsStore } from "@/store";
 import { formatSpeed } from "@/utils";
-import { useDragToMove, useKeyboardNudge } from "@/hooks";
+import { useDragToMove, useFitWindow, useKeyboardNudge } from "@/hooks";
 import { PillPresentation } from "./PillPresentation";
 
 export function PillWidget() {
@@ -13,15 +13,17 @@ export function PillWidget() {
   const dn = formatSpeed(data.downloadBytesPerSec, displayUnits);
   const handleDrag = useDragToMove();
   const handleKeyNudge = useKeyboardNudge();
+  const fitRef = useFitWindow<HTMLDivElement>();
 
   return (
     <div
+      ref={fitRef}
       onMouseDown={handleDrag}
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
       aria-label={`Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}. Use arrow keys to reposition.`}
-      className="focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-[3px] focus-visible:rounded-full"
+      className="w-max focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-[3px] focus-visible:rounded-full"
     >
       <PillPresentation
         downloadValue={dn.value}

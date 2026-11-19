@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { invoke } from "@/api";
 import { WIDGET_REGISTRY, WidgetLabel } from "@/config";
 import { applyColorMode } from "@/utils";
+import { onSystemThemeChange } from "./systemTheme";
 
 /**
  * Applies initial widget settings and listens for live changes.
@@ -72,7 +73,6 @@ export function useWidgetSettings(label: WidgetLabel) {
       }
     };
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
       const currentMode = config.getStoredMode();
       if (currentMode === "system") {
@@ -81,13 +81,13 @@ export function useWidgetSettings(label: WidgetLabel) {
     };
 
     window.addEventListener("storage", handleStorage);
-    mediaQuery.addEventListener("change", handleSystemChange);
+    const stopSystemTheme = onSystemThemeChange(handleSystemChange);
 
     return () => {
       clearTimeout(aotTimer);
       clearTimeout(opacityTimer);
       window.removeEventListener("storage", handleStorage);
-      mediaQuery.removeEventListener("change", handleSystemChange);
+      stopSystemTheme();
     };
   }, [label]);
 }

@@ -5,6 +5,7 @@ html[data-app="hud"] body {
 
 html[data-app="hud"] #root {
   display: flex;
+  align-items: flex-start;
   width: 100%;
   height: 100%;
 }

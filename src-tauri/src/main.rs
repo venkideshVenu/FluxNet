@@ -21,7 +21,8 @@ use tracing_appender as _;
 
 use crate::window_positions::{PositionSender, enqueue_position};
 use commands::network::{
-    get_dashboard_snapshot, get_interfaces, get_network_stats, reset_peaks, set_interface,
+    get_dashboard_snapshot, get_interface_automatic, get_interfaces, get_network_stats,
+    reset_peaks, set_interface, set_interface_automatic,
 };
 use commands::ping::get_ping_stats;
 use commands::settings::{
@@ -33,8 +34,8 @@ use commands::storage::{
     get_usage_stats_cmd,
 };
 use commands::visibility::{
-    get_hud_design, get_widget_visibility, set_hud_design, set_widget_always_on_top,
-    set_widget_opacity, set_widget_visibility,
+    fit_widget_window, get_hud_design, get_widget_visibility, set_hud_design,
+    set_widget_always_on_top, set_widget_opacity, set_widget_visibility,
 };
 use persistence::app_settings::SettingsStore;
 use std::sync::Arc;
@@ -153,6 +154,8 @@ fn main() {
             get_dashboard_snapshot,
             get_interfaces,
             set_interface,
+            set_interface_automatic,
+            get_interface_automatic,
             reset_peaks,
             set_widget_opacity,
             set_widget_always_on_top,
@@ -160,6 +163,8 @@ fn main() {
             get_widget_visibility,
             // Appearance
             appearance::get_appearance,
+            theme::get_system_theme,
+            fit_widget_window,
             // HUD design
             set_hud_design,
             get_hud_design,

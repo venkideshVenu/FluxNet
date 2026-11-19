@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Check, MonitorDown, Power } from "lucide-react";
 import { invoke } from "@/api";
 import { cacheHudDesign, invokeWithTimeout, setStorageItem } from "@/utils";
@@ -7,27 +7,19 @@ import type { HudDesign } from "@/components/HudPresentation";
 import {
   Button,
   CheckMark,
-  ComboBox,
-  InfoBar,
-  ProgressRing,
-  RadioDot,
   SettingsCard,
   ToggleSwitch,
   cx,
 } from "@/components/fluent";
-import {
-  adapterIcon,
-  isUp,
-  pickAutomatic,
-  type InterfaceInfo,
-} from "./InterfacesPage";
 
 type WidgetStyle = "pill" | "compact" | "hud";
-type Step = "welcome" | "adapter" | "widgets" | "startup" | "done";
+type Step = "welcome" | "widgets" | "startup" | "done";
 
-const STEPS: Step[] = ["welcome", "adapter", "widgets", "startup", "done"];
-/** Steps that count towards "Step n of 3". */
-const NUMBERED: Step[] = ["adapter", "widgets", "startup"];
+// No adapter step: FluxNet follows the adapter Windows uses for the internet
+// (see Network adapters to pick one by hand).
+const STEPS: Step[] = ["welcome", "widgets", "startup", "done"];
+/** Steps that count towards "Step n of 2". */
+const NUMBERED: Step[] = ["widgets", "startup"];
 
 const WIDGET_CHOICES: { id: WidgetStyle; name: string; description: string }[] =
   [
@@ -49,8 +41,8 @@ const WIDGET_CHOICES: { id: WidgetStyle; name: string; description: string }[] =
   ];
 
 const LAYOUT_OPTIONS: { value: HudDesign; label: string }[] = [
-  { value: "horizontal", label: "Horizontal bar" },
-  { value: "vertical", label: "Vertical card" },
+  { value: "horizontal", label: "Horizontal" },
+  { value: "vertical", label: "Vertical" },
 ];
 
 /** The frame every step shares: heading, content, and Back/Next at the bottom right. */
@@ -91,136 +83,51 @@ function StepFrame({
   );
 }
 
-/** A selectable row with a radio dot, used for the adapter choice. */
-function ChoiceRow({
-  checked,
-  disabled = false,
-  icon,
-  title,
-  detail,
-  onSelect,
+/** Small two-way switch shown on the game overlay's card. */
+function LayoutSwitch({
+  value,
+  onChange,
 }: {
-  checked: boolean;
-  disabled?: boolean;
-  icon?: ReactNode;
-  title: string;
-  detail?: string;
-  onSelect: () => void;
+  value: HudDesign;
+  onChange: (value: HudDesign) => void;
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      aria-disabled={disabled}
-      onClick={() => !disabled && onSelect()}
-      className={cx(
-        "flex min-h-14 w-full items-center gap-4 rounded-card border border-card-stroke bg-card px-4 py-2.5 text-left transition-colors duration-[83ms]",
-        !disabled && "hover:bg-control-hover active:bg-control-pressed",
-      )}
+    <div
+      role="radiogroup"
+      aria-label="Game overlay layout"
+      className="flex gap-0.5 rounded-control border border-control-stroke bg-control-solid p-0.5 shadow-card"
     >
-      <RadioDot checked={checked} disabled={disabled} />
-      {icon && (
-        <span
-          aria-hidden="true"
-          className={cx(
-            "flex size-5 shrink-0 items-center justify-center [&>svg]:size-5 [&>svg]:stroke-[1.5]",
-            disabled ? "text-fg-disabled" : "text-fg",
-          )}
-        >
-          {icon}
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <span
-          className={cx(
-            "block truncate text-body",
-            disabled && "text-fg-disabled",
-          )}
-        >
-          {title}
-        </span>
-        {detail && (
-          <span
+      {LAYOUT_OPTIONS.map((option) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.value)}
             className={cx(
-              "block truncate text-caption",
-              disabled ? "text-fg-disabled" : "text-fg-secondary",
+              "h-6 rounded-[3px] px-2.5 text-caption transition-colors duration-[83ms]",
+              selected
+                ? "bg-accent text-on-accent"
+                : "text-fg-secondary hover:bg-subtle-hover hover:text-fg",
             )}
           >
-            {detail}
-          </span>
-        )}
-      </span>
-    </button>
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
-}
-
-/**
- * Lists network adapters, retrying a few times because the backend can still
- * be starting on first launch. Resolves to `null` if every attempt fails.
- */
-async function fetchAdapters({
-  attempts = 3,
-  initialDelayMs = 0,
-} = {}): Promise<InterfaceInfo[] | null> {
-  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  if (initialDelayMs > 0) await wait(initialDelayMs);
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      return await invokeWithTimeout<InterfaceInfo[]>(
-        "get_interfaces",
-        undefined,
-        10_000,
-      );
-    } catch (err) {
-      console.error(`Adapter fetch attempt ${attempt + 1} failed:`, err);
-      if (attempt < attempts - 1) await wait(1000);
-    }
-  }
-  return null;
 }
 
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome");
-  const [interfaces, setInterfaces] = useState<InterfaceInfo[]>([]);
-  const [loadingIfaces, setLoadingIfaces] = useState(true);
-  const [ifaceError, setIfaceError] = useState<string | null>(null);
-  const [useAuto, setUseAuto] = useState(true);
-  const [selectedIface, setSelectedIface] = useState("");
   const [widgets, setWidgets] = useState<Set<WidgetStyle>>(new Set(["pill"]));
   const [hudDesign, setHudDesign] = useState<HudDesign>("horizontal");
   const [startWithWindows, setStartWithWindows] = useState(true);
   const [keepRunning, setKeepRunning] = useState(true);
   const [finishing, setFinishing] = useState(false);
-
-  const applyAdapters = useCallback((result: InterfaceInfo[] | null) => {
-    if (result) {
-      setInterfaces(result);
-      const best = pickAutomatic(result);
-      setSelectedIface(best?.name ?? result.find(isUp)?.name ?? "");
-      if (!best) setUseAuto(false);
-    } else {
-      setIfaceError("FluxNet couldn't list your network adapters.");
-    }
-    setLoadingIfaces(false);
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    // The backend may still be starting on the very first launch.
-    fetchAdapters({ initialDelayMs: 500 }).then((result) => {
-      if (alive) applyAdapters(result);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [applyAdapters]);
-
-  const retry = () => {
-    setLoadingIfaces(true);
-    setIfaceError(null);
-    void fetchAdapters().then(applyAdapters);
-  };
 
   const go = (direction: 1 | -1) =>
     setStep(
@@ -229,11 +136,6 @@ export function OnboardingPage() {
           Math.min(STEPS.length - 1, Math.max(0, STEPS.indexOf(s) + direction))
         ],
     );
-
-  const automatic = pickAutomatic(interfaces);
-  const chosenAdapter = useAuto
-    ? (automatic?.name ?? selectedIface)
-    : selectedIface;
 
   const toggleWidget = (id: WidgetStyle) =>
     setWidgets((prev) => {
@@ -246,9 +148,6 @@ export function OnboardingPage() {
   const finish = useCallback(async () => {
     setFinishing(true);
     try {
-      if (chosenAdapter)
-        await invokeWithTimeout("set_interface", { name: chosenAdapter });
-      setStorageItem("fluxnet_interface_mode", useAuto ? "auto" : "manual");
       await invoke(
         startWithWindows
           ? "plugin:autostart|enable"
@@ -276,14 +175,7 @@ export function OnboardingPage() {
       setFinishing(false);
       setStep("done");
     }
-  }, [
-    chosenAdapter,
-    useAuto,
-    startWithWindows,
-    keepRunning,
-    hudDesign,
-    widgets,
-  ]);
+  }, [startWithWindows, keepRunning, hudDesign, widgets]);
 
   const back = (
     <Button onClick={() => go(-1)} disabled={finishing}>
@@ -315,90 +207,6 @@ export function OnboardingPage() {
       );
       break;
 
-    case "adapter":
-      content = (
-        <StepFrame
-          step={step}
-          title="Choose a network adapter"
-          description="FluxNet measures the traffic on one adapter. You can change it later in Network adapters."
-          footer={
-            <>
-              {back}
-              <Button
-                variant="accent"
-                className="min-w-24"
-                disabled={
-                  loadingIfaces || (!chosenAdapter && interfaces.length > 0)
-                }
-                onClick={() => go(1)}
-              >
-                Next
-              </Button>
-            </>
-          }
-        >
-          {loadingIfaces ? (
-            <div className="flex items-center gap-3 text-body text-fg-secondary">
-              <ProgressRing size={20} label="Finding adapters" /> Finding
-              adapters…
-            </div>
-          ) : ifaceError ? (
-            <InfoBar
-              severity="error"
-              message={ifaceError}
-              action={<Button onClick={retry}>Try again</Button>}
-            />
-          ) : interfaces.length === 0 ? (
-            <InfoBar
-              severity="warning"
-              message="No network adapters were found. You can choose one later in Network adapters."
-            />
-          ) : (
-            <div
-              role="radiogroup"
-              aria-label="Network adapter"
-              className="flex flex-col gap-1"
-            >
-              {automatic && (
-                <ChoiceRow
-                  checked={useAuto}
-                  title="Automatic (recommended)"
-                  detail={`Uses the best connected adapter — now ${automatic.name}`}
-                  onSelect={() => setUseAuto(true)}
-                />
-              )}
-              {!automatic && (
-                <InfoBar
-                  className="mb-2"
-                  severity="warning"
-                  message="Nothing is connected right now. Pick the adapter you usually use."
-                />
-              )}
-              {[
-                ...interfaces.filter(isUp),
-                ...interfaces.filter((i) => !isUp(i)),
-              ]
-                .slice(0, 6)
-                .map((iface) => (
-                  <ChoiceRow
-                    key={iface.name}
-                    checked={!useAuto && selectedIface === iface.name}
-                    disabled={!isUp(iface) && Boolean(automatic)}
-                    icon={adapterIcon(iface.interface_type)}
-                    title={iface.name}
-                    detail={`${iface.description}${isUp(iface) ? "" : " · Not connected"}`}
-                    onSelect={() => {
-                      setUseAuto(false);
-                      setSelectedIface(iface.name);
-                    }}
-                  />
-                ))}
-            </div>
-          )}
-        </StepFrame>
-      );
-      break;
-
     case "widgets":
       content = (
         <StepFrame
@@ -422,54 +230,69 @@ export function OnboardingPage() {
             {WIDGET_CHOICES.map((choice) => {
               const checked = widgets.has(choice.id);
               return (
-                <button
+                <div
                   key={choice.id}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={checked}
-                  onClick={() => toggleWidget(choice.id)}
                   className={cx(
-                    "flex flex-col overflow-hidden rounded-card border bg-card text-left transition-colors duration-[83ms] hover:bg-control-hover",
+                    "relative flex flex-col overflow-hidden rounded-card border bg-card transition-colors duration-[83ms] hover:bg-control-hover",
                     checked ? "border-accent" : "border-card-stroke",
                   )}
                 >
-                  <span className="flex h-[200px] w-full items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#d9e3ee,#e8e0ea)] in-data-[theme=dark]:bg-[linear-gradient(135deg,#1d2733,#2a2230)]">
-                    <span className="origin-center scale-[0.8]">
-                      <WidgetPreview
-                        view={WIDGET_VIEWS[choice.id]}
-                        colorMode="system"
-                        hudDesign={choice.id === "hud" ? hudDesign : undefined}
-                        frameClassName="flex items-center justify-center"
-                      />
-                    </span>
-                  </span>
-                  <span className="flex items-start gap-3 px-4 py-3">
-                    <span className="mt-0.5">
-                      <CheckMark checked={checked} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-body">{choice.name}</span>
-                      <span className="block text-caption text-fg-secondary">
-                        {choice.description}
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    onClick={() => toggleWidget(choice.id)}
+                    className="flex flex-1 flex-col text-left"
+                  >
+                    <span
+                      className={cx(
+                        "flex h-[176px] w-full items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#d9e3ee,#e8e0ea)] in-data-[theme=dark]:bg-[linear-gradient(135deg,#1d2733,#2a2230)]",
+                        // Leave room for the layout switch below the preview.
+                        choice.id === "hud" && "pb-8",
+                      )}
+                    >
+                      {/* Slightly reduced so the widest (the horizontal
+                          overlay) fits the narrowest card. */}
+                      <span className="scale-[0.85]">
+                        <WidgetPreview
+                          view={WIDGET_VIEWS[choice.id]}
+                          colorMode="system"
+                          hudDesign={
+                            choice.id === "hud" ? hudDesign : undefined
+                          }
+                          frameClassName="flex items-center justify-center"
+                        />
                       </span>
                     </span>
-                  </span>
-                </button>
+                    <span className="flex items-start gap-3 px-4 py-3">
+                      <span className="mt-0.5">
+                        <CheckMark checked={checked} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-body">{choice.name}</span>
+                        <span className="block text-caption text-fg-secondary">
+                          {choice.description}
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                  {/* Inside the card, over the preview, so choosing the
+                      overlay never pushes content below the fold. */}
+                  {choice.id === "hud" && (
+                    <div className="absolute top-[140px] left-1/2 -translate-x-1/2">
+                      <LayoutSwitch
+                        value={hudDesign}
+                        onChange={(design) => {
+                          setHudDesign(design);
+                          if (!checked) toggleWidget("hud");
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
-          {widgets.has("hud") && (
-            <div className="mt-3">
-              <SettingsCard header="Game overlay layout">
-                <ComboBox
-                  label="Game overlay layout"
-                  value={hudDesign}
-                  options={LAYOUT_OPTIONS}
-                  onChange={setHudDesign}
-                />
-              </SettingsCard>
-            </div>
-          )}
         </StepFrame>
       );
       break;
@@ -520,9 +343,7 @@ export function OnboardingPage() {
 
     case "done": {
       const summary = [
-        chosenAdapter
-          ? `Measuring ${chosenAdapter}`
-          : "Choose an adapter in Network adapters",
+        "Measures the adapter Windows uses for the internet",
         widgets.size === 0
           ? "No widgets for now"
           : `${WIDGET_CHOICES.filter((w) => widgets.has(w.id))

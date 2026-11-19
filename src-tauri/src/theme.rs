@@ -1,3 +1,5 @@
+#[cfg(target_os = "windows")]
+use tauri::Emitter;
 use tauri::tray::TrayIconId;
 use tauri::{AppHandle, image::Image};
 
@@ -26,6 +28,47 @@ pub fn is_system_light_theme() -> bool {
 #[cfg(not(target_os = "windows"))]
 pub fn is_system_light_theme() -> bool {
     false
+}
+
+/// Event sent to every window when Windows switches apps between light and
+/// dark. The payload is `"light"` or `"dark"`.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+pub const SYSTEM_THEME_EVENT: &str = "system-theme-changed";
+
+/// The theme Windows asks apps to use ("Choose your app mode"), as `"light"`
+/// or `"dark"`. `None` where it can't be read (other platforms), in which
+/// case the UI falls back to the browser's `prefers-color-scheme`.
+///
+/// The UI must not rely on `prefers-color-scheme` on Windows: WebView2 shares
+/// one colour-scheme preference between all of FluxNet's windows, and setting
+/// the dashboard to light or dark changes it for the widgets too.
+#[cfg(target_os = "windows")]
+pub fn apps_theme() -> Option<&'static str> {
+    use winreg::RegKey;
+    use winreg::enums::*;
+
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        .ok()?;
+    // Missing value: Windows' default, light.
+    let light: u32 = key.get_value("AppsUseLightTheme").unwrap_or(1);
+    Some(if light == 1 { "light" } else { "dark" })
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn apps_theme() -> Option<&'static str> {
+    None
+}
+
+/// Script run in each new window before the page loads, so the first paint
+/// already uses the right theme for "System".
+pub fn system_theme_init_script() -> Option<String> {
+    apps_theme().map(|theme| format!("window.__FLUXNET_SYSTEM_THEME={theme:?};"))
+}
+
+#[tauri::command]
+pub fn get_system_theme() -> Option<&'static str> {
+    apps_theme()
 }
 
 /// Watches for theme changes using registry change notifications (zero CPU polling).
@@ -72,6 +115,7 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
     };
 
     let mut last_light = is_system_light_theme();
+    let mut last_apps = apps_theme();
 
     loop {
         // Blocks here (zero CPU) until the registry key's values change.
@@ -99,6 +143,15 @@ fn theme_watch_loop(app: &AppHandle, tray_id: &TrayIconId) {
                     tracing::error!("Cannot reopen registry key for theme watching, giving up");
                     return;
                 }
+            }
+        }
+
+        let apps = apps_theme();
+        if apps != last_apps {
+            last_apps = apps;
+            if let Some(theme) = apps {
+                tracing::info!("App theme changed to {theme}");
+                let _ = app.emit(SYSTEM_THEME_EVENT, theme);
             }
         }
 

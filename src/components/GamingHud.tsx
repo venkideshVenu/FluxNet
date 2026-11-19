@@ -1,4 +1,9 @@
-import { usePingPoller, useKeyboardNudge, useDragToMove } from "@/hooks";
+import {
+  usePingPoller,
+  useKeyboardNudge,
+  useDragToMove,
+  useFitWindow,
+} from "@/hooks";
 import { useNetworkStore, usePingStore, useSettingsStore } from "@/store";
 import {
   cacheHudDesign,
@@ -60,15 +65,17 @@ export function GamingHud() {
 
   const handleDrag = useDragToMove();
   const handleKeyNudge = useKeyboardNudge();
+  const fitRef = useFitWindow<HTMLDivElement>();
 
   return (
     <div
+      ref={fitRef}
       onMouseDown={handleDrag}
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
       aria-label={`Ping ${stats.latencyMs ?? "unknown"} ms, Download ${dn.value} ${dn.unit}, Upload ${up.value} ${up.unit}, Packet loss ${stats.lossPercent.toFixed(0)} percent`}
-      className="w-full h-full focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-2"
+      className="w-max focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-2"
     >
       <HudPresentation
         downloadValue={dn.value}

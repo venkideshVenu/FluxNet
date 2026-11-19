@@ -32,7 +32,7 @@ notification area, stores everything on your PC, and is built with Rust and
   setting.
 - **Data usage history.** Hourly, daily and monthly totals in charts or a
   table, kept for as long as you use FluxNet.
-- **Adapter choice.** Follows your best connection automatically, or stays on
+- **Adapter choice.** Follows the connection Windows uses (switching when you plug in a cable), or stays on
   the adapter you pick: Ethernet, Wi-Fi, USB tethering or VPN.
 - **Fits into Windows 11.** Mica background, your accent colour, light and dark
   mode, and Windows Settings-style pages. Works on Windows 10 too.

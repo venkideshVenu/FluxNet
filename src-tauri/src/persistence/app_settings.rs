@@ -19,6 +19,11 @@ pub struct AppSettings {
     // When true, closing the main window hides it to the system tray instead of quitting.
     #[serde(default = "AppSettings::default_minimize_to_tray")]
     pub minimize_to_tray: bool,
+
+    /// The adapter the user chose in Network adapters. `None` (the default)
+    /// means automatic: follow the adapter Windows uses for the internet.
+    #[serde(default)]
+    pub manual_interface: Option<String>,
 }
 
 impl AppSettings {
@@ -51,8 +56,32 @@ impl Default for AppSettings {
             refresh_interval_ms: Self::default_refresh_interval_ms(),
             onboarding_completed: false,
             minimize_to_tray: Self::default_minimize_to_tray(),
+            manual_interface: None,
         }
     }
 }
 
 pub type SettingsStore = PersistentStore<AppSettings>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_saved_before_manual_adapters_mean_automatic() {
+        let old = r#"{"ping_target":"1.1.1.1","refresh_interval_ms":500,"onboarding_completed":true,"minimize_to_tray":true}"#;
+        let settings: AppSettings = serde_json::from_str(old).unwrap();
+        assert_eq!(settings.manual_interface, None);
+    }
+
+    #[test]
+    fn a_manual_adapter_round_trips() {
+        let settings = AppSettings {
+            manual_interface: Some("Ethernet".into()),
+            ..AppSettings::default()
+        };
+        let json = serde_json::to_string(&settings).unwrap();
+        let back: AppSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.manual_interface.as_deref(), Some("Ethernet"));
+    }
+}

@@ -14,10 +14,11 @@ use crate::appearance;
 use crate::commands::network::{APP_SHUTTING_DOWN, WIDGET_LABELS, is_widget_label};
 use crate::commands::visibility::hud_size_for_design;
 use crate::placement::{self, Display, Rect};
+use crate::theme;
 use crate::window_positions::{PositionSender, WidgetStore};
 use parking_lot::Mutex;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -101,6 +102,9 @@ pub fn get_or_create(app: &AppHandle, label: &str) -> Result<WebviewWindow, Stri
     if label == MAIN_LABEL {
         builder = appearance::with_backdrop(builder);
     }
+    if let Some(script) = theme::system_theme_init_script() {
+        builder = builder.initialization_script(script);
+    }
     let window = builder
         .build()
         .map_err(|e| format!("failed to create '{label}' window: {e}"))?;
@@ -145,11 +149,29 @@ pub fn destroy_widget(app: &AppHandle, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Logical size a widget window should have.
+/// Sizes the widgets reported for their content (see `fit_widget_window`),
+/// in logical pixels. They replace the starting estimates below.
+static FITTED_SIZES: LazyLock<Mutex<HashMap<String, (f64, f64)>>> = LazyLock::new(Default::default);
+
+pub fn remember_fitted_size(label: &str, width: f64, height: f64) {
+    FITTED_SIZES
+        .lock()
+        .insert(label.to_string(), (width, height));
+}
+
+pub fn forget_fitted_size(label: &str) {
+    FITTED_SIZES.lock().remove(label);
+}
+
+/// Logical size a widget window should have: the size its content last
+/// reported, or an estimate until it has.
 pub fn widget_logical_size(app: &AppHandle, label: &str) -> Option<(f64, f64)> {
+    if let Some(size) = FITTED_SIZES.lock().get(label) {
+        return Some(*size);
+    }
     match label {
-        "pill" => Some((232.0, 32.0)),
-        "compact" => Some((189.0, 172.0)),
+        "pill" => Some((200.0, 32.0)),
+        "compact" => Some((168.0, 150.0)),
         "hud" => {
             let design = app
                 .try_state::<Arc<WidgetStore>>()

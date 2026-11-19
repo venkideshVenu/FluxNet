@@ -1,6 +1,7 @@
 use crate::commands::ping::{PingState, SharedPingState};
 use crate::dto::network::{DashboardSnapshot, HistorySnapshotPoint, InterfaceInfo};
 use crate::monitor::bandwidth::{NetworkStats, calculate_speed, read_total_counters};
+use crate::persistence::app_settings::SettingsStore;
 
 use parking_lot::Mutex;
 use std::collections::VecDeque;
@@ -248,6 +249,92 @@ fn auto_select_interface() -> String {
     String::new()
 }
 
+// ── Automatic mode ────────────────────────────────────────────────────────────
+
+/// True while FluxNet picks the adapter itself (the default); false once the
+/// user has chosen one in Network adapters. Loaded from settings at startup.
+pub static AUTOMATIC_INTERFACE: AtomicBool = AtomicBool::new(true);
+
+/// Any public address works: Windows only looks up the route, nothing is sent.
+#[cfg(windows)]
+const ROUTE_PROBE_ADDR: [u8; 4] = [1, 1, 1, 1];
+
+/// Index of the adapter Windows would use to reach the internet right now,
+/// or `None` when there is no route (offline) or the platform can't tell.
+#[cfg(windows)]
+fn internet_route_if_index() -> Option<u32> {
+    use windows::Win32::NetworkManagement::IpHelper::GetBestInterface;
+
+    let mut index = 0u32;
+    let status = unsafe { GetBestInterface(u32::from_ne_bytes(ROUTE_PROBE_ADDR), &mut index) };
+    (status == 0).then_some(index)
+}
+
+#[cfg(not(windows))]
+fn internet_route_if_index() -> Option<u32> {
+    None
+}
+
+/// The adapter automatic mode should measure: the one carrying Windows'
+/// internet route, or, when that can't be found, the best connected adapter.
+/// `known_route` is the route index found last time; when it hasn't changed,
+/// `None` is returned without re-reading the adapter list.
+pub fn automatic_interface_choice(
+    networks: &mut Networks,
+    known_route: &mut Option<u32>,
+    current: &str,
+) -> Option<String> {
+    let route = internet_route_if_index();
+    if route.is_some() && route == *known_route && !current.is_empty() {
+        return None;
+    }
+    *known_route = route;
+
+    let route_adapter = route.and_then(|index| {
+        read_interfaces()
+            .into_iter()
+            .find(|i| i.if_index == index && i.status == "Up")
+            .map(|i| i.name)
+    });
+    if let Some(name) = &route_adapter
+        && !interface_exists_in_sysinfo(networks, name)
+    {
+        // A newly connected adapter: re-read the list so it can be measured.
+        networks.refresh(true);
+        if !interface_exists_in_sysinfo(networks, name) {
+            // Try again at the next check.
+            *known_route = None;
+            return None;
+        }
+    }
+
+    let choice = match route_adapter {
+        Some(name) => name,
+        None if current.is_empty() => select_interface_outside_lock(networks),
+        None => return None,
+    };
+    (!choice.is_empty() && choice != current).then_some(choice)
+}
+
+/// Points the monitor at another adapter. The counters restart so the first
+/// reading isn't a jump; the chart history is kept when `keep_history` is set
+/// (automatic switches) and cleared for a manual choice.
+pub fn switch_interface(s: &mut MonitorState, name: String, keep_history: bool) {
+    s.interface = name;
+    s.last_upload = 0.0;
+    s.last_download = 0.0;
+    s.last_nonzero_at = None;
+    s.prev_tx = 0;
+    s.prev_rx = 0;
+    s.last_sample = None;
+    if !keep_history {
+        s.peak_upload = 0.0;
+        s.peak_download = 0.0;
+        s.history.clear();
+    }
+    INTERFACE_DIRTY.store(true, Ordering::Relaxed);
+}
+
 // ── Sampling ──────────────────────────────────────────────────────────────────
 
 pub fn tick_sample_with_networks(s: &mut MonitorState, networks: &Networks, now_ts: i64) {
@@ -425,22 +512,11 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
         }
     }
 
-    {
-        let mut s = net_state.lock();
-        s.interface = name;
-        s.peak_upload = 0.0;
-        s.peak_download = 0.0;
-        s.last_upload = 0.0;
-        s.last_download = 0.0;
-        s.history.clear();
-        s.last_nonzero_at = None;
-        // Reset sampling state so next tick re-initializes counters
-        s.prev_tx = 0;
-        s.prev_rx = 0;
-        s.last_sample = None;
+    switch_interface(&mut net_state.lock(), name.clone(), false);
+    AUTOMATIC_INTERFACE.store(false, Ordering::Relaxed);
+    if let Some(store) = app.try_state::<Arc<SettingsStore>>() {
+        store.update(&app, |s| s.manual_interface = Some(name));
     }
-
-    INTERFACE_DIRTY.store(true, Ordering::Relaxed);
 
     let mut ps = ping_state.lock();
     *ps = PingState::default();
@@ -450,6 +526,29 @@ pub fn set_interface(name: String, app: AppHandle) -> Result<(), String> {
 
     Ok(())
 }
+
+/// Lets FluxNet pick the adapter again: it follows the adapter Windows uses
+/// for the internet, switching when that changes (for example when an
+/// Ethernet cable is plugged in).
+#[tauri::command]
+pub fn set_interface_automatic(app: AppHandle) -> Result<(), String> {
+    AUTOMATIC_INTERFACE.store(true, Ordering::Relaxed);
+    if let Some(store) = app.try_state::<Arc<SettingsStore>>() {
+        store.update(&app, |s| s.manual_interface = None);
+    }
+    // The sampler picks the adapter on its next check; ask it to do so now.
+    ROUTE_RECHECK.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Whether the adapter is chosen automatically.
+#[tauri::command]
+pub fn get_interface_automatic() -> bool {
+    AUTOMATIC_INTERFACE.load(Ordering::Relaxed)
+}
+
+/// Set to make the sampler re-check the automatic choice on its next tick.
+pub static ROUTE_RECHECK: AtomicBool = AtomicBool::new(true);
 
 #[tauri::command]
 pub fn reset_peaks(state: State<SharedMonitorState>) {

@@ -4,9 +4,10 @@ import { PillPresentation } from "./PillPresentation";
 import { HudPresentation } from "./HudPresentation";
 
 /**
- * jsdom does no layout, so these tests pin the CSS contract that keeps the
- * largest possible values inside the fixed-size widget windows. Visual
- * checks still need a real WebView.
+ * jsdom does no layout, so these tests pin the CSS contract: widgets size
+ * themselves to their content (the window is fitted to them), and values
+ * reserve room for their usual widest text so the widget doesn't change size
+ * as they change. Visual checks still need a real WebView.
  */
 
 describe("PillPresentation", () => {
@@ -23,12 +24,12 @@ describe("PillPresentation", () => {
     expect(screen.getAllByText("1023.9")).toHaveLength(2);
   });
 
-  it("reserves six characters per value so the pill never reflows", () => {
-    render(<PillPresentation {...largest} />);
+  it("sizes itself and reserves room for values, never cutting them", () => {
+    const { container } = render(<PillPresentation {...largest} />);
+    expect((container.firstChild as HTMLElement).className).toContain("w-max");
     for (const el of screen.getAllByText("1023.9")) {
-      expect(el.className).toContain("max-w-[6ch]");
-      expect(el.className).toContain("text-ellipsis");
-      expect(el.parentElement?.className).toContain("w-[calc(6ch+14px)]");
+      expect(el.className).not.toContain("ellipsis");
+      expect(el.parentElement?.className).toContain("min-w-[calc(5ch+12px)]");
     }
   });
 
@@ -67,18 +68,25 @@ describe("HudPresentation", () => {
     expect(screen.getAllByText("1023.9KB")).toHaveLength(2);
   });
 
-  it("horizontal: traffic values truncate instead of overflowing", () => {
+  it("horizontal: traffic values keep their room and are never cut", () => {
     render(<HudPresentation {...largest} design="horizontal" />);
     for (const el of screen.getAllByText("1023.9KB")) {
-      expect(el.className).toContain("truncate");
-      expect(el.parentElement?.className).toContain("min-w-0");
+      expect(el.className).not.toContain("truncate");
+      expect(el.className).toContain("min-w-[7ch]");
     }
   });
 
-  it("vertical: shows units separately", () => {
-    render(<HudPresentation {...largest} design="vertical" />);
+  it("vertical: lines values and units up in columns", () => {
+    const { container } = render(
+      <HudPresentation {...largest} design="vertical" />,
+    );
+    expect(
+      container.querySelector(".grid-cols-\\[auto_auto_auto\\]"),
+    ).not.toBeNull();
     expect(screen.getAllByText("KB/s")).toHaveLength(2);
-    expect(screen.getByText("999ms")).toBeInTheDocument();
+    expect(screen.getByText("999")).toBeInTheDocument();
+    expect(screen.getByText("ms")).toBeInTheDocument();
+    expect(screen.getByText("100.0")).toBeInTheDocument();
   });
 
   it("shows a dash when latency is unknown", () => {
