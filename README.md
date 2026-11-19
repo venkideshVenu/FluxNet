@@ -1,5 +1,8 @@
 <div align="center">
-  <img src="public/branding/logo-primary.png" alt="FluxNet" width="200">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/branding/logo-horizontal-light.png">
+    <img src="public/branding/logo-horizontal-dark.png" alt="FluxNet" width="360">
+  </picture>
 
   <p><strong>See your network speed at a glance on Windows.</strong></p>
 
