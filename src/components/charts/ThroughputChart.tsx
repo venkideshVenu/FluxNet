@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRightToLine } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -108,16 +109,31 @@ export function ThroughputChart({
     [canPan, clamped],
   );
 
+  // Wheels and touchpads send many events per frame; each re-render redraws
+  // the whole chart. Apply at most one pan per frame.
+  const pendingPans = useRef<((prev: number) => number)[]>([]);
+  const panFrame = useRef(0);
+  const panTo = useCallback((update: (prev: number) => number) => {
+    pendingPans.current.push(update);
+    if (panFrame.current) return;
+    panFrame.current = requestAnimationFrame(() => {
+      panFrame.current = 0;
+      const updates = pendingPans.current;
+      pendingPans.current = [];
+      setOffset((prev) => updates.reduce((value, apply) => apply(value), prev));
+    });
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(panFrame.current), []);
+
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!dragging || !dragStart.current || !container.current) return;
       const perPixel = VISIBLE_POINTS / container.current.clientWidth;
       const delta = Math.round((e.clientX - dragStart.current.x) * perPixel);
-      setOffset(
-        Math.max(0, Math.min(maxOffset, dragStart.current.offset + delta)),
-      );
+      const start = dragStart.current.offset;
+      panTo(() => Math.max(0, Math.min(maxOffset, start + delta)));
     },
-    [dragging, maxOffset],
+    [dragging, maxOffset, panTo],
   );
 
   const endDrag = useCallback(() => {
@@ -130,11 +146,11 @@ export function ThroughputChart({
       if (!canPan) return;
       const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
       const step = Math.max(1, Math.round(Math.abs(delta) / 10));
-      setOffset((prev) =>
+      panTo((prev) =>
         Math.max(0, Math.min(maxOffset, prev + (delta > 0 ? -step : step))),
       );
     },
-    [canPan, maxOffset],
+    [canPan, maxOffset, panTo],
   );
 
   const span = data.length > 1 ? data[data.length - 1].t - data[0].t : 0;
@@ -155,7 +171,7 @@ export function ThroughputChart({
         <div className="flex items-center gap-4">
           {clamped > 0 && (
             <Button
-              variant="subtle"
+              icon={<ArrowRightToLine />}
               className="h-7"
               onClick={() => setOffset(0)}
             >

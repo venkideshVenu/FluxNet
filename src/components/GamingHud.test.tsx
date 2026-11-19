@@ -8,6 +8,7 @@ vi.mock("@/hooks", () => ({
   usePingPoller: vi.fn(),
   useDragToMove: () => vi.fn(),
   useKeyboardNudge: () => vi.fn(),
+  useFitWindow: () => ({ current: null }),
 }));
 
 const invokeMock = vi.mocked(invoke);

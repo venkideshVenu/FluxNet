@@ -18,6 +18,7 @@ import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 type Args = Record<string, unknown> | undefined;
 
 const params = new URLSearchParams(window.location.search);
+let automaticInterface = true;
 const scenario = params.get("state") ?? "normal";
 
 // Small deterministic PRNG so screenshots are stable between runs.
@@ -195,7 +196,7 @@ const widgetVisibility: Record<string, boolean> = {
   compact: false,
   hud: false,
 };
-let hudDesign = "horizontal";
+let hudDesign = params.get("hud") === "vertical" ? "vertical" : "horizontal";
 let refreshInterval = 1000;
 let minimizeToTray = true;
 let autostart = true;
@@ -225,6 +226,12 @@ function handle(cmd: string, args: Args): unknown {
       return interfaces;
     case "set_interface":
       currentInterface = String(args?.name ?? "");
+      automaticInterface = false;
+      return null;
+    case "get_interface_automatic":
+      return automaticInterface;
+    case "set_interface_automatic":
+      automaticInterface = true;
       return null;
     case "get_usage_stats_cmd":
       return usageStats();
@@ -254,6 +261,9 @@ function handle(cmd: string, args: Args): unknown {
     case "set_widget_visibility":
       widgetVisibility[String(args?.label)] = Boolean(args?.visible);
       return null;
+    case "fit_widget_window":
+      showWindowBounds(Number(args?.width), Number(args?.height));
+      return null;
     case "get_hud_design":
       return hudDesign;
     case "set_hud_design":
@@ -280,6 +290,21 @@ function handle(cmd: string, args: Args): unknown {
       // Window commands (set_theme, start_dragging, …) and setters.
       return null;
   }
+}
+
+/** Outlines the size a widget asked its window to be, to check the fit. */
+function showWindowBounds(width: number, height: number) {
+  let box = document.getElementById("mock-window-bounds");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "mock-window-bounds";
+    box.style.cssText =
+      "position:fixed;left:0;top:0;outline:1px dashed #ff4d4f;pointer-events:none;z-index:9999";
+    document.body.appendChild(box);
+  }
+  box.style.width = `${width}px`;
+  box.style.height = `${height}px`;
+  box.title = `${width}×${height}`;
 }
 
 export function installMockBackend() {

@@ -1,5 +1,6 @@
 use crate::app_windows;
 use crate::background::sampler::start_sampler;
+use crate::commands::network::AUTOMATIC_INTERFACE;
 use crate::commands::network::{
     InterfacesCache, SharedInterfacesCache, SharedMonitorState, WIDGET_LABELS,
 };
@@ -132,6 +133,14 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn Error>> {
     let settings_store = Arc::new(SettingsStore::new("app-settings.json"));
     settings_store.load(&app_handle);
     app.manage(settings_store.clone());
+
+    // A manually chosen adapter survives restarts; otherwise the sampler
+    // picks one automatically.
+    if let Some(name) = settings_store.read(|s| s.manual_interface.clone()) {
+        tracing::info!("Using the adapter chosen in settings: {name}");
+        AUTOMATIC_INTERFACE.store(false, std::sync::atomic::Ordering::Relaxed);
+        monitor_state.lock().interface = name;
+    }
 
     // ── Widget state store ────────────────────────────────────────────────────
     let widget_store = Arc::new(WidgetStore::new("widget-state.json"));

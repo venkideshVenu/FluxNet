@@ -100,33 +100,21 @@ export function WidgetPreview({
   const previewProps = view.getPreviewProps(colorMode, opacity, intervalMs);
   const effectiveTheme = resolveColorMode(colorMode);
 
-  // Same logical sizes as the widget windows (see visibility.rs).
-  const resolvedHudFrame =
-    hudFrameClassName ??
-    (hudDesign === "vertical" ? "w-[120px] h-[130px]" : "w-[300px] h-[36px]");
-
   return (
     <div
       className={frameClassName}
       style={{ opacity: opacity / 100 }}
       data-theme={effectiveTheme}
     >
+      {/* Widgets size themselves, exactly as in their windows. */}
       {view.entry.label === "hud" ? (
-        <div className={resolvedHudFrame}>
+        <div className={hudFrameClassName}>
           {/* @ts-expect-error — Preview and previewProps are correctly matched */}
           <Preview {...previewProps} design={hudDesign ?? "horizontal"} />
         </div>
       ) : (
-        <div
-          className={
-            view.entry.label === "pill"
-              ? "h-8 w-[232px]"
-              : "h-[172px] w-[189px]"
-          }
-        >
-          {/* @ts-expect-error — Preview and previewProps are correctly matched */}
-          <Preview {...previewProps} />
-        </div>
+        // @ts-expect-error — Preview and previewProps are correctly matched
+        <Preview {...previewProps} />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 use crate::commands::network::{
-    SharedMonitorState, select_interface_outside_lock, tick_sample_with_networks,
+    AUTOMATIC_INTERFACE, ROUTE_RECHECK, SharedMonitorState, automatic_interface_choice,
+    select_interface_outside_lock, switch_interface, tick_sample_with_networks,
 };
 use crate::commands::ping::SharedPingState;
 use crate::monitor::bandwidth::load_networks;
@@ -112,6 +113,8 @@ pub fn start_sampler(
         // Create once; refresh() updates counters, and the full list is
         // re-read every 5 minutes to detect hot-plugged adapters.
         let mut networks = load_networks();
+        // Interface index of Windows' internet route at the last check.
+        let mut known_route: Option<u32> = None;
 
         loop {
             tokio::select! {
@@ -149,12 +152,25 @@ pub fn start_sampler(
                         },
                     };
 
-                    // Auto-select interface if none is set
-                    let needs_selection = {
-                        let s = monitor_state.lock();
-                        s.interface.is_empty()
-                    };
-                    if needs_selection {
+                    // Automatic mode follows the adapter Windows uses for the
+                    // internet, checked every 5 s (and straight away when the
+                    // user turns automatic mode on). A manual choice is kept.
+                    let current = monitor_state.lock().interface.clone();
+                    let automatic = AUTOMATIC_INTERFACE.load(Ordering::Relaxed);
+                    let recheck = ROUTE_RECHECK.swap(false, Ordering::Relaxed)
+                        || tick_counter.is_multiple_of(PING_INTERVAL_TICKS);
+                    if automatic && (recheck || current.is_empty()) {
+                        if let Some(next) =
+                            automatic_interface_choice(networks, &mut known_route, &current)
+                        {
+                            let mut s = monitor_state.lock();
+                            // Skip if the user picked an adapter meanwhile.
+                            if AUTOMATIC_INTERFACE.load(Ordering::Relaxed) && s.interface == current {
+                                tracing::info!("Automatic adapter: '{current}' -> '{next}'");
+                                switch_interface(&mut s, next, true);
+                            }
+                        }
+                    } else if current.is_empty() {
                         let selected = select_interface_outside_lock(networks);
                         if !selected.is_empty() {
                             let mut s = monitor_state.lock();

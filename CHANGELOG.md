@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Automatic adapter mode now follows the adapter Windows uses for the
+  internet, all the time. Plugging in an Ethernet cable (or connecting a VPN)
+  switches FluxNet over within a few seconds, even while the main window is
+  closed. A manually chosen adapter is remembered across restarts.
+- First-run setup has two steps instead of three: the adapter step is gone,
+  since automatic mode is right for almost everyone. The game overlay's layout
+  is chosen on its card, so the page no longer needs scrolling.
+- Widgets size their windows to their content. The pill and compact widgets
+  are smaller, and no widget is cut off by wider fonts or text settings.
+- The vertical game overlay lines up its values and units in columns.
+- The light theme is softer: grey surfaces instead of near-white ones.
+- Widget settings expand and collapse with an animation, and the page no
+  longer changes width when a scrollbar appears.
+- Overview's "Back to now" is a proper button.
+- Panning the Overview chart redraws at most once per frame, which keeps the
+  graphics memory spike while scrolling it lower.
+
+### Fixed
+
+- Widgets set to the "System" theme followed the app's theme instead of
+  Windows' when the app was set to light or dark.
+
 ## [0.2.0] - 2026-11-18
 
 ### Added

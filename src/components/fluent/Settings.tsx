@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cx } from "./cx";
 
@@ -114,15 +114,29 @@ export function SettingsExpander({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  // The content stays rendered while it folds away, then is removed so
+  // collapsed cards cost nothing (their previews are live widgets).
+  const [rendered, setRendered] = useState(defaultExpanded);
   const contentId = useId();
+
+  const toggle = () => {
+    if (!expanded) setRendered(true);
+    setExpanded(!expanded);
+  };
+
+  useEffect(() => {
+    if (expanded || !rendered) return;
+    const id = setTimeout(() => setRendered(false), EXPAND_MS);
+    return () => clearTimeout(id);
+  }, [expanded, rendered]);
   return (
     <div className="flex flex-col">
       <div
-        onClick={() => setExpanded((v) => !v)}
+        onClick={toggle}
         className={cx(
           CARD,
           "transition-colors duration-[83ms] hover:bg-control-hover",
-          expanded && "rounded-b-none",
+          rendered && "rounded-b-none",
         )}
       >
         <CardBody icon={icon} header={header} description={description} />
@@ -141,7 +155,7 @@ export function SettingsExpander({
           aria-label={`${expanded ? "Collapse" : "Expand"} ${typeof header === "string" ? header : "settings"}`}
           onClick={(e) => {
             e.stopPropagation();
-            setExpanded((v) => !v);
+            toggle();
           }}
           className="flex size-8 shrink-0 items-center justify-center rounded-control text-fg-secondary hover:bg-subtle-hover active:bg-subtle-pressed"
         >
@@ -153,17 +167,34 @@ export function SettingsExpander({
           />
         </button>
       </div>
-      {expanded && (
+      {rendered && (
+        // Animates the height: grid rows go from 0fr to 1fr (WinUI's expand
+        // motion). `starting:` sets the first frame when it appears.
         <div
-          id={contentId}
-          className="flex flex-col rounded-b-card border border-t-0 border-card-stroke bg-card-secondary"
+          inert={!expanded}
+          className={cx(
+            "grid transition-[grid-template-rows,opacity] duration-[250ms] ease-fluent-out",
+            expanded
+              ? "grid-rows-[1fr] opacity-100 starting:grid-rows-[0fr] starting:opacity-0"
+              : "grid-rows-[0fr] opacity-0",
+          )}
         >
-          {children}
+          <div className="min-h-0 overflow-hidden">
+            <div
+              id={contentId}
+              className="flex flex-col rounded-b-card border border-t-0 border-card-stroke bg-card-secondary"
+            >
+              {children}
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+/** Length of the expand and collapse animation, in ms. */
+const EXPAND_MS = 250;
 
 /** A row inside a SettingsExpander, indented to line up with the header text. */
 export function SettingsExpanderItem({

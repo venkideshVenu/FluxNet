@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { useNetworkStore } from "@/store";
 import { InterfacesPage, type InterfaceInfo } from "./InterfacesPage";
@@ -14,14 +15,12 @@ const adapter = (name: string, type: string, status = "Up"): InterfaceInfo => ({
   interface_type: type,
 });
 
-const ADAPTERS = [
-  adapter("vEthernet (WSL)", "virtual"),
-  adapter("Wi-Fi", "wifi"),
-];
+const ADAPTERS = [adapter("Ethernet", "ethernet"), adapter("Wi-Fi", "wifi")];
 
-function mockBackend() {
+function mockBackend(automatic: boolean) {
   vi.mocked(invoke).mockImplementation(async (cmd: string) => {
     if (cmd === "get_interfaces") return ADAPTERS;
+    if (cmd === "get_interface_automatic") return automatic;
     return undefined;
   });
 }
@@ -32,33 +31,49 @@ function useInterface(name: string) {
   }));
 }
 
+const automaticSwitch = () =>
+  screen.getByRole("switch", { name: "Choose adapter automatically" });
+
 describe("InterfacesPage", () => {
   beforeEach(() => {
-    localStorage.clear();
     vi.mocked(invoke).mockReset();
-    mockBackend();
   });
 
-  it("switches to the best adapter in automatic mode", async () => {
-    useInterface("vEthernet (WSL)");
+  it("shows the backend's mode and never switches adapters by itself", async () => {
+    mockBackend(true);
+    useInterface("Wi-Fi");
     render(<InterfacesPage />);
 
-    await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith("set_interface", { name: "Wi-Fi" }),
-    );
-  });
-
-  it("leaves a manually chosen adapter alone", async () => {
-    localStorage.setItem("fluxnet_interface_mode", "manual");
-    useInterface("vEthernet (WSL)");
-    render(<InterfacesPage />);
-
-    await screen.findByText("vEthernet (WSL) properties");
+    await screen.findByText("Wi-Fi properties");
+    await waitFor(() => expect(automaticSwitch()).toBeChecked());
     expect(invoke).not.toHaveBeenCalledWith("set_interface", expect.anything());
   });
 
+  it("choosing an adapter makes it a manual choice", async () => {
+    mockBackend(true);
+    useInterface("Wi-Fi");
+    render(<InterfacesPage />);
+
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /Ethernet/ }),
+    );
+    expect(invoke).toHaveBeenCalledWith("set_interface", { name: "Ethernet" });
+    await waitFor(() => expect(automaticSwitch()).not.toBeChecked());
+  });
+
+  it("turning automatic mode on hands the choice to the backend", async () => {
+    mockBackend(false);
+    useInterface("Wi-Fi");
+    render(<InterfacesPage />);
+
+    await waitFor(() => expect(automaticSwitch()).not.toBeChecked());
+    await userEvent.click(automaticSwitch());
+    expect(invoke).toHaveBeenCalledWith("set_interface_automatic", undefined);
+    await waitFor(() => expect(automaticSwitch()).toBeChecked());
+  });
+
   it("shows the properties of the adapter in use", async () => {
-    localStorage.setItem("fluxnet_interface_mode", "manual");
+    mockBackend(false);
     useInterface("Wi-Fi");
     render(<InterfacesPage />);
 

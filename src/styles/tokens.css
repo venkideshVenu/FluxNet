@@ -19,39 +19,43 @@
   --font-mono:
     "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
 
-  /* Backdrop: SolidBackgroundFillColorBase (Mica fallback). */
-  --app-bg: #f3f3f3;
+  /* Light theme, toned down from WinUI's near-white surfaces, which are
+     glaring in a monitoring app that stays open: a soft grey base, cards a
+     step lighter, and slightly stronger strokes so edges still read. */
+
+  /* Backdrop (Mica fallback). */
+  --app-bg: #e6e8eb;
 
   /* Layers and cards. */
-  --layer: rgba(255, 255, 255, 0.5);
-  --layer-stroke: rgba(0, 0, 0, 0.0578);
-  --card: rgba(255, 255, 255, 0.7);
-  --card-secondary: rgba(246, 246, 246, 0.5);
-  --card-stroke: rgba(0, 0, 0, 0.0578);
+  --layer: rgba(232, 235, 239, 0.62);
+  --layer-stroke: rgba(0, 0, 0, 0.07);
+  --card: rgba(246, 247, 249, 0.78);
+  --card-secondary: rgba(236, 238, 241, 0.7);
+  --card-stroke: rgba(0, 0, 0, 0.075);
   /* Opaque equivalent of a card, for 2px "surface rings" on chart markers. */
-  --card-solid: #fbfbfb;
+  --card-solid: #f1f3f5;
 
   /* Subtle fills (list items, nav items, subtle buttons). */
-  --subtle-hover: rgba(0, 0, 0, 0.0373);
-  --subtle-pressed: rgba(0, 0, 0, 0.0241);
-  --subtle-selected: rgba(0, 0, 0, 0.0373);
+  --subtle-hover: rgba(0, 0, 0, 0.045);
+  --subtle-pressed: rgba(0, 0, 0, 0.03);
+  --subtle-selected: rgba(0, 0, 0, 0.05);
 
   /* Controls. */
-  --control: rgba(255, 255, 255, 0.7);
-  --control-hover: rgba(249, 249, 249, 0.5);
-  --control-pressed: rgba(249, 249, 249, 0.3);
-  --control-disabled: rgba(249, 249, 249, 0.3);
-  --control-stroke: rgba(0, 0, 0, 0.0578);
+  --control: rgba(250, 251, 252, 0.8);
+  --control-hover: rgba(244, 245, 247, 0.8);
+  --control-pressed: rgba(238, 240, 243, 0.8);
+  --control-disabled: rgba(238, 240, 243, 0.5);
+  --control-stroke: rgba(0, 0, 0, 0.08);
   --control-stroke-bottom: rgba(0, 0, 0, 0.1622);
   --control-strong: rgba(0, 0, 0, 0.4458);
   --control-alt: rgba(0, 0, 0, 0.0241);
   --control-alt-hover: rgba(0, 0, 0, 0.0578);
-  --control-solid: #ffffff;
-  --divider: rgba(0, 0, 0, 0.0803);
+  --control-solid: #f8f9fa;
+  --divider: rgba(0, 0, 0, 0.09);
 
   /* Text. */
   --fg: rgba(0, 0, 0, 0.8956);
-  --fg-secondary: rgba(0, 0, 0, 0.6063);
+  --fg-secondary: rgba(0, 0, 0, 0.64);
   --fg-tertiary: rgba(0, 0, 0, 0.4458);
   --fg-disabled: rgba(0, 0, 0, 0.3614);
 
@@ -77,8 +81,8 @@
   --upload: #0f7b0f;
 
   /* Flyouts (menus, combo box drop-downs, tooltips). */
-  --flyout: #f9f9f9;
-  --flyout-stroke: rgba(0, 0, 0, 0.0578);
+  --flyout: #f3f4f6;
+  --flyout-stroke: rgba(0, 0, 0, 0.08);
   --shadow-flyout: 0 8px 16px rgba(0, 0, 0, 0.14);
   --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.04);
 

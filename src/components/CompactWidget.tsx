@@ -9,7 +9,7 @@ import {
 } from "@/utils";
 import { useEffect, useState } from "react";
 import { CompactPresentation } from "./CompactPresentation";
-import { useDragFromHandle, useKeyboardNudge } from "@/hooks";
+import { useDragFromHandle, useFitWindow, useKeyboardNudge } from "@/hooks";
 
 export function CompactWidget() {
   const { data, isConnected } = useNetworkStore(
@@ -60,15 +60,17 @@ export function CompactWidget() {
   }, []);
 
   const handleDrag = useDragFromHandle();
+  const fitRef = useFitWindow<HTMLDivElement>();
   const handleKeyNudge = useKeyboardNudge();
 
   return (
     <div
+      ref={fitRef}
       onMouseDown={handleDrag}
       onKeyDown={handleKeyNudge}
       role="status"
       tabIndex={0}
-      className="w-full h-full p-px focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
+      className="w-max p-px focus-visible:outline-2 focus-visible:outline-(--w-fg) focus-visible:outline-offset-[3px] focus-visible:rounded-xl"
     >
       <CompactPresentation
         interfaceName={data.interfaceName}

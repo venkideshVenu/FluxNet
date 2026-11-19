@@ -3,19 +3,19 @@ use crate::commands::network::is_widget_label;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::WidgetState;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WebviewWindow};
 
 pub type WidgetStore = PersistentStore<WidgetState>;
 
 // ── Window size constants ─────────────────────────────────────────────────────
 
-/// Horizontal HUD: widened from 320→380 so the LOSS column is always visible.
+// Starting sizes only: each widget then sizes its window to its content
+// (`fit_widget_window`).
 const HUD_HORIZONTAL_W: f64 = 300.0;
 const HUD_HORIZONTAL_H: f64 = 36.0;
 
-/// Vertical HUD: enlarged from 130×105→150×130 for readable font sizes.
-const HUD_VERTICAL_W: f64 = 120.0;
-const HUD_VERTICAL_H: f64 = 130.0;
+const HUD_VERTICAL_W: f64 = 128.0;
+const HUD_VERTICAL_H: f64 = 120.0;
 
 pub fn hud_size_for_design(design: &str) -> (f64, f64) {
     if design == "vertical" {
@@ -131,14 +131,37 @@ pub fn set_hud_design(design: String, app: AppHandle) -> Result<(), String> {
     let Some(window) = app.get_webview_window("hud") else {
         return Ok(());
     };
-    let (w, h) = hud_size_for_design(&design);
-    lock_logical_size(&window, w, h);
+    // The overlay reports its new size once it has re-rendered.
+    app_windows::forget_fitted_size("hud");
 
     let _ = window.eval(format!(
         "window.__FLUXNET_HUD_DESIGN='{}';window.dispatchEvent(new Event('fluxnet_hud_design_changed'));",
         design
     ));
 
+    Ok(())
+}
+
+/// Largest size a widget may ask for, so a layout bug can't cover the screen.
+const MAX_WIDGET_SIDE: f64 = 640.0;
+
+/// Sizes the calling widget's window to its content, in logical pixels.
+/// Widgets measure themselves after every layout change, so the window never
+/// clips the widget (text is wider with some fonts and text-scaling settings)
+/// or leaves an invisible margin that blocks clicks.
+#[tauri::command]
+pub fn fit_widget_window(window: WebviewWindow, width: f64, height: f64) -> Result<(), String> {
+    let label = window.label().to_string();
+    if !is_widget_label(&label) {
+        return Err(format!("'{label}' is not a widget"));
+    }
+    if !(width.is_finite() && height.is_finite()) || width < 1.0 || height < 1.0 {
+        return Err(format!("invalid widget size {width}×{height}"));
+    }
+    let w = width.ceil().min(MAX_WIDGET_SIDE);
+    let h = height.ceil().min(MAX_WIDGET_SIDE);
+    app_windows::remember_fitted_size(&label, w, h);
+    lock_logical_size(&window, w, h);
     Ok(())
 }
 

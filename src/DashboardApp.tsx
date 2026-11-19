@@ -50,7 +50,7 @@ function DashboardContent() {
       {/* The content layer: on Windows 11 it floats over Mica like WinUI apps. */}
       <main
         id="main-content"
-        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto rounded-tl-card border-t border-l border-layer-stroke bg-layer"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] rounded-tl-card border-t border-l border-layer-stroke bg-layer"
       >
         <Routes>
           <Route path="/" element={<DashboardPage />} />

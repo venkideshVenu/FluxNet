@@ -13,7 +13,6 @@ export type StorageSchema = {
   fluxnet_compact_always_on_top: string;
   fluxnet_hud_always_on_top: string;
   fluxnet_configured: string;
-  fluxnet_interface_mode: string;
 };
 
 export function getStorageItem<K extends keyof StorageSchema>(

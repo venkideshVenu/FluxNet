@@ -24,9 +24,8 @@ export const HudPresentation = memo(function HudPresentation(
 });
 
 /* ── Horizontal ────────────────────────────────────────────────────────── */
-// Window size: 300 × 36 logical (see `hud_size_for_design` in visibility.rs).
-// Ping and loss keep their width; the traffic column shrinks with an ellipsis
-// when the largest values ("1023.9KB") or Windows text scaling need more room.
+// Sized by its content (the window is fitted to it). Each value has room for
+// its usual widest text so the bar doesn't change width as values change.
 
 function HudHorizontal({
   downloadValue,
@@ -59,10 +58,10 @@ function HudHorizontal({
   const compactUpload = `${uploadValue}${uploadUnit.replace("/s", "")}`;
 
   return (
-    <div className="w-full h-full p-0.5">
+    <div className="w-max p-0.5">
       <div
         className="
-          h-full
+          h-8
           rounded-full
           border
           border-(--w-stroke)
@@ -88,25 +87,25 @@ function HudHorizontal({
             className="w-1.5 h-1.5 rounded-full"
             style={{ backgroundColor: pingColour }}
           />
-          <span className="font-semibold">{latencyText}</span>
+          <span className="min-w-[5ch] font-semibold">{latencyText}</span>
         </div>
 
         {/* Traffic */}
-        <div className="flex items-center justify-center gap-3 min-w-0 shrink">
+        <div className="flex items-center gap-3">
           <div
-            className="flex items-center gap-1 min-w-0 text-(--w-download)"
+            className="flex items-center gap-1 text-(--w-download)"
             title={compactDownload}
           >
             <span className="shrink-0">↓</span>
-            <span className="truncate">{compactDownload}</span>
+            <span className="min-w-[7ch]">{compactDownload}</span>
           </div>
 
           <div
-            className="flex items-center gap-1 min-w-0 text-(--w-upload)"
+            className="flex items-center gap-1 text-(--w-upload)"
             title={compactUpload}
           >
             <span className="shrink-0">↑</span>
-            <span className="truncate">{compactUpload}</span>
+            <span className="min-w-[7ch]">{compactUpload}</span>
           </div>
         </div>
 
@@ -118,7 +117,7 @@ function HudHorizontal({
           <span className="text-[9px] uppercase tracking-wide text-(--w-fg-3)">
             LOSS
           </span>
-          <span>{lossText}</span>
+          <span className="min-w-[4ch] text-right">{lossText}</span>
         </div>
       </div>
     </div>
@@ -126,7 +125,8 @@ function HudHorizontal({
 }
 
 /* ── Vertical Card ─────────────────────────────────────────────────────── */
-// Window size: 120 × 130 logical (see `hud_size_for_design` in visibility.rs).
+// One grid for every row: label, value (right-aligned) and unit, so numbers
+// and units line up whatever their width. Sized by its content.
 
 function HudVertical({
   downloadValue,
@@ -136,8 +136,6 @@ function HudVertical({
   latencyMs,
   lossPercent,
 }: HudPresentationProps) {
-  const latencyText = latencyMs === null ? "—" : `${Math.round(latencyMs)}ms`;
-
   const pingColour =
     latencyMs === null
       ? "var(--w-fg-3)"
@@ -154,76 +152,50 @@ function HudVertical({
         ? "var(--w-warn)"
         : "var(--w-bad)";
 
+  const label =
+    "font-mono text-[9px] font-bold uppercase tracking-wider text-(--w-fg-3)";
+  const value = "min-w-[6ch] text-right text-[12px] font-semibold";
+  const unit = "min-w-[4ch] text-[9px] text-(--w-fg-3)";
+  const separator = "col-span-3 my-0.5 h-px bg-(--w-sep)";
+
   return (
-    <div className="w-full h-full p-0.5">
+    <div className="w-max p-0.5">
       <div
         className="
-          h-full w-full
+          grid grid-cols-[auto_auto_auto]
+          items-baseline
+          gap-x-1.5 gap-y-1
           rounded-lg
-          border
-          border-(--w-stroke)
+          border border-(--w-stroke)
           bg-(--w-overlay)
-          flex flex-col
-          justify-center
-          select-none
-          cursor-grab
-          py-2
-          px-3
-          gap-1
+          px-3 py-2
+          font-mono tabular-nums leading-4
+          select-none cursor-grab
         "
       >
-        {/* Ping */}
-        <div className="flex items-center justify-between">
-          <span
-            data-tauri-drag-region
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: pingColour }}
-          />
+        <span className={label}>Ping</span>
+        <span className={value} style={{ color: pingColour }}>
+          {latencyMs === null ? "—" : Math.round(latencyMs)}
+        </span>
+        <span className={unit}>{latencyMs === null ? "" : "ms"}</span>
 
-          <span
-            className="font-mono text-[13px] font-semibold tabular-nums leading-none"
-            style={{ color: pingColour }}
-          >
-            {latencyText}
-          </span>
-        </div>
+        <span className={separator} />
 
-        {/* Separator */}
-        <div className="h-px bg-(--w-sep)" />
+        <span className="text-[11px] font-bold text-(--w-download)">↓</span>
+        <span className={`${value} text-(--w-download)`}>{downloadValue}</span>
+        <span className={unit}>{downloadUnit}</span>
 
-        {/* Download */}
-        <div className="flex items-center justify-between text-(--w-download) font-mono text-[12px] font-medium tabular-nums">
-          <span className="text-[10px] font-bold">↓</span>
-          <span>
-            {downloadValue}{" "}
-            <span className="text-[9px] text-(--w-fg-3)">{downloadUnit}</span>
-          </span>
-        </div>
+        <span className="text-[11px] font-bold text-(--w-upload)">↑</span>
+        <span className={`${value} text-(--w-upload)`}>{uploadValue}</span>
+        <span className={unit}>{uploadUnit}</span>
 
-        {/* Upload row */}
-        <div className="flex items-center justify-between text-(--w-upload) font-mono text-[12px] font-medium tabular-nums">
-          <span className="text-[10px] font-bold">↑</span>
-          <span>
-            {uploadValue}{" "}
-            <span className="text-[9px] text-(--w-fg-3)">{uploadUnit}</span>
-          </span>
-        </div>
+        <span className={separator} />
 
-        {/* Separator */}
-        <div className="h-px bg-(--w-sep)" />
-
-        {/* Loss */}
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-(--w-fg-3)">
-            LOSS
-          </span>
-          <span
-            className="font-mono text-[12px] font-semibold tabular-nums"
-            style={{ color: lossColour }}
-          >
-            {lossPercent.toFixed(1)}%
-          </span>
-        </div>
+        <span className={label}>Loss</span>
+        <span className={value} style={{ color: lossColour }}>
+          {lossPercent.toFixed(1)}
+        </span>
+        <span className={unit}>%</span>
       </div>
     </div>
   );
