@@ -19,7 +19,10 @@ notification area, stores everything on your PC, and is built with Rust and
 [Tauri](https://tauri.app/) to stay light.
 
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="FluxNet Overview page" width="90%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
+    <img src="docs/screenshots/overview-light.png" alt="FluxNet's Overview page: live download and upload speeds above a five-minute throughput chart" width="90%">
+  </picture>
 </p>
 
 ## Features
@@ -32,8 +35,10 @@ notification area, stores everything on your PC, and is built with Rust and
   setting.
 - **Data usage history.** Hourly, daily and monthly totals in charts or a
   table, kept for as long as you use FluxNet.
-- **Adapter choice.** Follows the connection Windows uses (switching when you plug in a cable), or stays on
-  the adapter you pick: Ethernet, Wi-Fi, USB tethering or VPN.
+- **Follows your connection.** Measures the adapter Windows uses for the
+  internet and switches when it does, for example when you plug in an Ethernet
+  cable. You can also pick an adapter yourself: Ethernet, Wi-Fi, USB tethering
+  or VPN.
 - **Fits into Windows 11.** Mica background, your accent colour, light and dark
   mode, and Windows Settings-style pages. Works on Windows 10 too.
 - **Multi-monitor aware.** Widgets stay the right size on monitors with
@@ -46,7 +51,8 @@ notification area, stores everything on your PC, and is built with Rust and
    [latest release](https://github.com/venkideshVenu/FluxNet/releases/latest).
 2. Run it. FluxNet installs for your user only and needs no administrator
    rights.
-3. Follow the first-run setup to pick an adapter and turn on widgets.
+3. The first-run setup asks which widgets to show and whether FluxNet should
+   start with Windows.
 
 Requires 64-bit Windows 10 or 11. The installer adds Microsoft WebView2 if it's
 missing (Windows 11 already has it).
@@ -61,6 +67,9 @@ missing (Windows 11 already has it).
 
 - Click the FluxNet icon in the notification area to open the main window.
   Right-click it to turn widgets on or off or to quit.
+- **Network adapters** shows every adapter with its details. Choosing one
+  there makes FluxNet stay on it; turn **Choose adapter automatically** back on
+  to follow Windows again.
 - Drag a widget to move it. With a widget selected, the arrow keys nudge it,
   and Shift moves it further.
 - Closing the main window keeps FluxNet running in the notification area. You
@@ -85,16 +94,54 @@ well to remove your history.
 
 ## Screenshots
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/desktop-widgets-dark.png">
+    <img src="docs/screenshots/desktop-widgets-light.png" alt="The desktop widgets: the pill, the compact card, and the game overlay in its horizontal and vertical layouts">
+  </picture>
+</p>
+
 <table>
   <tr>
-    <td><img src="docs/screenshots/history.png" alt="Data usage page"></td>
-    <td><img src="docs/screenshots/widgets.png" alt="Widgets page"></td>
+    <td width="50%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/usage-dark.png">
+    <img src="docs/screenshots/usage-light.png" alt="Data usage page: totals for today, the last 7 days and this month above a chart of data used per hour">
+  </picture>
+    </td>
+    <td width="50%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/widgets-dark.png">
+    <img src="docs/screenshots/widgets-light.png" alt="Widgets page: the Pill widget expanded with its preview and settings">
+  </picture>
+    </td>
   </tr>
   <tr>
     <td align="center">Data usage</td>
     <td align="center">Widgets</td>
   </tr>
+  <tr>
+    <td width="50%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/adapters-dark.png">
+    <img src="docs/screenshots/adapters-light.png" alt="Network adapters page: automatic choice switched on, with Wi-Fi in use">
+  </picture>
+    </td>
+    <td width="50%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png">
+    <img src="docs/screenshots/settings-light.png" alt="Settings page: refresh rate, speed units, theme and time formats">
+  </picture>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">Network adapters</td>
+    <td align="center">Settings</td>
+  </tr>
 </table>
+
+Screenshots follow your GitHub theme. They show sample data from
+`pnpm dev:web`.
 
 ## Building from source
 

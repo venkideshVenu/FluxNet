@@ -12,6 +12,10 @@
  *   &onboarding=1                   start in the first-run flow
  *   &route=/history                 open a dashboard page directly
  *   &state=empty|offline            show empty or disconnected states
+ *   &bounds=1                       outline the size a widget asks its window to be
+ *   &hud=vertical                   start the game overlay in its vertical layout
+ *   &backdrop=none                  no desktop backdrop behind a widget (to
+ *                                   place widgets on one shared backdrop)
  */
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
@@ -262,7 +266,8 @@ function handle(cmd: string, args: Args): unknown {
       widgetVisibility[String(args?.label)] = Boolean(args?.visible);
       return null;
     case "fit_widget_window":
-      showWindowBounds(Number(args?.width), Number(args?.height));
+      if (params.get("bounds") === "1")
+        showWindowBounds(Number(args?.width), Number(args?.height));
       return null;
     case "get_hud_design":
       return hudDesign;
@@ -329,7 +334,11 @@ export function installMockBackend() {
         ? "linear-gradient(135deg, #e9eef6, #f4eef2)"
         : "linear-gradient(135deg, #1c2128, #241f26)";
   }
-  if (params.get("window") && params.get("window") !== "main") {
+  if (
+    params.get("window") &&
+    params.get("window") !== "main" &&
+    params.get("backdrop") !== "none"
+  ) {
     // A desktop-like backdrop behind transparent widget windows.
     document.documentElement.style.background =
       theme === "light" ? "#dfe6ee" : "#1b2a3a";
