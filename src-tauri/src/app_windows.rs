@@ -23,8 +23,8 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, Position, Size, WebviewWindow,
-    WebviewWindowBuilder, WindowEvent,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Position, Size,
+    WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
 
 pub const MAIN_LABEL: &str = "main";
@@ -149,14 +149,40 @@ pub fn destroy_widget(app: &AppHandle, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Sizes the widgets reported for their content (see `fit_widget_window`),
-/// in logical pixels. They replace the starting estimates below.
-static FITTED_SIZES: LazyLock<Mutex<HashMap<String, (f64, f64)>>> = LazyLock::new(Default::default);
+/// A size a widget reported for its content (see `fit_widget_window`): in
+/// physical pixels, with the window's scale factor when it was measured.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FittedSize {
+    pub width: u32,
+    pub height: u32,
+    pub scale: f64,
+}
 
-pub fn remember_fitted_size(label: &str, width: f64, height: f64) {
-    FITTED_SIZES
-        .lock()
-        .insert(label.to_string(), (width, height));
+impl FittedSize {
+    /// The same size on a monitor with another scale factor.
+    pub fn at_scale(self, scale: f64) -> (u32, u32) {
+        let ratio = if self.scale > 0.0 {
+            scale / self.scale
+        } else {
+            1.0
+        };
+        (
+            (f64::from(self.width) * ratio).ceil() as u32,
+            (f64::from(self.height) * ratio).ceil() as u32,
+        )
+    }
+}
+
+/// Sizes the widgets reported for their content. They replace the starting
+/// estimates below.
+static FITTED_SIZES: LazyLock<Mutex<HashMap<String, FittedSize>>> = LazyLock::new(Default::default);
+
+pub fn remember_fitted_size(label: &str, size: FittedSize) {
+    FITTED_SIZES.lock().insert(label.to_string(), size);
+}
+
+fn fitted_size(label: &str) -> Option<FittedSize> {
+    FITTED_SIZES.lock().get(label).copied()
 }
 
 pub fn forget_fitted_size(label: &str) {
@@ -166,8 +192,11 @@ pub fn forget_fitted_size(label: &str) {
 /// Logical size a widget window should have: the size its content last
 /// reported, or an estimate until it has.
 pub fn widget_logical_size(app: &AppHandle, label: &str) -> Option<(f64, f64)> {
-    if let Some(size) = FITTED_SIZES.lock().get(label) {
-        return Some(*size);
+    if let Some(size) = fitted_size(label) {
+        return Some((
+            f64::from(size.width) / size.scale,
+            f64::from(size.height) / size.scale,
+        ));
     }
     match label {
         "pill" => Some((200.0, 32.0)),
@@ -185,7 +214,18 @@ pub fn widget_logical_size(app: &AppHandle, label: &str) -> Option<(f64, f64)> {
 
 /// Locks a window to a fixed logical size.
 pub fn lock_logical_size(window: &WebviewWindow, width: f64, height: f64) {
-    let size = Size::Logical(LogicalSize { width, height });
+    lock_size(window, Size::Logical(LogicalSize { width, height }));
+}
+
+/// Locks a window to a fixed size in physical pixels.
+pub fn lock_physical_size(window: &WebviewWindow, width: u32, height: u32) {
+    lock_size(window, Size::Physical(PhysicalSize { width, height }));
+}
+
+fn lock_size(window: &WebviewWindow, size: Size) {
+    // Clear the old bounds first: when growing, a new minimum larger than the
+    // old maximum would otherwise be rejected or clamped.
+    let _ = window.set_max_size(None::<Size>);
     let _ = window.set_min_size(Some(size));
     let _ = window.set_max_size(Some(size));
     let _ = window.set_size(size);
@@ -272,9 +312,19 @@ fn prepare_widget(app: &AppHandle, window: &WebviewWindow, label: &str) {
         WindowEvent::ScaleFactorChanged { .. } => {
             // Moving between monitors with different DPI (or changing Windows
             // display scaling) leaves the min/max lock at the old physical
-            // size. Re-apply the logical size so the widget keeps its shape.
-            if let Some((w, h)) = widget_logical_size(&app_handle, &label) {
-                lock_logical_size(&window_for_events, w, h);
+            // size. Scale it to the new monitor; the widget then measures
+            // itself again and reports the exact size.
+            match fitted_size(&label) {
+                Some(fitted) => {
+                    let scale = window_for_events.scale_factor().unwrap_or(fitted.scale);
+                    let (w, h) = fitted.at_scale(scale);
+                    lock_physical_size(&window_for_events, w, h);
+                }
+                None => {
+                    if let Some((w, h)) = widget_logical_size(&app_handle, &label) {
+                        lock_logical_size(&window_for_events, w, h);
+                    }
+                }
             }
         }
         WindowEvent::CloseRequested { .. } => {
@@ -346,5 +396,22 @@ fn initial_position(app: &AppHandle, label: &str, saved: Option<(i32, i32)>) -> 
             let slot = WIDGET_LABELS.iter().position(|l| *l == label).unwrap_or(0);
             placement::default_position(&displays, primary, slot, logical_w, logical_h)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FittedSize;
+
+    #[test]
+    fn fitted_sizes_follow_the_monitor_scale() {
+        let at_125 = FittedSize {
+            width: 275,
+            height: 35,
+            scale: 1.25,
+        };
+        assert_eq!(at_125.at_scale(1.25), (275, 35));
+        assert_eq!(at_125.at_scale(1.0), (220, 28));
+        assert_eq!(at_125.at_scale(1.5), (330, 42));
     }
 }

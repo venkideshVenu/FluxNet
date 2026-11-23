@@ -1,4 +1,4 @@
-use crate::app_windows::{self, lock_logical_size};
+use crate::app_windows::{self, lock_physical_size};
 use crate::commands::network::is_widget_label;
 use crate::persistence::persistent_store::PersistentStore;
 use crate::persistence::widget_state::WidgetState;
@@ -142,26 +142,45 @@ pub fn set_hud_design(design: String, app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Largest size a widget may ask for, so a layout bug can't cover the screen.
-const MAX_WIDGET_SIDE: f64 = 640.0;
+/// Largest side a widget may ask for, in physical pixels, so a layout bug
+/// can't cover the screen (enough for 640 logical px at 300% scaling).
+const MAX_WIDGET_SIDE: u32 = 1920;
 
-/// Sizes the calling widget's window to its content, in logical pixels.
-/// Widgets measure themselves after every layout change, so the window never
-/// clips the widget (text is wider with some fonts and text-scaling settings)
-/// or leaves an invisible margin that blocks clicks.
+/// Sizes the calling widget's window to its content.
+///
+/// The size is in physical pixels: the widget multiplies its measured size by
+/// `devicePixelRatio`, which is exactly how much the page is scaled on
+/// screen (display scaling, WebView zoom and Windows' text size together).
+/// A logical size would be converted with the window's scale factor instead,
+/// and wherever the two differ the window comes out smaller than its content.
 #[tauri::command]
-pub fn fit_widget_window(window: WebviewWindow, width: f64, height: f64) -> Result<(), String> {
+pub fn fit_widget_window(
+    window: WebviewWindow,
+    physical_width: u32,
+    physical_height: u32,
+) -> Result<(), String> {
     let label = window.label().to_string();
     if !is_widget_label(&label) {
         return Err(format!("'{label}' is not a widget"));
     }
-    if !(width.is_finite() && height.is_finite()) || width < 1.0 || height < 1.0 {
-        return Err(format!("invalid widget size {width}×{height}"));
+    if physical_width == 0 || physical_height == 0 {
+        return Err(format!(
+            "invalid widget size {physical_width}×{physical_height}"
+        ));
     }
-    let w = width.ceil().min(MAX_WIDGET_SIDE);
-    let h = height.ceil().min(MAX_WIDGET_SIDE);
-    app_windows::remember_fitted_size(&label, w, h);
-    lock_logical_size(&window, w, h);
+    let width = physical_width.min(MAX_WIDGET_SIDE);
+    let height = physical_height.min(MAX_WIDGET_SIDE);
+    let scale = window.scale_factor().unwrap_or(1.0);
+    app_windows::remember_fitted_size(
+        &label,
+        app_windows::FittedSize {
+            width,
+            height,
+            scale,
+        },
+    );
+    lock_physical_size(&window, width, height);
+    tracing::debug!("Fitted '{label}' to {width}×{height} px (window scale {scale})");
     Ok(())
 }
 

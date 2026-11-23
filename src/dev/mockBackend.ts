@@ -265,10 +265,18 @@ function handle(cmd: string, args: Args): unknown {
     case "set_widget_visibility":
       widgetVisibility[String(args?.label)] = Boolean(args?.visible);
       return null;
-    case "fit_widget_window":
-      if (params.get("bounds") === "1")
-        showWindowBounds(Number(args?.width), Number(args?.height));
+    case "fit_widget_window": {
+      // Physical pixels; the outline is drawn in CSS pixels.
+      const width = Number(args?.physicalWidth) / window.devicePixelRatio;
+      const height = Number(args?.physicalHeight) / window.devicePixelRatio;
+      if (params.get("bounds") === "1") showWindowBounds(width, height);
+      // Lets a test page that embeds widgets see the size each one asks for.
+      window.parent?.postMessage(
+        { w: params.get("window"), size: `${width}x${height}` },
+        "*",
+      );
       return null;
+    }
     case "get_hud_design":
       return hudDesign;
     case "set_hud_design":
