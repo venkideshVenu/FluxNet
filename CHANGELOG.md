@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   background is now solid, like the other widgets, and the opacity setting
   alone controls transparency.
 
+### Changed
+
+- Updated Tauri to 2.12.6 and its single-instance plugin to 2.5.5. Updated
+  the build tools to Vite 8 and TypeScript 6.
+
 ## [0.3.1] - 2026-11-23
 
 ### Fixed
