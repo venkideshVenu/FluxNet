@@ -1,6 +1,6 @@
 [package]
 name = "fluxnet"
-version = "0.3.0"
+version = "0.3.1"
 description = "Real-time network monitor for Windows with desktop widgets, a game overlay and local usage history"
 authors = ["Venkidesh Venu"]
 license = "GPL-3.0-or-later"

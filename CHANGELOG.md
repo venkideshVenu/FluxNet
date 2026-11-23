@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-23
+
+### Fixed
+
+- Widgets were cut off on PCs where Windows scales the widget content
+  differently from the window, for example with Windows' text size enlarged.
+  Widget windows are now sized in screen pixels from what the widget actually
+  draws, so they always fit.
+
 ## [0.3.0] - 2026-11-19
 
 ### Changed
@@ -121,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First-run setup, start with Windows, and light, dark or system theme.
 - Windows installer.
 
-[Unreleased]: https://github.com/venkideshVenu/FluxNet/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/venkideshVenu/FluxNet/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/venkideshVenu/FluxNet/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/venkideshVenu/FluxNet/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/venkideshVenu/FluxNet/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/venkideshVenu/FluxNet/compare/v0.1.1...v0.1.2
