@@ -65,7 +65,7 @@ function HudHorizontal({
           rounded-full
           border
           border-(--w-stroke)
-          bg-(--w-overlay)
+          bg-(--w-bg)
           px-2.5
           gap-2
           flex
@@ -167,7 +167,7 @@ function HudVertical({
           gap-x-1.5 gap-y-1
           rounded-lg
           border border-(--w-stroke)
-          bg-(--w-overlay)
+          bg-(--w-bg)
           px-3 py-2
           font-mono tabular-nums leading-4
           select-none cursor-grab

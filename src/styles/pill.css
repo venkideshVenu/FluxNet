@@ -4,7 +4,6 @@
    dashboard's. */
 [data-theme="light"] {
   --w-bg: #f1f2f4;
-  --w-overlay: rgba(241, 242, 244, 0.92);
   --w-stroke: rgba(0, 0, 0, 0.0803);
   --w-sep: rgba(0, 0, 0, 0.1);
   --w-fg: rgba(0, 0, 0, 0.8956);
@@ -20,7 +19,6 @@
 
 [data-theme="dark"] {
   --w-bg: #202020;
-  --w-overlay: rgba(28, 28, 28, 0.88);
   --w-stroke: rgba(255, 255, 255, 0.0837);
   --w-sep: rgba(255, 255, 255, 0.12);
   --w-fg: #ffffff;

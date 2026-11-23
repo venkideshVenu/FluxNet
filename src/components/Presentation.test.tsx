@@ -89,6 +89,16 @@ describe("HudPresentation", () => {
     expect(screen.getByText("100.0")).toBeInTheDocument();
   });
 
+  it.each(["horizontal", "vertical"] as const)(
+    "%s: has a solid background, so 100%% opacity is fully opaque",
+    (design) => {
+      const { container } = render(
+        <HudPresentation {...largest} design={design} />,
+      );
+      expect(container.querySelector(".bg-\\(--w-bg\\)")).not.toBeNull();
+    },
+  );
+
   it("shows a dash when latency is unknown", () => {
     render(<HudPresentation {...largest} latencyMs={null} />);
     expect(screen.getByText("—")).toBeInTheDocument();
