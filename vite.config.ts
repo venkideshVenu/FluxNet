@@ -1,12 +1,15 @@
 import { defineConfig } from "vitest/config";
-import { resolve } from "path";
+import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   resolve: {
     alias: [
-      { find: /^@\/(.*)/, replacement: resolve(__dirname, "src") + "/$1" },
+      {
+        find: /^@\/(.*)/,
+        replacement: resolve(import.meta.dirname, "src") + "/$1",
+      },
     ],
   },
   plugins: [react(), tailwindcss()],
