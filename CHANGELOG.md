@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The game overlay was slightly see-through even at 100% opacity. Its
+  background is now solid, like the other widgets, and the opacity setting
+  alone controls transparency.
+
 ## [0.3.1] - 2026-11-23
 
 ### Fixed
